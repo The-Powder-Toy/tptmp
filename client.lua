@@ -1220,7 +1220,7 @@ local myDownInside = nil
 
 ---we CAN get these states as of current github, yay
 tpt.set_pause(1) tpt.newtonian_gravity(0) tpt.ambient_heat(0) tpt.decorations_enable(1) tpt.heat(1)
--local myPauseState,myNewt,myAmb,myDeco,myHeat=tpt.set_pause()==1,tpt.newtonian_gravity()==1,tpt.ambient_heat()==1,tpt.decorations_enable()==1,tpt.heat()==1
+local myPauseState,myNewt,myAmb,myDeco,myHeat=tpt.set_pause()==1,tpt.newtonian_gravity()==1,tpt.ambient_heat()==1,tpt.decorations_enable()==1,tpt.heat()==1
 
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
