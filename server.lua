@@ -194,9 +194,9 @@ local succ,err=pcall(function()
 				sendroomexcept(client.room,id,"\63"..string.char(id))
 			elseif cmd==128 then
 				local i=byte()
-				print(id.." provided sync for "..i)
 				local b1,b2,b3=byte(),byte(),byte()
 				local sz=b1*65536+b2*256+b3
+				print(id.." provided sync for "..i..", it was "..sz.." bytes")
 				client.socket:settimeout(10)
 				local s=client.socket:receive(sz)
 				client.socket:settimeout(0)

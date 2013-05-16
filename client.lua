@@ -77,21 +77,22 @@ local function connectToMniip(ip,port)
 end
 --get up to a null (\0)
 local function conGetNull()
+	con.socket:settimeout(nil)
 	local c,r = con.socket:receive(1)
 	local rstring=""
 	while c~="\0" do
 	rstring = rstring..c
 	c,r = con.socket:receive(1)
 	end
+	con.socket:settimeout(0)
 	return rstring
 end
 --get next char/byte
 local function conGetByte()
-	local c,r
-	while not c do
-	c,r = con.socket:receive(1)
-	end
-	return c
+	con.socket:settimeout(nil)
+	local c,r = con.socket:receive(1)
+	con.socket:settimeout(0)
+	return c or error(r)
 end
 --return table of arguments
 local function getArgs(msg)
@@ -466,15 +467,6 @@ new=function(x,y,w,h)
 	join = function(self,msg,args)
 		if args[1] then conSend(16,args[1],true) end	
 	end,
-	stamp = function(self,msg,args)
-		local stm = sim.saveStamp(0,0,611,383)
-		local f = io.open("stamps/"..stm..".stm","rb")
-		local data = f:read("*a")
-		f:close()
-		os.remove("stamps/"..stm..".stm")
-		conSend(65,string.char(math.floor(#data/65536))..string.char(math.floor(#data/256)%256)..string.char(#data%256)..data)
-		data=nil
-	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
 		local text = self.inputbox:textprocess(key,nkey,modifier,event)
@@ -673,19 +665,19 @@ local function oldCreateParts(x,y,rx,ry,c,brush,fill)
    end
 end
 sim.createParts = sim.createParts or oldCreateParts
-local function createPartsAny(x,y,rx,ry,c,brush)
+local function createPartsAny(x,y,rx,ry,c,brush,fill)
 	if c>=wallStart then
 		if c<= wallEnd then
-			sim.createWalls(x,y,rx,ry,c-wallStart,brush)
+			sim.createWalls(x,y,rx,ry,c-wallStart,brush,fill)
 		elseif eleSpecialCreate[c] then
-			oldCreateParts(x,y,rx,ry,c,brush)
+			oldCreateParts(x,y,rx,ry,c,brush,fill)
 		end
 		--odd tools need brush functions here
 		return
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
-	sim.createParts(x,y,rx,ry,c,brush)
+	sim.createParts(x,y,rx,ry,c,brush,fill and 1 or 0)
 end
 sim.createLine = sim.createLine or function(x1,y1,x2,y2,rx,ry,c,brush)
    if c == 87 or c == 158 then return end --never do lines of FIGH and LIGH
@@ -1071,21 +1063,29 @@ local dataCmds = {
 		--ren.colorMode
 	end,
 	--]]
-	--Stamp file recieve of a screen
-	[65] = function()
+	[128] = function()
 		local id = conGetByte():byte()
-		local len = conGetByte():byte()*65536 + conGetByte():byte()*256 + conGetByte():byte()
-		local data = ""
-		for i=1,len do
-			data = data..conGetByte()
-		end
-		local f = io.open("stamps/multitemp.stm","wb")
-		f:write(data)
+		local n = "stamps/"..sim.saveStamp(0,0,611,383)..".stm"
+		local f = assert(io.open(n))
+		local s = f:read"*a"
+		f:close()
+		os.remove(n)
+		local d = #s
+		conSend(128,string.char(id,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
+	end,
+	[129] = function()
+		local f = io.open(".tmp.stm","wb")
+		local d = conGetByte():byte()*65536+conGetByte():byte()*256+conGetByte():byte()
+		con.socket:settimeout(nil)
+		local s = con.socket:receive(d)
+		con.socket:settimeout(0)
+		local f = io.open(".tmp.stm","wb")
+		f:write(s)
 		f:close()
 		sim.clearSim()
-		sim.loadStamp("multitemp",0,0)
-		os.remove("stamps/multitemp.stm")
-	end,
+		sim.loadStamp(".tmp.stm",0,0)
+		os.remove".tmp.stm"
+	end
 }
 
 local function connectThink()
@@ -1136,7 +1136,7 @@ local function drawStuff()
 					if gfx.drawCircle then
 						if (brx+bry)==0 then tpt.drawpixel(x,y,0,255,0,128)
 						else
-							gfx.drawCircle(x-brx,y-bry,brx,bry,0,255,0,128)
+							gfx.drawCircle(x,y,brx,bry,0,255,0,128)
 						end
 					else
 						for rx=0,brx do
@@ -1209,8 +1209,9 @@ local myButton, myEvent = 0,0
 local myShift,myAlt,myCtrl = false,false,false
 local myDownInside = nil
 
---we CAN get these states as of current github, yay
-local myPauseState,myNewt,myAmb,myDeco,myHeat=tpt.set_pause()==1,tpt.newtonian_gravity()==1,tpt.ambient_heat()==1,tpt.decorations_enable()==1,tpt.heat()==1
+--we can't get these states, so force them once so we know we are right (possible issues when pasting stamps)
+tpt.set_pause(1) tpt.newtonian_gravity(0) tpt.ambient_heat(0) tpt.decorations_enable(1) tpt.heat(1)
+local myPauseState,myNewt,myAmb,myDeco,myHeat=true,false,false,true,true
 
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
@@ -1260,14 +1261,21 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 			if mousex>=butt.x1 and mousex<=butt.x2 and mousey>=butt.y1 and mousey<=butt.y2 then
 				--up inside!
 				myDownInside = nil
-				return butt.f()~=false
+				if not butt.broken then
+					return butt.f()~=false
+				else
+					butt.broken=nil
+				end
 			end
 		--Mouse hold, we MUST stay inside button or don't trigger on up
 		elseif event==3 and myDownInside then
 			local butt = tpt_buttons[myDownInside]
 			if mousex<butt.x1 or mousex>butt.x2 or mousey<butt.y1 or mousey>butt.y2 then
 				--moved out!
+				--Pause button literally breaks if you move out (ignore next click)
+				if myDownInside=="pause" then butt.broken=true end
 				myDownInside = nil
+
 			end
 		end
 	end
@@ -1278,7 +1286,7 @@ local keypressfuncs = {
 	[9] = function() conSend(35) end,
 	
 	--space, pause toggle
-	[32] = function() myPauseState= tpt.set_pause()==0 MANAGER_PRINT(myPauseState) conSend(49,myPauseState and "\1" or "\0") end,
+	[32] = function() myPauseState=not myPauseState conSend(49,myPauseState and "\1" or "\0") end,
 		
 	--View modes 0-9
 	[48] = function() conSend(48,"\10") end,
