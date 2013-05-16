@@ -1145,7 +1145,7 @@ local function drawStuff()
 					if gfx.drawCircle then
 						if (brx+bry)==0 then tpt.drawpixel(x,y,0,255,0,128)
 						else
-							gfx.drawCircle(x-brx,y-bry,brx,bry,0,255,0,128)
+							gfx.drawCircle(x,y,brx,bry,0,255,0,128)
 						end
 					else
 						for rx=0,brx do
