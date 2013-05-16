@@ -467,15 +467,6 @@ new=function(x,y,w,h)
 	join = function(self,msg,args)
 		if args[1] then conSend(16,args[1],true) end	
 	end,
-	stamp = function(self,msg,args)
-		local stm = sim.saveStamp(0,0,611,383)
-		local f = io.open("stamps/"..stm..".stm","rb")
-		local data = f:read("*a")
-		f:close()
-		os.remove("stamps/"..stm..".stm")
-		conSend(128,string.char(math.floor(#data/65536))..string.char(math.floor(#data/256)%256)..string.char(#data%256)..data)
-		data=nil
-	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
 		local text = self.inputbox:textprocess(key,nkey,modifier,event)
