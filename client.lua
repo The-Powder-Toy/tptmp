@@ -467,6 +467,15 @@ new=function(x,y,w,h)
 	join = function(self,msg,args)
 		if args[1] then conSend(16,args[1],true) end	
 	end,
+	stamp = function(self,msg,args)
+		local stm = sim.saveStamp(0,0,611,383)
+		local f = io.open("stamps/"..stm..".stm","rb")
+		local data = f:read("*a")
+		f:close()
+		os.remove("stamps/"..stm..".stm")
+		conSend(128,string.char(math.floor(#data/65536))..string.char(math.floor(#data/256)%256)..string.char(#data%256)..data)
+		data=nil
+	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
 		local text = self.inputbox:textprocess(key,nkey,modifier,event)
@@ -615,7 +624,7 @@ local function createBoxAny(x1,y1,x2,y2,c)
 	end
 	sim.createBox(x1,y1,x2,y2,c)
 end
-local function oldCreateParts(x,y,rx,ry,c,brush,fill)
+local function oldCreateParts(x,y,rx,ry,c,brush)
    local energycheck = energytypes[c]
    if c == 87 or c == 158 then create(-2,x,y,c) return end --only draw one pixel of FIGH and LIGH
 
@@ -665,19 +674,19 @@ local function oldCreateParts(x,y,rx,ry,c,brush,fill)
    end
 end
 sim.createParts = sim.createParts or oldCreateParts
-local function createPartsAny(x,y,rx,ry,c,brush,fill)
+local function createPartsAny(x,y,rx,ry,c,brush)
 	if c>=wallStart then
 		if c<= wallEnd then
-			sim.createWalls(x,y,rx,ry,c-wallStart,brush,fill)
+			sim.createWalls(x,y,rx,ry,c-wallStart,brush)
 		elseif eleSpecialCreate[c] then
-			oldCreateParts(x,y,rx,ry,c,brush,fill)
+			oldCreateParts(x,y,rx,ry,c,brush)
 		end
 		--odd tools need brush functions here
 		return
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
-	sim.createParts(x,y,rx,ry,c,brush,fill and 1 or 0)
+	sim.createParts(x,y,rx,ry,c,brush)
 end
 sim.createLine = sim.createLine or function(x1,y1,x2,y2,rx,ry,c,brush)
    if c == 87 or c == 158 then return end --never do lines of FIGH and LIGH
@@ -689,9 +698,9 @@ sim.createLine = sim.createLine or function(x1,y1,x2,y2,rx,ry,c,brush)
    y = y1 if y1 < y2 then sy = 1 else sy = -1 end
    for x = x1, x2 do
       if cp then
-         createPartsAny(y,x,rx,ry,c,brush,first)
+         createPartsAny(y,x,rx,ry,c,brush)
       else
-         createPartsAny(x,y,rx,ry,c,brush,first)
+         createPartsAny(x,y,rx,ry,c,brush)
       end
       first = false
       e = e + de
@@ -703,9 +712,9 @@ sim.createLine = sim.createLine or function(x1,y1,x2,y2,rx,ry,c,brush)
          elseif y<y2 then return end
          if (rx+ry)==0 or c>=wallStart then
             if cp then
-               createPartsAny(y,x,rx,ry,c,brush,first)
+               createPartsAny(y,x,rx,ry,c,brush)
             else
-               createPartsAny(x,y,rx,ry,c,brush,first)
+               createPartsAny(x,y,rx,ry,c,brush)
             end
          end
       end
@@ -1136,7 +1145,7 @@ local function drawStuff()
 					if gfx.drawCircle then
 						if (brx+bry)==0 then tpt.drawpixel(x,y,0,255,0,128)
 						else
-							gfx.drawCircle(x,y,brx,bry,0,255,0,128)
+							gfx.drawCircle(x-brx,y-bry,brx,bry,0,255,0,128)
 						end
 					else
 						for rx=0,brx do
@@ -1209,9 +1218,9 @@ local myButton, myEvent = 0,0
 local myShift,myAlt,myCtrl = false,false,false
 local myDownInside = nil
 
---we can't get these states, so force them once so we know we are right (possible issues when pasting stamps)
+---we CAN get these states as of current github, yay
 tpt.set_pause(1) tpt.newtonian_gravity(0) tpt.ambient_heat(0) tpt.decorations_enable(1) tpt.heat(1)
-local myPauseState,myNewt,myAmb,myDeco,myHeat=true,false,false,true,true
+-local myPauseState,myNewt,myAmb,myDeco,myHeat=tpt.set_pause()==1,tpt.newtonian_gravity()==1,tpt.ambient_heat()==1,tpt.decorations_enable()==1,tpt.heat()==1
 
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
@@ -1261,19 +1270,13 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 			if mousex>=butt.x1 and mousex<=butt.x2 and mousey>=butt.y1 and mousey<=butt.y2 then
 				--up inside!
 				myDownInside = nil
-				if not butt.broken then
-					return butt.f()~=false
-				else
-					butt.broken=nil
-				end
+				return butt.f()~=false
 			end
 		--Mouse hold, we MUST stay inside button or don't trigger on up
 		elseif event==3 and myDownInside then
 			local butt = tpt_buttons[myDownInside]
 			if mousex<butt.x1 or mousex>butt.x2 or mousey<butt.y1 or mousey>butt.y2 then
 				--moved out!
-				--Pause button literally breaks if you move out (ignore next click)
-				if myDownInside=="pause" then butt.broken=true end
 				myDownInside = nil
 
 			end
@@ -1286,7 +1289,7 @@ local keypressfuncs = {
 	[9] = function() conSend(35) end,
 	
 	--space, pause toggle
-	[32] = function() myPauseState=not myPauseState conSend(49,myPauseState and "\1" or "\0") end,
+	[32] = function() myPauseState= tpt.set_pause()==0 conSend(49,myPauseState and "\1" or "\0") end,
 		
 	--View modes 0-9
 	[48] = function() conSend(48,"\10") end,
