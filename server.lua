@@ -91,6 +91,7 @@ local succ,err=pcall(function()
 			for i=1,3 do
 				client.socket:send("\37"..string.char(uid)..clients[uid].selection[i])
 			end
+			client.socket:send("\65"..string.char(uid)..clients[uid].deco)
 		end
 		table.insert(rooms[room],id)
 		sendroomexcept(room,id,"\17"..string.char(id)..client.nick.."\0")
@@ -112,6 +113,7 @@ local succ,err=pcall(function()
 		client.brush=0
 		client.size="\4\4"
 		client.selection={"\0\1","\64\0","\128\0"}
+		client.deco="\0\0\0\0"
 		print(id.." done identifying")
 		client.socket:send"\1"
 		join("null",id)
@@ -192,6 +194,10 @@ local succ,err=pcall(function()
 				sendroomexcept(client.room,id,"\62"..string.char(id))
 			elseif cmd==63 then
 				sendroomexcept(client.room,id,"\63"..string.char(id))
+			elseif cmd==65 then
+				local data=char()..char()..char()..char()
+				client.deco=data
+				sendroomexcept(client.room,id,"\65"..string.char(id)..data)
 			elseif cmd==128 then
 				local i=byte()
 				local b1,b2,b3=byte(),byte(),byte()
