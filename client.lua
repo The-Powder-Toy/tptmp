@@ -527,7 +527,7 @@ local eleNameTable = {
 ["DEFAULT_WL_11"] = 291,["DEFAULT_WL_12"] = 292,["DEFAULT_WL_13"] = 293,["DEFAULT_WL_14"] = 294,["DEFAULT_WL_15"] = 295,
 ["DEFAULT_UI_SAMPLE"] = 296,["DEFAULT_UI_SIGN"] = 297,["DEFAULT_UI_PROPERTY"] = 298,["DEFAULT_UI_WIND"] = 299,
 ["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_VAC"] = 302,["DEFAULT_TOOL_AIR"] = 303,["DEFAULT_TOOL_GRAV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,
-["DEFAULT_DECOR_CLR"] = 306,["DEFAULT_DECOR_SET"] = 307,["DEFAULT_DECOR_SMDG"] = 308,["DEFAULT_DECOR_DIV"] = 309,["DEFAULT_DECOR_MUL"] = 310,["DEFAULT_DECOR_SUB"] = 311,["DEFAULT_DECOR_ADD"] = 312,	
+["DEFAULT_DECOR_SET"] = 306,["DEFAULT_DECOR_ADD"] = 307,["DEFAULT_DECOR_SUB"] = 308,["DEFAULT_DECOR_MUL"] = 309,["DEFAULT_DECOR_DIV"] = 310,["DEFAULT_DECOR_SMDG"] = 311,["DEFAULT_DECOR_CLR"] = 312,
 }
 local golStart,golEnd=256,279
 local wallStart,wallEnd=280,295
@@ -580,7 +580,7 @@ local function createBoxAny(x1,y1,x2,y2,c)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
 		elseif c<= decoEnd then
-			sim.decoBox(x1,y1,x2,y2,c-decoStart)
+			sim.decoBox(x1,y1,x2,y2,0,0,0,0,c-decoStart)
 		end
 		return
 	elseif c>=golStart then
@@ -645,7 +645,7 @@ local function createPartsAny(x,y,rx,ry,c,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
-			sim.decoBrush(x,y,rx,ry,c-decoStart,brush)
+			sim.decoBrush(x,y,rx,ry,0,0,0,0,c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -692,7 +692,7 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
-			sim.decoLine(x1,y1,x2,y2,rx,ry,c-decoStart,brush)
+			sim.decoLine(x1,y1,x2,y2,rx,ry,0,0,0,0,c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -1187,7 +1187,6 @@ local myShift,myAlt,myCtrl = false,false,false
 local myDownInside = nil
 
 ---we CAN get these states as of current github, yay
-tpt.set_pause(1) tpt.newtonian_gravity(0) tpt.ambient_heat(0) tpt.decorations_enable(1) tpt.heat(1)
 local myPauseState,myNewt,myAmb,myDeco,myHeat=tpt.set_pause()==1,tpt.newtonian_gravity()==1,tpt.ambient_heat()==1,tpt.decorations_enable()==1,tpt.heat()==1
 
 --some button locations that emulate tpt, return false will disable button
