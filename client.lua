@@ -531,6 +531,8 @@ local eleNameTable = {
 }
 local golStart,golEnd=256,279
 local wallStart,wallEnd=280,295
+local toolStart,toolEnd=300,305
+local decoStart,decoEnd=306,312
 local create
 --special functions to create oddly named things, mostly tools.
 local eleSpecialCreate = {
@@ -542,39 +544,6 @@ local eleSpecialCreate = {
 	
 	--WIND
 	[299] = function(x,y,rx,ry) end,
-	
-	--HEAT
-	[300] = function(x,y,rx,ry)
-				local temp = tpt.get_property("type",x,y)>0 and tpt.get_property("temp",x,y) or nil
-				if temp~=nil and temp<9999 then
-					local heatchange = 4 --implement more temp changes later (ctrl-shift)
-					tpt.set_property("temp",math.min(temp+heatchange,9999),x,y)
-				end
-			end,
-	--COOL
-	[301] = function(x,y,rx,ry)
-				local temp = tpt.get_property("type",x,y)>0 and tpt.get_property("temp",x,y) or nil
-				if temp~=nil and temp>0 then
-					local heatchange = 4 --implement more temp changes later (ctrl-shift)
-					tpt.set_property("temp",math.max(temp-heatchange,0),x,y)
-				end
-			end,
-	--VAC and AIR are realllyy laggy, fix to not use particle create
-	[302] = function(x,y,rx,ry)
-				sim.pressure(x/4,y/4,sim.pressure(x/4,y/4)-0.025)
-			end,
-	[303] = function(x,y,rx,ry)
-				sim.pressure(x/4,y/4,sim.pressure(x/4,y/4)+0.025)
-			end,
-
-	--DECO functions
-	[306] = function(x,y,rx,ry) tpt.set_property("dcolour",0,x,y) end,
-	[307] = function(x,y,rx,ry) --[[tpt.set_property("dcolour",???,x,y) how can we know users docolour selection? powder.pref?]]end,
-	[308] = function(x,y,rx,ry) end,
-	[309] = function(x,y,rx,ry) end,
-	[310] = function(x,y,rx,ry) end,
-	[311] = function(x,y,rx,ry) end,
-	[312] = function(x,y,rx,ry) end,
 }
 setmetatable(eleSpecialCreate,{__index=
 function(t,k)
@@ -608,8 +577,12 @@ local function createBoxAny(x1,y1,x2,y2,c)
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWallBox(x1,y1,x2,y2,c-wallStart)
+		elseif c<=toolEnd then
+			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
+		elseif c<= decoEnd then
+			sim.decoBox(x1,y1,x2,y2,c-decoStart)
 		end
-		return --other tools need functions here
+		return
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
@@ -669,10 +642,11 @@ local function createPartsAny(x,y,rx,ry,c,brush)
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWalls(x,y,rx,ry,c-wallStart,brush)
-		elseif eleSpecialCreate[c] then
-			oldCreateParts(x,y,rx,ry,c,brush)
+		elseif c<=toolEnd then
+			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
+		elseif c<= decoEnd then
+			sim.decoBrush(x,y,rx,ry,c-decoStart,brush)
 		end
-		--odd tools need brush functions here
 		return
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
@@ -715,8 +689,11 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush)
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWallLine(x1,y1,x2,y2,rx,ry,c-wallStart,brush)
+		elseif c<=toolEnd then
+			if c>=toolStart then sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush) end
+		elseif c<= decoEnd then
+			sim.decoLine(x1,y1,x2,y2,rx,ry,c-decoStart,brush)
 		end
-		--odd tools need line functions here
 		return
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
