@@ -938,6 +938,7 @@ local function sendStuff()
     if not con.connected then return end
     --mouse position every frame, not exactly needed, might be better/more accurate from clicks
     local nmx,nmy = tpt.mousex,tpt.mousey
+    if nmx<612 and nmy<384 then nmx,nmy = sim.adjustCoords(nmx,nmy) end
     if mymousex~= nmx or mymousey~= nmy then
         mymousex,mymousey = nmx,nmy
 		local b1,b2,b3 = math.floor(mymousex/16),((mymousex%16)*16)+math.floor(mymousey/256),(mymousey%256)
@@ -972,8 +973,8 @@ end
 
 --keep our button state to prevent excess sending (mostly 3's)
 local myButton, myEvent = 0,0
-local myShift,myAlt,myCtrl = false,false,false
-local myDownInside = nil
+local myShift,myAlt,myCtrl,myZ = false,false,false,false
+local myDownInside,skipClick = nil,false
 
 ---we CAN get these states as of current github, yay
 local myPauseState,myNewt,myAmb,myDeco,myHeat=tpt.set_pause()==1,tpt.newtonian_gravity()==1,tpt.ambient_heat()==1,tpt.decorations_enable()==1,tpt.heat()==1
@@ -998,8 +999,11 @@ end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
 	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
+	if skipClick then skipClick=false return true end
+
 	local obut,oevnt = myButton,myEvent
 	myButton,myEvent = button,event
+	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 	if myButton~=obut or myEvent~=oevnt then --if different event
 		--Send mouse here for exact drawing, this is way more accurate than step mouse
 		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
@@ -1081,17 +1085,21 @@ local keypressfuncs = {
 	[114] = function() return false end,
 	[119] = function() return false end,
 	[121] = function() return false end,
+	--Z
+	[122] = function() myZ=true skipClick=true end,
 
-	--SHIFT,ALT,CTRL
+	--SHIFT,CTRL,ALT
 	[304] = function() myShift=true conSend(36,string.char(17)) end,
-	[306] = function() myAlt=true conSend(36,string.char(1)) end,
-	[308] = function() myCtrl=true conSend(36,string.char(33)) end,
+	[306] = function() myCtrl=true conSend(36,string.char(1)) end,
+	[308] = function() myAlt=true conSend(36,string.char(33)) end,
 }
 local keyunpressfuncs = {
-	--SHIFT,ALT,CTRL
+	--Z
+	[122] = function() myZ=false skipClick=false if myAlt then skipClick=true end end,
+	--SHIFT,CTRL,ALT
 	[304] = function() myShift=false conSend(36,string.char(16)) end,
-	[306] = function() myAlt=false conSend(36,string.char(0)) end,
-	[308] = function() myCtrl=false conSend(36,string.char(32)) end,
+	[306] = function() myCtrl=false conSend(36,string.char(0)) end,
+	[308] = function() myAlt=false conSend(36,string.char(32)) end,
 }
 local function keyclicky(key,nkey,modifier,event)
 	local check = chatwindow:textprocess(key,nkey,modifier,event)
