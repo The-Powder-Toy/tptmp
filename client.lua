@@ -28,6 +28,7 @@ local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
 local username = tpt.get_name()
 if username=="" then error"Please Identify" end
+if not sim.createParts then error"Tpt version not supported" end
 local con = {connected = false,
 		 socket = nil,
 		 members = nil,
@@ -489,33 +490,9 @@ new=function(x,y,w,h)
 end
 }
 
-local function incurrentbrush(i,j,rx,ry,brush)
-	if brush==0 then
-		return (i^2*ry^2+j^2*rx^2<=rx^2*ry^2)
-	elseif brush==1 then
-		return (math.abs(i)<=rx and math.abs(j)<=ry)
-	elseif brush==2 then
-		return ((math.abs((rx+2*i)*ry+rx*j) + math.abs(2*rx*(j-ry)) + math.abs((rx-2*i)*ry+rx*j))<=(4*rx*ry))
-	else
-		return false
-	end
-end
-local function inbrushborder(i,j,rx,ry,brush)
-	return incurrentbrush(i,j,rx,ry,brush) and not incurrentbrush(i,j,rx-1,ry-1,brush)
-end
-local function valid(x,y,energycheck,c)
-    if x >= 0 and x < 612 and y >= 0 and y < 384 then
-        if energycheck then
-           if energytypes[tpt.get_property("type",x,y)] then return false end
-       end
-    return true end
-end
-
 chatwindow = ui_chatbox.new(100,100,150,200)
 chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
 
-local energytypes = { [18]=true, [31]=true, [136]=true, }
-local tools = { [299]=true, [300]=true, [301]=true, [302]=true, [303]=true, [304]=true,}
 local eleNameTable = {
 ["DEFAULT_PT_LIFE_GOL"] = 256,["DEFAULT_PT_LIFE_HLIF"] = 257,["DEFAULT_PT_LIFE_ASIM"] = 258,["DEFAULT_PT_LIFE_2x2"] = 259,["DEFAULT_PT_LIFE_DANI"] = 260,
 ["DEFAULT_PT_LIFE_AMOE"] = 261,["DEFAULT_PT_LIFE_MOVE"] = 262,["DEFAULT_PT_LIFE_PGOL"] = 263,["DEFAULT_PT_LIFE_DMOE"] = 264,["DEFAULT_PT_LIFE_34"] = 265,
@@ -533,46 +510,8 @@ local golStart,golEnd=256,279
 local wallStart,wallEnd=280,295
 local toolStart,toolEnd=300,305
 local decoStart,decoEnd=306,312
-local create
---special functions to create oddly named things, mostly tools.
-local eleSpecialCreate = {
-	--Some tools that are harmless, don't use default delete
-	--Sample,sign,prop
-	[296] = function(x,y,rx,ry) end,
-	[297] = function(x,y,rx,ry) end,
-	[298] = function(x,y,rx,ry) end,
-	
-	--WIND
-	[299] = function(x,y,rx,ry) end,
-}
-setmetatable(eleSpecialCreate,{__index=
-function(t,k)
-	if k<256 then return end
-	if k<=golEnd then
-		return function(x,y,rx,ry) create(-2,x,y,(k-golStart)*256 + 78) end
-	end
-end})
 
 --Functions that do stuff in powdertoy
-create = function(p,x,y,c)
-	local spec = eleSpecialCreate[c]
-	if spec then spec(x,y) return end
-    if c==0 then 
-        tpt.delete(x,y)
-    else
-        local i = sim.partCreate(p,x,y,c)
-    end
-end
-sim.createBox = sim.createBox or function(x1,y1,x2,y2,c)
-   local i = 0 local j = 0
-   if x1>x2 then i=x2 x2=x1 x1=i end
-   if y1>y2 then j=y2 y2=y1 y1=j end
-   for j=y1, y2 do
-	  for i=x1, x2 do
-		create(-2,i,j,c)
-	  end
-   end
-end
 local function createBoxAny(x1,y1,x2,y2,c)
 	if c>=wallStart then
 		if c<= wallEnd then
@@ -588,56 +527,6 @@ local function createBoxAny(x1,y1,x2,y2,c)
 	end
 	sim.createBox(x1,y1,x2,y2,c)
 end
-local function oldCreateParts(x,y,rx,ry,c,brush)
-   local energycheck = energytypes[c]
-   if c == 87 or c == 158 then create(-2,x,y,c) return end --only draw one pixel of FIGH and LIGH
-
-   if rx<=0 then--0 radius loop prevention
-	  for j=y-ry,y+ry do
-		 if valid(x,j,energycheck,c) then
-			create(-2,x,j,c) end
-	  end
-	  return
-   end
-   local tempy = y local oldy = y
-   if brush==2 then tempy=y+ry end
-   for i = x - rx, x do
-	  oldy = tempy
-	  local check = incurrentbrush(i-x,tempy-y,rx,ry,brush)
-	  if check then
-		  while check do
-			 tempy = tempy - 1
-			 check = incurrentbrush(i-x,tempy-y,rx,ry,brush)
-		  end
-		  tempy = tempy + 1
-		  if fill then
-			 local jmax = 2*y - tempy
-			 if brush == 2 then jmax=y+ry end
-			 for j = tempy, jmax do
-				if valid(i,j,energycheck,c) then
-				   create(-2,i,j,c) end
-				if i~=x and valid(x+x-i,j,energycheck,c) then
-				   create(-2,x+x-i,j,c) end
-			 end
-		  else
-			 if (oldy ~= tempy and brush~=1) or i==x-rx then oldy = oldy - 1 end
-			 for j = tempy, oldy+1 do
-				local i2=2*x-i local j2 = 2*y-j
-				if brush==2 then j2=y+ry end
-				if valid(i,j,energycheck,c) then
-				   create(-2,i,j,c) end
-				if i2~=i and valid(i2,j,energycheck,c) then
-				   create(-2,i2,j,c) end
-				if j2~=j and valid(i,j2,energycheck,c) then
-				   create(-2,i,j2,c) end
-				if i2~=i and j2~=j and valid(i2,j2,energycheck,c) then
-				   create(-2,i2,j2,c) end
-			 end
-		  end
-	   end
-   end
-end
-sim.createParts = sim.createParts or oldCreateParts
 local function createPartsAny(x,y,rx,ry,c,brush)
 	if c>=wallStart then
 		if c<= wallEnd then
@@ -652,38 +541,6 @@ local function createPartsAny(x,y,rx,ry,c,brush)
 		c = 78+(c-golStart)*256
 	end
 	sim.createParts(x,y,rx,ry,c,brush)
-end
-sim.createLine = sim.createLine or function(x1,y1,x2,y2,rx,ry,c,brush)
-   if c == 87 or c == 158 then return end --never do lines of FIGH and LIGH
-   local cp = math.abs(y2-y1)>math.abs(x2-x1)
-   local x = 0 local y = 0 local dx = 0 local dy = 0 local sy = 0 local e = 0.0 local de = 0.0 local first = true
-   if cp then y = x1 x1 = y1 y1 = y y = x2 x2 = y2 y2 = y end
-   if x1 > x2 then y = x1 x1 = x2 x2 = y y = y1 y1 = y2 y2 = y end
-   dx = x2 - x1 dy = math.abs(y2 - y1) if dx ~= 0 then de = dy/dx end
-   y = y1 if y1 < y2 then sy = 1 else sy = -1 end
-   for x = x1, x2 do
-      if cp then
-         createPartsAny(y,x,rx,ry,c,brush)
-      else
-         createPartsAny(x,y,rx,ry,c,brush)
-      end
-      first = false
-      e = e + de
-      if e >= 0.5 then
-         y = y + sy
-         e = e - 1
-         if y1<y2 then
-             if y>y2 then return end
-         elseif y<y2 then return end
-         if (rx+ry)==0 or c>=wallStart then
-            if cp then
-               createPartsAny(y,x,rx,ry,c,brush)
-            else
-               createPartsAny(x,y,rx,ry,c,brush)
-            end
-         end
-      end
-   end
 end
 local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush)
 	if c>=wallStart then
@@ -700,46 +557,6 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush)
 	end
 	sim.createLine(x1,y1,x2,y2,rx,ry,c,brush)
 end
-sim.floodParts = sim.floodParts or function(x,y,c,cm,bm)
-    local x1=x local x2=x
-    if cm==-1 then
-        if c==0 then
-            cm = tpt.get_property("type",x,y)
-            if cm==0 then return false end
-        else
-            cm = 0
-        end
-    end
-    --wall check here
-    while x1>=4 do
-        if (tpt.get_property("type",x1-1,y)~=cm) then break end
-        x1 = x1-1
-    end
-    while x2<=608 do
-        if (tpt.get_property("type",x2+1,y)~=cm) then break end
-        x2 = x2+1
-    end
-    for x=x1, x2 do
-        if c==0 then tpt.delete(x,y) end
-        if c>0 and c<222 then create(-2,x,y,c) end
-    end
-    if y>=5 then
-        for x=x1,x2 do
-            if tpt.get_property("type",x,y-1)==cm then
-                if not sim.floodParts(x,y-1,c,cm,bm) then
-                    return false
-                end end end
-    end
-    if y<379 then
-        for x=x1,x2 do
-            if tpt.get_property("type",x,y+1)==cm then
-                if not sim.floodParts(x,y+1,c,cm,bm) then
-                    return false
-                end end end
-    end
-    return true
-end
---shortcut to part or wall flood
 local function floodAny(x,y,c,cm,bm)
 	if c>=wallStart then
 		if c<= wallEnd then
@@ -751,17 +568,6 @@ local function floodAny(x,y,c,cm,bm)
 		c = 78+(c-golStart)*256
 	end
 	sim.floodParts(x,y,c,cm,bm)
-end
-
-sim.clearSim = sim.clearSim or function()
-	tpt.start_getPartIndex()
-	while tpt.next_getPartIndex() do
-	   local index = tpt.getPartIndex()
-	   tpt.set_property("type",0,index)
-	end
-	tpt.reset_velocity(0,0,153,96)
-	tpt.set_pressure(0,0,153,96,0)
-	tpt.set_wallmap(0,0,153,96,0)
 end
 
 --clicky click
@@ -824,7 +630,6 @@ local function playerMouseMove(id)
 		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush)
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
-
 end
 
 local dataCmds = {
@@ -1040,6 +845,7 @@ local dataCmds = {
 		--ren.colorMode
 	end,
 	--]]
+	--A request to send stamp, from server
 	[128] = function()
 		local id = conGetByte():byte()
 		local n = "stamps/"..sim.saveStamp(0,0,611,383)..".stm"
@@ -1050,6 +856,7 @@ local dataCmds = {
 		local d = #s
 		conSend(128,string.char(id,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
 	end,
+	--Recieve sync stamp
 	[129] = function()
 		local f = io.open(".tmp.stm","wb")
 		local d = conGetByte():byte()*65536+conGetByte():byte()*256+conGetByte():byte()
@@ -1062,7 +869,7 @@ local dataCmds = {
 		sim.clearSim()
 		sim.loadStamp(".tmp.stm",0,0)
 		os.remove".tmp.stm"
-	end
+	end,
 }
 
 local function connectThink()
@@ -1110,21 +917,7 @@ local function drawStuff()
 			end
 			if drawBrush then
 				if brush==0 then
-					if gfx.drawCircle then
-						if (brx+bry)==0 then tpt.drawpixel(x,y,0,255,0,128)
-						else
-							gfx.drawCircle(x,y,brx,bry,0,255,0,128)
-						end
-					else
-						for rx=0,brx do
-						for ry=-bry,bry do
-							if inbrushborder(rx,ry,brx,bry,brush) then
-								pcall(tpt.drawpixel,x+rx,y+ry,0,255,0,128)
-								pcall(tpt.drawpixel,x-rx,y+ry,0,255,0,128)
-							end
-						end
-						end
-					end
+					gfx.drawCircle(x,y,brx,bry,0,255,0,128)
 				elseif brush==1 then
 					gfx.drawRect(x-brx,y-bry,brx*2+1,bry*2+1,0,255,0,128)
 				elseif brush==2 then
@@ -1168,9 +961,6 @@ local function sendStuff()
     	conSend(37,string.char(math.floor(128 + myselr/256))..string.char(myselr%256))
     end
 end
-local function updatePlayers()
-
-end
 
 local function step()
 	chatwindow:draw()
@@ -1178,7 +968,6 @@ local function step()
 	sendStuff()
 	if pauseNextFrame then pauseNextFrame=false myPauseState=true tpt.set_pause(1) end
 	connectThink()
-	updatePlayers()
 end
 
 --keep our button state to prevent excess sending (mostly 3's)
