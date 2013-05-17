@@ -512,14 +512,14 @@ local toolStart,toolEnd=300,305
 local decoStart,decoEnd=306,312
 
 --Functions that do stuff in powdertoy
-local function createBoxAny(x1,y1,x2,y2,c)
+local function createBoxAny(x1,y1,x2,y2,c,user)
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWallBox(x1,y1,x2,y2,c-wallStart)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
 		elseif c<= decoEnd then
-			sim.decoBox(x1,y1,x2,y2,0,0,0,0,c-decoStart)
+			sim.decoBox(x1,y1,x2,y2,user.dcolour[0],user.dcolour[1],user.dcolour[2],user.dcolour[3],c-decoStart)
 		end
 		return
 	elseif c>=golStart then
@@ -527,14 +527,14 @@ local function createBoxAny(x1,y1,x2,y2,c)
 	end
 	sim.createBox(x1,y1,x2,y2,c)
 end
-local function createPartsAny(x,y,rx,ry,c,brush)
+local function createPartsAny(x,y,rx,ry,c,brush,user)
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWalls(x,y,rx,ry,c-wallStart,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
-			sim.decoBrush(x,y,rx,ry,0,0,0,0,c-decoStart,brush)
+			sim.decoBrush(x,y,rx,ry,user.dcolour[0],user.dcolour[1],user.dcolour[2],user.dcolour[3],c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -542,14 +542,14 @@ local function createPartsAny(x,y,rx,ry,c,brush)
 	end
 	sim.createParts(x,y,rx,ry,c,brush)
 end
-local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush)
+local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWallLine(x1,y1,x2,y2,rx,ry,c-wallStart,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
-			sim.decoLine(x1,y1,x2,y2,rx,ry,0,0,0,0,c-decoStart,brush)
+			sim.decoLine(x1,y1,x2,y2,rx,ry,user.dcolour[0],user.dcolour[1],user.dcolour[2],user.dcolour[3],c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -603,11 +603,11 @@ local function playerMouseClick(id,btn,ev)
 			if user.alt then return end
 			user.drawtype=4 --normal hold
 		end
-		createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,true)
+		createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,user)
 	elseif ev==2 and checkBut and user.drawtype then
 		--need to check alt on up!!!
-		if user.drawtype==2 then createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE)
-		else createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush) end
+		if user.drawtype==2 then createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
+		else createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user) end
 		user.drawtype=false
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
@@ -627,7 +627,7 @@ local function playerMouseMove(id)
 	if checkBut==3 then
 		if user.mousex>=612 then user.mousex=611 end
 		if user.mousey>=384 then user.mousey=383 end
-		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush)
+		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
 end
@@ -649,7 +649,7 @@ local dataCmds = {
 	end,
 	[17]= function()
 		local id = conGetByte():byte()
-		con.members[id] ={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
+		con.members[id] ={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
 		chatwindow:addline(con.members[id].name.." has joined")
 	end,
 	[18] = function()
@@ -845,6 +845,11 @@ local dataCmds = {
 		--ren.colorMode
 	end,
 	--]]
+	--Selected deco colour (4 bytes)
+	[65] = function()
+		local id = conGetByte():byte()
+		con.members[id].dcolour = {conGetByte():byte(),conGetByte():byte(),conGetByte():byte(),conGetByte():byte()}
+	end,
 	--A request to send stamp, from server
 	[128] = function()
 		local id = conGetByte():byte()
@@ -961,6 +966,8 @@ local function sendStuff()
     	myselr=nselr
     	conSend(37,string.char(math.floor(128 + myselr/256))..string.char(myselr%256))
     end
+    --check dcolour sometime
+    --local col = sim.decoColour()
 end
 
 local function step()
