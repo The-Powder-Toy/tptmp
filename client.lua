@@ -844,7 +844,6 @@ local dataCmds = {
 	[65] = function()
 		local id = conGetByte():byte()
 		con.members[id].dcolour = {conGetByte():byte(),conGetByte():byte(),conGetByte():byte(),conGetByte():byte()}
-		for k,v in pairs(con.members[id].dcolour) do MANAGER_PRINT(v) end
 	end,
 	--A request to send stamp, from server
 	[128] = function()
