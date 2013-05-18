@@ -21,7 +21,6 @@ if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 
 local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
-local pauseNextFrame=false
 
 local tptversion = tpt.version.build
 local jacobsmod = tpt.version.jacob1s_mod~=nil
@@ -510,16 +509,19 @@ local golStart,golEnd=256,279
 local wallStart,wallEnd=280,295
 local toolStart,toolEnd=300,305
 local decoStart,decoEnd=306,312
+--Local player vars we need to keep
+local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0,
+shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false,pauseNextFrame=false}
 
 --Functions that do stuff in powdertoy
-local function createBoxAny(x1,y1,x2,y2,c)
+local function createBoxAny(x1,y1,x2,y2,c,user)
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWallBox(x1,y1,x2,y2,c-wallStart)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
 		elseif c<= decoEnd then
-			sim.decoBox(x1,y1,x2,y2,0,0,0,0,c-decoStart)
+			sim.decoBox(x1,y1,x2,y2,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],c-decoStart)
 		end
 		return
 	elseif c>=golStart then
@@ -527,14 +529,14 @@ local function createBoxAny(x1,y1,x2,y2,c)
 	end
 	sim.createBox(x1,y1,x2,y2,c)
 end
-local function createPartsAny(x,y,rx,ry,c,brush)
+local function createPartsAny(x,y,rx,ry,c,brush,user)
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWalls(x,y,rx,ry,c-wallStart,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
-			sim.decoBrush(x,y,rx,ry,0,0,0,0,c-decoStart,brush)
+			sim.decoBrush(x,y,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -542,14 +544,14 @@ local function createPartsAny(x,y,rx,ry,c,brush)
 	end
 	sim.createParts(x,y,rx,ry,c,brush)
 end
-local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush)
+local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWallLine(x1,y1,x2,y2,rx,ry,c-wallStart,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
-			sim.decoLine(x1,y1,x2,y2,rx,ry,0,0,0,0,c-decoStart,brush)
+			sim.decoLine(x1,y1,x2,y2,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -603,11 +605,11 @@ local function playerMouseClick(id,btn,ev)
 			if user.alt then return end
 			user.drawtype=4 --normal hold
 		end
-		createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,true)
+		createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,user)
 	elseif ev==2 and checkBut and user.drawtype then
 		--need to check alt on up!!!
-		if user.drawtype==2 then createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE)
-		else createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush) end
+		if user.drawtype==2 then createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
+		else createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user) end
 		user.drawtype=false
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
@@ -627,7 +629,7 @@ local function playerMouseMove(id)
 	if checkBut==3 then
 		if user.mousex>=612 then user.mousex=611 end
 		if user.mousey>=384 then user.mousey=383 end
-		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush)
+		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
 end
@@ -649,7 +651,7 @@ local dataCmds = {
 	end,
 	[17]= function()
 		local id = conGetByte():byte()
-		con.members[id] ={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
+		con.members[id] ={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
 		chatwindow:addline(con.members[id].name.." has joined")
 	end,
 	[18] = function()
@@ -724,52 +726,46 @@ local dataCmds = {
 	[48] = function()
 		local id = conGetByte():byte()
 		local mode = conGetByte():byte()
-		if mode==10 then mode=-1 end --alt vel is -1, fuck you jacob
 		tpt.display_mode(mode)
-		--Display user set mode?
+		--Display who set mode?
 	end,
 	--pause set (1 byte state)
 	[49] = function()
 		local id = conGetByte():byte()
 		local pstate = conGetByte():byte()
-		myPauseState = psate==1
 		tpt.set_pause(pstate)
-		--Display user set pause?
+		--Display who set pause?
 	end,
 	--step frame, no args
 	[50] = function()
 		local id = conGetByte():byte()
 		tpt.set_pause(0)
-		myPauseState = false
-		pauseNextFrame=true
+		L.pauseNextFrame=true
 	end,
 	
 	--deco mode, (1 byte state)
 	[51] = function()
 		local id = conGetByte():byte()
 		local dstate = conGetByte():byte()
-		myDeco = dstate==1
 		tpt.decorations_enable(dstate)
 	end,
-	--HUD mode, (1 byte state)
+	--[[HUD mode, (1 byte state), deprecated
 	[52] = function()
 		local id = conGetByte():byte()
 		local hstate = conGetByte():byte()
-		myHud = hstate==1
 		tpt.hud(hstate)
 	end,
+	--]]
 	--amb heat mode, (1 byte state)
 	[53] = function()
 		local id = conGetByte():byte()
 		local astate = conGetByte():byte()
-		myAmb = astate==1
 		tpt.ambient_heat(astate)
 	end,
 	--newt_grav mode, (1 byte state)
 	[54] = function()
 		local id = conGetByte():byte()
 		local gstate = conGetByte():byte()
-		myNewt = gstate==1
 		tpt.newtonian_gravity(gstate)
 	end,
 	
@@ -785,7 +781,6 @@ local dataCmds = {
 	[56] = function()
 		local id = conGetByte():byte()
 		local hstate = conGetByte():byte()
-		myHeat = hstate==1
 		tpt.heat(hstate)
 	end,
 	--water equal, can ONLY toggle, could lose sync (no args)
@@ -845,6 +840,12 @@ local dataCmds = {
 		--ren.colorMode
 	end,
 	--]]
+	--Selected deco colour (4 bytes)
+	[65] = function()
+		local id = conGetByte():byte()
+		con.members[id].dcolour = {conGetByte():byte(),conGetByte():byte(),conGetByte():byte(),conGetByte():byte()}
+		for k,v in pairs(con.members[id].dcolour) do MANAGER_PRINT(v) end
+	end,
 	--A request to send stamp, from server
 	[128] = function()
 		local id = conGetByte():byte()
@@ -929,37 +930,38 @@ local function drawStuff()
 		end
 	end
 end
---keep our mouse locally for checking
-local mymousex,mymousey
-local mybrx,mybry
-local mybtype = 0
-local mysell,mysela,myselr
+
 local function sendStuff()
     if not con.connected then return end
     --mouse position every frame, not exactly needed, might be better/more accurate from clicks
     local nmx,nmy = tpt.mousex,tpt.mousey
     if nmx<612 and nmy<384 then nmx,nmy = sim.adjustCoords(nmx,nmy) end
-    if mymousex~= nmx or mymousey~= nmy then
-        mymousex,mymousey = nmx,nmy
-		local b1,b2,b3 = math.floor(mymousex/16),((mymousex%16)*16)+math.floor(mymousey/256),(mymousey%256)
+    if L.mousex~= nmx or L.mousey~= nmy then
+        L.mousex,L.mousey = nmx,nmy
+		local b1,b2,b3 = math.floor(L.mousex/16),((L.mousex%16)*16)+math.floor(L.mousey/256),(L.mousey%256)
 		conSend(32,string.char(b1,b2,b3))
     end
 	local nbx,nby = tpt.brushx,tpt.brushy
-	if mybrx~=nbx or mybry~=nby then
-		mybrx,mybry = nbx,nby
-		conSend(34,string.char(mybrx,mybry))
+	if L.brushx~=nbx or L.brushy~=nby then
+		L.brushx,L.brushy = nbx,nby
+		conSend(34,string.char(L.brushx,L.brushy))
 	end
     --check selected elements
     local nsell,nsela,nselr = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr]
-    if mysell~=nsell then
-    	mysell=nsell
-    	conSend(37,string.char(math.floor(mysell/256))..string.char(mysell%256))
-    elseif mysela~=nsela then
-    	mysela=nsela
-    	conSend(37,string.char(math.floor(64 + mysela/256))..string.char(mysela%256))
-    elseif myselr~=nselr then
-    	myselr=nselr
-    	conSend(37,string.char(math.floor(128 + myselr/256))..string.char(myselr%256))
+    if L.sell~=nsell then
+		L.sell=nsell
+		conSend(37,string.char(math.floor(L.sell/256))..string.char(L.sell%256))
+    elseif L.sela~=nsela then
+		L.sela=nsela
+		conSend(37,string.char(math.floor(64 + L.sela/256))..string.char(L.sela%256))
+    elseif L.selr~=nselr then
+		L.selr=nselr
+		conSend(37,string.char(math.floor(128 + L.selr/256))..string.char(L.selr%256))
+    end
+    local ncol = sim.decoColour()
+    if L.dcolour~=ncol then
+		L.dcolour=ncol
+		conSend(65,string.char(math.floor(ncol/16777216),math.floor(ncol/65536)%256,math.floor(ncol/256)%256,ncol%256))
     end
 end
 
@@ -967,53 +969,45 @@ local function step()
 	chatwindow:draw()
 	drawStuff()
 	sendStuff()
-	if pauseNextFrame then pauseNextFrame=false myPauseState=true tpt.set_pause(1) end
+	if L.pauseNextFrame then L.pauseNextFrame=false tpt.set_pause(1) end
 	connectThink()
 end
-
---keep our button state to prevent excess sending (mostly 3's)
-local myButton, myEvent = 0,0
-local myShift,myAlt,myCtrl,myZ = false,false,false,false
-local myDownInside,skipClick = nil,false
-
----we CAN get these states as of current github, yay
-local myPauseState,myNewt,myAmb,myDeco,myHeat=tpt.set_pause()==1,tpt.newtonian_gravity()==1,tpt.ambient_heat()==1,tpt.decorations_enable()==1,tpt.heat()==1
 
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
 	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() conSend(63) end},
-	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() myPauseState=not myPauseState conSend(49,myPauseState and "\1" or "\0") end},
-	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() myDeco=not myDeco conSend(51,myDeco and "\1" or "\0") end},
-	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() myNewt=not myNewt conSend(54,myNewt and "\1" or "\0") end},
-	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() myAmb=not myAmb conSend(53,myAmb and "\1" or "\0") end},
+	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end},
+	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end},
+	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
+	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() --[[activate a run once display mode check on next step]] end},
 }
 if jacobsmod then
 	tpt_buttons["clear"] = {x1=486, y1=404, x2=502, y2=423, f=function() conSend(63) end}
-	tpt_buttons["pause"] = {x1=613, y1=404, x2=627, y2=423, f=function() myPauseState=not myPauseState conSend(49,myPauseState and "\1" or "\0") end}
-	tpt_buttons["deco"] = {x1=613, y1=49, x2=627, y2=63, f=function() myDeco=not myDeco conSend(51,myDeco and "\1" or "\0") end}
-	tpt_buttons["newt"] = {x1=613, y1=65, x2=627, y2=79, f=function() myNewt=not myNewt conSend(54,myNewt and "\1" or "\0") end}
-	tpt_buttons["ambh"] = {x1=613, y1=81, x2=627, y2=95, f=function() myAmb=not myAmb conSend(53,myAmb and "\1" or "\0") end}
+	tpt_buttons["pause"] = {x1=613, y1=404, x2=627, y2=423, f=function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end}
+	tpt_buttons["deco"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end}
+	tpt_buttons["newt"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end}
+	tpt_buttons["ambh"] = {x1=613, y1=81, x2=627, y2=95, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end}
 	tpt_buttons["disp"] = {x1=597, y1=404, x2=611, y2=423, f=function() --[[activate a run once display mode check on next step]] end}
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
 	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
-	if skipClick then skipClick=false return true end
+	if L.skipClick then L.skipClick=false return true end
 
-	local obut,oevnt = myButton,myEvent
-	myButton,myEvent = button,event
+	local obut,oevnt = L.mButt,L.mEvent
+	L.mButt,L.mEvent = button,event
 	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
-	if myButton~=obut or myEvent~=oevnt then --if different event
+	if L.mButt~=obut or L.mEvent~=oevnt then --if different event
 		--Send mouse here for exact drawing, this is way more accurate than step mouse
 		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
 		conSend(32,string.char(b1,b2,b3))
-		mymousex,mymousey = mousex,mousey
-	    conSend(33,string.char(myButton*16+myEvent))
-	elseif myEvent==3 then
+		L.mousex,L.mousey = mousex,mousey
+	    conSend(33,string.char(L.mButt*16+L.mEvent))
+	elseif L.mEvent==3 then
 		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
 		conSend(32,string.char(b1,b2,b3))
-		mymousex,mymousey = mousex,mousey
+		L.mousex,L.mousey = mousex,mousey
 	end
 	--Click inside button first
 	if button==1 then
@@ -1021,23 +1015,23 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 			for k,v in pairs(tpt_buttons) do
 				if mousex>=v.x1 and mousex<=v.x2 and mousey>=v.y1 and mousey<=v.y2 then
 					--down inside!
-					myDownInside = k
+					L.downInside = k
 				end
 			end
 		--Up inside the button we started with
-		elseif event==2 and myDownInside then
-			local butt = tpt_buttons[myDownInside]
+		elseif event==2 and L.downInside then
+			local butt = tpt_buttons[L.downInside]
 			if mousex>=butt.x1 and mousex<=butt.x2 and mousey>=butt.y1 and mousey<=butt.y2 then
 				--up inside!
-				myDownInside = nil
+				L.downInside = nil
 				return butt.f()~=false
 			end
 		--Mouse hold, we MUST stay inside button or don't trigger on up
-		elseif event==3 and myDownInside then
-			local butt = tpt_buttons[myDownInside]
+		elseif event==3 and L.downInside then
+			local butt = tpt_buttons[L.downInside]
 			if mousex<butt.x1 or mousex>butt.x2 or mousey<butt.y1 or mousey>butt.y2 then
 				--moved out!
-				myDownInside = nil
+				L.downInside = nil
 
 			end
 		end
@@ -1049,11 +1043,11 @@ local keypressfuncs = {
 	[9] = function() conSend(35) end,
 	
 	--space, pause toggle
-	[32] = function() myPauseState= tpt.set_pause()==0 conSend(49,myPauseState and "\1" or "\0") end,
+	[32] = function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
 		
 	--View modes 0-9
 	[48] = function() conSend(48,"\10") end,
-	[49] = function() if myShift then conSend(48,"\9") tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end conSend(48,"\0") end,
+	[49] = function() if L.shift then conSend(48,"\9") tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end conSend(48,"\0") end,
 	[50] = function() conSend(48,"\1") end,
 	[51] = function() conSend(48,"\2") end,
 	[52] = function() conSend(48,"\3") end,
@@ -1064,10 +1058,10 @@ local keypressfuncs = {
 	[57] = function() conSend(48,"\8") end,
 	
 	--= key, pressure/spark reset
-	[61] = function() if myCtrl then conSend(60) else conSend(61) end end,
-	
+	[61] = function() if L.ctrl then conSend(60) else conSend(61) end end,
+
 	--b , deco, pauses sim
-	[98] = function() if myCtrl then myDeco=not myDeco conSend(51,myDeco and "\1" or "\0") else myPauseState,myDeco=true,true conSend(49,"\1") conSend(51,"\1") end end,
+	[98] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
 
 	--d key, debug, api broken right now
 	--[100] = function() conSend(55) end,
@@ -1079,27 +1073,27 @@ local keypressfuncs = {
 	[105] = function() conSend(62) end,
 	
 	--U, ambient heat toggle
-	[117] = function() myAmb=not myAmb conSend(53,myAmb and "\1" or "\0") end,
+	[117] = function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end,
 
 	--R,W,Y disable (record, grav mode, air mode)
 	[114] = function() return false end,
 	[119] = function() return false end,
 	[121] = function() return false end,
 	--Z
-	[122] = function() myZ=true skipClick=true end,
+	[122] = function() myZ=true L.skipClick=true end,
 
 	--SHIFT,CTRL,ALT
-	[304] = function() myShift=true conSend(36,string.char(17)) end,
-	[306] = function() myCtrl=true conSend(36,string.char(1)) end,
-	[308] = function() myAlt=true conSend(36,string.char(33)) end,
+	[304] = function() L.shift=true conSend(36,string.char(17)) end,
+	[306] = function() L.ctrl=true conSend(36,string.char(1)) end,
+	[308] = function() L.alt=true conSend(36,string.char(33)) end,
 }
 local keyunpressfuncs = {
 	--Z
-	[122] = function() myZ=false skipClick=false if myAlt then skipClick=true end end,
+	[122] = function() myZ=false L.skipClick=false if L.alt then L.skipClick=true end end,
 	--SHIFT,CTRL,ALT
-	[304] = function() myShift=false conSend(36,string.char(16)) end,
-	[306] = function() myCtrl=false conSend(36,string.char(0)) end,
-	[308] = function() myAlt=false conSend(36,string.char(32)) end,
+	[304] = function() L.shift=false conSend(36,string.char(16)) end,
+	[306] = function() L.ctrl=false conSend(36,string.char(0)) end,
+	[308] = function() L.alt=false conSend(36,string.char(32)) end,
 }
 local function keyclicky(key,nkey,modifier,event)
 	local check = chatwindow:textprocess(key,nkey,modifier,event)
