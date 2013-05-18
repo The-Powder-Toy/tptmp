@@ -1,9 +1,3 @@
---Cracker64's Lua Multiplayer Script
---See forum post http://powdertoy.co.uk/Discussions/Thread/View.html?Thread=14352 for more info
---VER 1.2 UPDATE http://pastebin.com/raw.php?i=33mxQcvW
-
---Version 1.2
-
 --TODO's
 --check alt on mouseup for line/box snap
 -------------------------------------------------------
