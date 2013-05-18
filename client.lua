@@ -5,11 +5,11 @@
 --Version 1.2
 
 --TODO's
---finish tool functions
 --check alt on mouseup for line/box snap
 -------------------------------------------------------
 
 --CHANGES:
+--Lots of new api functions, nearly everything syncs
 --Most things synced.  Awaiting new tpt api functions for full sync
 --It connects to server! and chat
 --Basic inputbox
@@ -21,6 +21,9 @@ if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 
 local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
+--Local player vars we need to keep
+local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0,
+shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false,pauseNextFrame=false}
 
 local tptversion = tpt.version.build
 local jacobsmod = tpt.version.jacob1s_mod~=nil
@@ -40,10 +43,19 @@ local function conSend(cmd,msg,endNull)
 	--print("sent "..msg)
 	con.socket:send(msg)
 end
+local function joinChannel(chan)
+	conSend(16,chan,true)
+	--send some things to new channel
+	conSend(34,string.char(L.brushx,L.brushy))
+	conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
+	conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
+	conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
+	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
+end
 local function connectToMniip(ip,port)
 	if con.connected then return false,"Already connected" end
 	ip = ip or "mniip.com"
-	port = port or 34403
+	port = port or PORT
 	local sock = socket.tcp()
 	sock:settimeout(10)
 	local s,r = sock:connect(ip,port)
@@ -465,7 +477,8 @@ new=function(x,y,w,h)
 		con.members = {}
 	end,
 	join = function(self,msg,args)
-		if args[1] then conSend(16,args[1],true) end	
+		if args[1] then joinChannel(args[1]) end
+
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
@@ -509,9 +522,6 @@ local golStart,golEnd=256,279
 local wallStart,wallEnd=280,295
 local toolStart,toolEnd=300,305
 local decoStart,decoEnd=306,312
---Local player vars we need to keep
-local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0,
-shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false,pauseNextFrame=false}
 
 --Functions that do stuff in powdertoy
 local function createBoxAny(x1,y1,x2,y2,c,user)
@@ -827,7 +837,7 @@ local dataCmds = {
 	--Clearsim button (no args)
 	[63] = function()
 		local id = conGetByte():byte()
-		sim.clearSim() --not actually a tpt function (yet)
+		sim.clearSim()
 	end,
 
 	--[[
@@ -949,13 +959,13 @@ local function sendStuff()
     local nsell,nsela,nselr = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr]
     if L.sell~=nsell then
 		L.sell=nsell
-		conSend(37,string.char(math.floor(L.sell/256))..string.char(L.sell%256))
+		conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
     elseif L.sela~=nsela then
 		L.sela=nsela
-		conSend(37,string.char(math.floor(64 + L.sela/256))..string.char(L.sela%256))
+		conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
     elseif L.selr~=nselr then
 		L.selr=nselr
-		conSend(37,string.char(math.floor(128 + L.selr/256))..string.char(L.selr%256))
+		conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
     end
     local ncol = sim.decoColour()
     if L.dcolour~=ncol then
@@ -1031,7 +1041,6 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 			if mousex<butt.x1 or mousex>butt.x2 or mousey<butt.y1 or mousey>butt.y2 then
 				--moved out!
 				L.downInside = nil
-
 			end
 		end
 	end
