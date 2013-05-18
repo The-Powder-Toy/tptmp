@@ -94,11 +94,14 @@ local function conGetNull()
 	return rstring
 end
 --get next char/byte
-local function conGetByte()
+local function cChar()
 	con.socket:settimeout(nil)
 	local c,r = con.socket:receive(1)
 	con.socket:settimeout(0)
 	return c or error(r)
+end
+local function cByte()
+	return cChar():byte()
 end
 --return table of arguments
 local function getArgs(msg)
@@ -638,15 +641,27 @@ local function playerMouseMove(id)
 	end
 end
 
+local function loadStamp(size,x,y,reset)
+	con.socket:settimeout(nil)
+	local s = con.socket:receive(size)
+	con.socket:settimeout(0)
+	local f = io.open(".tmp.stm","wb")
+	f:write(s)
+	f:close()
+	if reset then sim.clearSim() end
+	sim.loadStamp(".tmp.stm",x,y)
+	os.remove".tmp.stm"
+end
+
 local dataCmds = {
 	[2] = function() conSend(2,"",false) end,
 	[16] = function()
 	--room members
 		con.members = {}
-		local amount = conGetByte():byte()
+		local amount = cByte()
 		local peeps = {}
 		for i=1,amount do
-			local id = conGetByte():byte()
+			local id = cByte()
 			con.members[id]={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
 			local name = con.members[id].name
 			table.insert(peeps,name)
@@ -654,30 +669,30 @@ local dataCmds = {
 		chatwindow:addline("Online: "..table.concat(peeps," "))
 	end,
 	[17]= function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		con.members[id] ={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
 		chatwindow:addline(con.members[id].name.." has joined")
 	end,
 	[18] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		chatwindow:addline(con.members[id].name.." has left")
 		con.members[id]=nil
 	end,
 	[19] = function()
-		chatwindow:addline(con.members[conGetByte():byte()].name .. ": " .. conGetNull())
+		chatwindow:addline(con.members[cByte()].name .. ": " .. conGetNull())
 	end,
 	--Mouse Position
 	[32] = function()
-		local id = conGetByte():byte()
-		local b1,b2,b3=conGetByte():byte(),conGetByte():byte(),conGetByte():byte()
+		local id = cByte()
+		local b1,b2,b3=cByte(),cByte(),cByte()
 		con.members[id].mousex,con.members[id].mousey=((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
 		--MANAGER_PRINT("x "..tostring(con.members[id].mousex).." y "..tostring(con.members[id].mousey))
 		playerMouseMove(id)
 	end,
 	--Mouse Click
 	[33] = function()
-		local id = conGetByte():byte()
-		local d=conGetByte():byte()
+		local id = cByte()
+		local d=cByte()
 		local btn,ev=math.floor(d/16),d%16
 		playerMouseClick(id,btn,ev)
 		if ev==0 then return end
@@ -691,19 +706,18 @@ local dataCmds = {
 	end,
 	--Brush size
 	[34] = function()
-		local id = conGetByte():byte()
-		local bsx,bsy=conGetByte():byte(),conGetByte():byte()
-		con.members[id].brushx,con.members[id].brushy=bsx,bsy
+		local id = cByte()
+		con.members[id].brushx,con.members[id].brushy=cByte(),cByte()
 	end,
 	--Brush Shape change, no args
 	[35] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		con.members[id].brush=(con.members[id].brush+1)%3
 	end,
 	--Modifier (mod and state)
 	[36] = function()
-		local id = conGetByte():byte()
-		local d=conGetByte():byte()
+		local id = cByte()
+		local d=cByte()
 		local mod,state=math.floor(d/16),d%16~=0
 		if mod==0 then
 			con.members[id].ctrl=state
@@ -715,8 +729,8 @@ local dataCmds = {
 	end,
 	--selected elements (2 bits button, 14-element)
 	[37] = function()
-		local id = conGetByte():byte()
-		local b1,b2=conGetByte():byte(),conGetByte():byte()
+		local id = cByte()
+		local b1,b2=cByte(),cByte()
 		local btn,el=math.floor(b1/64),(b1%64)*256+b2
 		if btn==0 then
 			con.members[id].selectedl=el
@@ -728,100 +742,92 @@ local dataCmds = {
 	end,
 	--cmode defaults (1 byte mode)
 	[48] = function()
-		local id = conGetByte():byte()
-		local mode = conGetByte():byte()
-		tpt.display_mode(mode)
+		local id = cByte()
+		tpt.display_mode(cByte())
 		--Display who set mode?
 	end,
 	--pause set (1 byte state)
 	[49] = function()
-		local id = conGetByte():byte()
-		local pstate = conGetByte():byte()
-		tpt.set_pause(pstate)
+		local id = cByte()
+		tpt.set_pause(cByte())
 		--Display who set pause?
 	end,
 	--step frame, no args
 	[50] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		tpt.set_pause(0)
 		L.pauseNextFrame=true
 	end,
 	
 	--deco mode, (1 byte state)
 	[51] = function()
-		local id = conGetByte():byte()
-		local dstate = conGetByte():byte()
-		tpt.decorations_enable(dstate)
+		local id = cByte()
+		tpt.decorations_enable(cByte())
 	end,
 	--[[HUD mode, (1 byte state), deprecated
 	[52] = function()
-		local id = conGetByte():byte()
-		local hstate = conGetByte():byte()
+		local id = cByte()
+		local hstate = cByte()
 		tpt.hud(hstate)
 	end,
 	--]]
 	--amb heat mode, (1 byte state)
 	[53] = function()
-		local id = conGetByte():byte()
-		local astate = conGetByte():byte()
-		tpt.ambient_heat(astate)
+		local id = cByte()
+		tpt.ambient_heat(cByte())
 	end,
 	--newt_grav mode, (1 byte state)
 	[54] = function()
-		local id = conGetByte():byte()
-		local gstate = conGetByte():byte()
-		tpt.newtonian_gravity(gstate)
+		local id = cByte()
+		tpt.newtonian_gravity(cByte())
 	end,
 	
 	--[[
 	--debug mode (1 byte state?) can't implement
 	[55] = function()
-		local id = conGetByte():byte()
-		--local dstate = conGetByte():byte()
+		local id = cByte()
+		--local dstate = cByte()
 		tpt.setdebug()
 	end,
 	--]]
 	--legacy heat mode, (1 byte state)
 	[56] = function()
-		local id = conGetByte():byte()
-		local hstate = conGetByte():byte()
-		tpt.heat(hstate)
+		local id = cByte()
+		tpt.heat(cByte())
 	end,
 	--water equal, can ONLY toggle, could lose sync (no args)
 	[57] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		tpt.watertest()
 	end,
 	--[[
 	--grav mode, (1 byte state) can't implement yet
 	[58] = function()
-		local id = conGetByte():byte()
-		local state = conGetByte():byte()
-		tpt.something_gravmode(state)
+		local id = cByte()
+		tpt.something_gravmode(cByte())
 	end,
 	--air mode, (1 byte state) can't implement yet
 	[59] = function()
-		local id = conGetByte():byte()
-		local state = conGetByte():byte()
-		tpt.something_airmode(state)
+		local id = cByte()
+		tpt.something_airmode(cByte())
 	end,
 	--]]
 	
 	--Should these three be combined into one number with an arg determining what runs?
 	--clear sparks (no args)
 	[60] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		tpt.reset_spark()
 	end,
 	--clear pressure/vel (no args)
 	[61] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		tpt.reset_velocity()
 		tpt.set_pressure()
 	end,
 	--invert pressure (no args)
 	[62] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		for x=0,152 do
 			for y=0,95 do
 				sim.pressure(x,y,-sim.pressure(x,y))
@@ -830,14 +836,14 @@ local dataCmds = {
 	end,
 	--Clearsim button (no args)
 	[63] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		sim.clearSim()
 	end,
 
 	--[[
 	--Full graphics view mode (for manual changes in display menu) (3 bytes?)
 	[64] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		--do stuff with these
 		--ren.displayModes()
 		--ren.renderModes()
@@ -846,12 +852,19 @@ local dataCmds = {
 	--]]
 	--Selected deco colour (4 bytes)
 	[65] = function()
-		local id = conGetByte():byte()
-		con.members[id].dcolour = {conGetByte():byte(),conGetByte():byte(),conGetByte():byte(),conGetByte():byte()}
+		local id = cByte()
+		con.members[id].dcolour = {cByte(),cByte(),cByte(),cByte()}
+	end,
+	--Recieve a stamp, with location (6 bytes location(3),size(3))
+	[66] = function()
+		local b1,b2,b3=cByte(),cByte(),cByte()
+		local x,y =((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
+		local d = cByte()*65536+cByte()*256+cByte()
+		loadStamp(d,x,y,false)
 	end,
 	--A request to send stamp, from server
 	[128] = function()
-		local id = conGetByte():byte()
+		local id = cByte()
 		local n = "stamps/"..sim.saveStamp(0,0,611,383)..".stm"
 		local f = assert(io.open(n))
 		local s = f:read"*a"
@@ -862,17 +875,8 @@ local dataCmds = {
 	end,
 	--Recieve sync stamp
 	[129] = function()
-		local f = io.open(".tmp.stm","wb")
-		local d = conGetByte():byte()*65536+conGetByte():byte()*256+conGetByte():byte()
-		con.socket:settimeout(nil)
-		local s = con.socket:receive(d)
-		con.socket:settimeout(0)
-		local f = io.open(".tmp.stm","wb")
-		f:write(s)
-		f:close()
-		sim.clearSim()
-		sim.loadStamp(".tmp.stm",0,0)
-		os.remove".tmp.stm"
+		local d = cByte()*65536+cByte()*256+cByte()
+		loadStamp(d,0,0,true)
 	end,
 }
 
