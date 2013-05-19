@@ -17,7 +17,7 @@ local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0,
-shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false,pauseNextFrame=false}
+shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil}
 
 local tptversion = tpt.version.build
 local jacobsmod = tpt.version.jacob1s_mod~=nil
@@ -640,7 +640,6 @@ local function playerMouseMove(id)
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
 end
-
 local function loadStamp(size,x,y,reset)
 	con.socket:settimeout(nil)
 	local s = con.socket:receive(size)
@@ -857,10 +856,21 @@ local dataCmds = {
 	end,
 	--Recieve a stamp, with location (6 bytes location(3),size(3))
 	[66] = function()
+		local id = cByte()
 		local b1,b2,b3=cByte(),cByte(),cByte()
 		local x,y =((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
 		local d = cByte()*65536+cByte()*256+cByte()
 		loadStamp(d,x,y,false)
+	end,
+	--Clear an area, helper for cut (6 bytes, start(3), end(3))
+	[67] = function()
+		local id = cByte()
+		local b1,b2,b3,b4,b5,b6=cByte(),cByte(),cByte(),cByte(),cByte(),cByte()
+		local x1,y1 =((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
+		local x2,y2 =((b4*16)+math.floor(b5/16)),((b5%16)*256)+b6
+		--clear walls and parts
+		createBoxAny(x1,y1,x2,y2,280)
+		createBoxAny(x1,y1,x2,y2,0)
 	end,
 	--A request to send stamp, from server
 	[128] = function()
@@ -970,6 +980,16 @@ local function sendStuff()
 		L.dcolour=ncol
 		conSend(65,string.char(math.floor(ncol/16777216),math.floor(ncol/65536)%256,math.floor(ncol/256)%256,ncol%256))
     end
+    if L.sendScreen then
+		local n = "stamps/"..sim.saveStamp(0,0,611,383)..".stm"
+		local f = assert(io.open(n))
+		local s = f:read"*a"
+		f:close()
+		os.remove(n)
+		local d = #s
+		conSend(66,string.char(0,0,0,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
+		L.sendScreen=nil
+    end
 end
 
 local function step()
@@ -1001,6 +1021,56 @@ end
 local function mouseclicky(mousex,mousey,button,event,wheel)
 	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
 	if L.skipClick then L.skipClick=false return true end
+	if L.stamp and button>0 and button~=2 then
+		if event==1 and button==1 then
+			--initial stamp coords
+			L.stampx,L.stampy = mousex,mousey
+		elseif event==2 then
+			if button==1 then
+				--save stamp ourself for data, delete it
+				local sx,sy = mousex,mousey
+				if sx<L.stampx then L.stampx,sx=sx,L.stampx end
+				if sy<L.stampy then L.stampy,sy=sy,L.stampy end
+				--cheap cut hook to send a clear
+				if L.copying==1 then
+					conSend(67,string.char(math.floor(L.stampx/16),((L.stampx%16)*16)+math.floor(L.stampy/256),(L.stampy%256),math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)))
+				end
+				--Round coords to grid for some reason
+				sx,sy,L.stampx,L.stampy = math.floor(sx/4)*4,math.floor(sy/4)*4,math.floor(L.stampx/4)*4,math.floor(L.stampy/4)*4
+				local w,h = sx-L.stampx,sy-L.stampy
+				local stm = "stamps/"..sim.saveStamp(L.stampx,L.stampy,w,h)..".stm"
+				local f = assert(io.open(stm))
+				if L.copying then L.lastCopy = {data=f:read"*a",w=w,h=h} else L.lastStamp = {data=f:read"*a",w=w,h=h} end
+				f:close()
+				os.remove(stm)
+			end
+			L.stamp=false
+			L.copying=false
+		end
+		return true
+	elseif L.placeStamp and button>0 and button~=2 then
+		if button==1 and event==2 then
+			local stm
+			if L.copying then stm=L.lastCopy else stm=L.lastStamp end
+			if stm then
+				if not stm.data then
+					--unknown stamp, send full screen on next step, how can we read last created stamp, timestamps on files?
+					L.sendScreen=true
+				else
+					--send the stamp
+					local sx,sy = math.floor((mousex-stm.w/2)/4)*4,math.floor((mousey-stm.h/2)/4)*4
+					if sx<0 then sx=0 end
+					if sy<0 then sy=0 end
+					local b1,b2,b3 = math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)
+					local d = #stm.data
+					conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..stm.data)
+				end
+			end
+			L.placeStamp=false
+			L.copying=false
+		end
+		return true
+	end
 
 	local obut,oevnt = L.mButt,L.mEvent
 	L.mButt,L.mEvent = button,event
@@ -1069,6 +1139,9 @@ local keypressfuncs = {
 	--b , deco, pauses sim
 	[98] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
 
+	--c , copy
+	[99] = function() L.stamp=true L.copying=true end,
+
 	--d key, debug, api broken right now
 	--[100] = function() conSend(55) end,
 	
@@ -1078,8 +1151,23 @@ local keypressfuncs = {
 	--I , invert pressure
 	[105] = function() conSend(62) end,
 	
+	--K , stamp menu, abort our known stamp, who knows what they picked, send full screen?
+	[107] = function() L.lastStamp={data=nil} L.placeStamp=true end,
+
+	--L , last Stamp
+	[108] = function () if L.lastStamp then L.placeStamp=true end end,
+
+	--S, stamp
+	[115] = function() L.stamp=true end,
+
 	--U, ambient heat toggle
 	[117] = function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end,
+
+	--V, paste the copystamp
+	[118] = function() if L.ctrl and L.lastCopy then L.placeStamp=true L.copying=true end end,
+
+	--X, cut a copystamp and clear
+	[120] = function() if L.ctrl then L.stamp=true L.copying=1 end end,
 
 	--R,W,Y disable (record, grav mode, air mode)
 	[114] = function() return false end,
