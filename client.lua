@@ -980,7 +980,7 @@ local function sendStuff()
 		L.dcolour=ncol
 		conSend(65,string.char(math.floor(ncol/16777216),math.floor(ncol/65536)%256,math.floor(ncol/256)%256,ncol%256))
     end
-    if L.sendScreen then
+	if L.sendScreen then
 		local n = "stamps/"..sim.saveStamp(0,0,611,383)..".stm"
 		local f = assert(io.open(n))
 		local s = f:read"*a"
@@ -989,7 +989,7 @@ local function sendStuff()
 		local d = #s
 		conSend(66,string.char(0,0,0,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
 		L.sendScreen=nil
-    end
+	end
 end
 
 local function step()
@@ -1140,7 +1140,7 @@ local keypressfuncs = {
 	[98] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
 
 	--c , copy
-	[99] = function() L.stamp=true L.copying=true end,
+	[99] = function() if L.ctrl then L.stamp=true L.copying=true end end,
 
 	--d key, debug, api broken right now
 	--[100] = function() conSend(55) end,
