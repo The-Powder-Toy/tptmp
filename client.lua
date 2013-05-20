@@ -11,6 +11,7 @@
 --Cleared everything
 
 local issocket,socket = pcall(require,"socket")
+if not sim.loadSave then error"Tpt version not supported" end
 if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 
 local PORT = 34403 --Change 34403 to your desired port
@@ -24,7 +25,6 @@ local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
 local username = tpt.get_name()
 if username=="" then error"Please Identify" end
-if not sim.createParts then error"Tpt version not supported" end
 local con = {connected = false,
 		 socket = nil,
 		 members = nil,
@@ -113,7 +113,6 @@ local function getArgs(msg)
 	return args
 end
 
-local GoLrule = {{0,0,0,0,0,0,0,0,0,2},{0,0,1,3,0,0,0,0,0,2},{0,0,1,3,0,0,2,0,0,2},{0,0,0,2,3,3,1,1,0,2},{0,1,1,2,0,1,2,0,0,2},{0,0,0,3,1,0,3,3,3,2},{0,1,0,3,0,3,0,2,1,2},{0,0,1,2,1,1,2,0,2,2},{0,0,1,3,0,2,0,2,1,2},{0,0,0,2,0,3,3,3,3,2},{0,0,0,3,3,0,0,0,0,2},{0,0,0,2,2,3,0,0,0,2},{0,0,1,3,0,1,3,3,3,2},{0,0,2,0,0,0,0,0,0,2},{0,1,1,3,1,1,0,0,0,2},{0,0,1,3,0,1,1,3,3,2},{0,0,1,1,3,3,2,2,2,2},{0,3,0,0,0,0,0,0,0,2},{0,3,0,3,0,3,0,3,0,2},{1,0,0,2,2,3,1,1,3,2},{0,0,0,3,1,1,0,2,1,4},{0,1,1,2,1,0,0,0,0,3},{0,0,2,1,1,1,1,2,2,6},{0,1,1,2,2,0,0,0,0,3},{0,0,2,0,2,0,3,0,0,3}}
 --get different lists for other language keyboards
 local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'¿¿¿¿¿¿¿¿¿¿¿¿¿¿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#¿¿¿¿¿¿¿%&/()=?;:_*`^>",}  }
 local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'¿¿¿¿¿¿¿<",after=" qwertyuiopasdfghjklzxcvbnm1@¿¿¿¿¿¿¿$¿6{[]}\\,.-'~|",},}
@@ -470,6 +469,7 @@ new=function(x,y,w,h)
 	end,
 	quit = function(self,msg,args)
 		con.socket:close()
+		self:addline("Disconnected")
 		con.connected = false
 		con.members = {}
 	end,
@@ -1008,6 +1008,7 @@ local tpt_buttons = {
 	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
 	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() --[[activate a run once display mode check on next step]] end},
+	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() return not con.connected --[[ No browser while connected (for now), go die]] end},
 }
 if jacobsmod then
 	tpt_buttons["clear"] = {x1=486, y1=404, x2=502, y2=423, f=function() conSend(63) end}
@@ -1016,6 +1017,7 @@ if jacobsmod then
 	tpt_buttons["newt"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end}
 	tpt_buttons["ambh"] = {x1=613, y1=81, x2=627, y2=95, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end}
 	tpt_buttons["disp"] = {x1=597, y1=404, x2=611, y2=423, f=function() --[[activate a run once display mode check on next step]] end}
+	tpt_buttons["open"] = {x1=0, y1=404, x2=17, y2=423, f=function() return not con.connected --[[ No browser while connected (for now), go die]] end}
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
@@ -1076,7 +1078,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	L.mButt,L.mEvent = button,event
 	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 	if L.mButt~=obut or L.mEvent~=oevnt then --if different event
-		--Send mouse here for exact drawing, this is way more accurate than step mouse
+		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
 		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
 		conSend(32,string.char(b1,b2,b3))
 		L.mousex,L.mousey = mousex,mousey
@@ -1093,6 +1095,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 				if mousex>=v.x1 and mousex<=v.x2 and mousey>=v.y1 and mousey<=v.y2 then
 					--down inside!
 					L.downInside = k
+					break
 				end
 			end
 		--Up inside the button we started with
