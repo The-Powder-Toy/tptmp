@@ -1033,6 +1033,8 @@ end
 local function mouseclicky(mousex,mousey,button,event,wheel)
 	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
 	if L.skipClick then L.skipClick=false return true end
+	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
+
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 then
 			--initial stamp coords
@@ -1048,9 +1050,10 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 					conSend(67,string.char(math.floor(L.stampx/16),((L.stampx%16)*16)+math.floor(L.stampy/256),(L.stampy%256),math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)))
 				end
 				--Round coords to grid for some reason
-				sx,sy,L.stampx,L.stampy = math.floor(sx/4)*4,math.floor(sy/4)*4,math.floor(L.stampx/4)*4,math.floor(L.stampy/4)*4
 				local w,h = sx-L.stampx,sy-L.stampy
 				local stm = "stamps/"..sim.saveStamp(L.stampx,L.stampy,w,h)..".stm"
+				sx,sy,L.stampx,L.stampy = math.ceil((sx+1)/4)*4,math.ceil((sy+1)/4)*4,math.floor(L.stampx/4)*4,math.floor(L.stampy/4)*4
+				w,h = sx-L.stampx, sy-L.stampy
 				local f = assert(io.open(stm))
 				if L.copying then L.lastCopy = {data=f:read"*a",w=w,h=h} else L.lastStamp = {data=f:read"*a",w=w,h=h} end
 				f:close()
@@ -1061,27 +1064,31 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		end
 		return true
 	elseif L.placeStamp and button>0 and button~=2 then
-		if button==1 and event==2 then
-			local stm
-			if L.copying then stm=L.lastCopy else stm=L.lastStamp end
-			if stm then
-				if not stm.data then
-					--unknown stamp, send full screen on next step, how can we read last created stamp, timestamps on files?
-					L.sendScreen=true
-				else
-					--send the stamp
-					if L.smoved then
-						--moved from arrows or rotate, send area next frame
-						L.placeStamp=false
+		if event==2 then
+			if button==1 then
+				local stm
+				if L.copying then stm=L.lastCopy else stm=L.lastStamp end
+				if stm then
+					if not stm.data then
+						--unknown stamp, send full screen on next step, how can we read last created stamp, timestamps on files?
 						L.sendScreen=true
-						return true
+					else
+						--send the stamp
+						if L.smoved then
+							--moved from arrows or rotate, send area next frame
+							L.placeStamp=false
+							L.sendScreen=true
+							return true
+						end
+						local sx,sy = mousex-math.floor(stm.w/2),mousey-math.floor((stm.h)/2)
+						if sx<0 then sx=0 end
+						if sy<0 then sy=0 end
+						if sx+stm.w>611 then sx=612-stm.w end
+						if sy+stm.h>383 then sy=384-stm.h end
+						local b1,b2,b3 = math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)
+						local d = #stm.data
+						conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..stm.data)
 					end
-					local sx,sy = math.floor((mousex-stm.w/2)/4)*4,math.floor((mousey-stm.h/2)/4)*4
-					if sx<0 then sx=0 end
-					if sy<0 then sy=0 end
-					local b1,b2,b3 = math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)
-					local d = #stm.data
-					conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..stm.data)
 				end
 			end
 			L.placeStamp=false
@@ -1092,7 +1099,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 
 	local obut,oevnt = L.mButt,L.mEvent
 	L.mButt,L.mEvent = button,event
-	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
+
 	if L.mButt~=obut or L.mEvent~=oevnt then --if different event
 		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
 		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
@@ -1197,6 +1204,7 @@ local keypressfuncs = {
 	--Z
 	[122] = function() myZ=true L.skipClick=true end,
 
+	--Arrows for stamp adjust
 	[273] = function() if L.placeStamp then L.smoved=true end end,
 	[274] = function() if L.placeStamp then L.smoved=true end end,
 	[275] = function() if L.placeStamp then L.smoved=true end end,
