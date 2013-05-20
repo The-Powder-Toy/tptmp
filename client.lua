@@ -18,7 +18,7 @@ local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0,
-shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil}
+shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false}
 
 local tptversion = tpt.version.build
 local jacobsmod = tpt.version.jacob1s_mod~=nil
@@ -981,14 +981,24 @@ local function sendStuff()
 		conSend(65,string.char(math.floor(ncol/16777216),math.floor(ncol/65536)%256,math.floor(ncol/256)%256,ncol%256))
     end
 	if L.sendScreen then
-		local n = "stamps/"..sim.saveStamp(0,0,611,383)..".stm"
+		local x,y,w,h = 0,0,611,383
+		if L.smoved then
+			local stm
+			if L.copying then stm=L.lastCopy else stm=L.lastStamp end
+			if L.rotate then stm.w,stm.h=stm.h,stm.w end
+			x,y,w,h = math.floor((L.mousex-stm.w/2)/4)*4,math.floor((L.mousey-stm.h/2)/4)*4,stm.w,stm.h
+			L.smoved=false
+			L.copying=false
+		end
+		local n = "stamps/"..sim.saveStamp(x,y,w,h)..".stm"
 		local f = assert(io.open(n))
 		local s = f:read"*a"
 		f:close()
 		os.remove(n)
 		local d = #s
-		conSend(66,string.char(0,0,0,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
-		L.sendScreen=nil
+		local b1,b2,b3 = math.floor(x/16),((x%16)*16)+math.floor(y/256),(y%256)
+		conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
+		L.sendScreen=false
 	end
 end
 
@@ -1060,6 +1070,12 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 					L.sendScreen=true
 				else
 					--send the stamp
+					if L.smoved then
+						--moved from arrows or rotate, send area next frame
+						L.placeStamp=false
+						L.sendScreen=true
+						return true
+					end
 					local sx,sy = math.floor((mousex-stm.w/2)/4)*4,math.floor((mousey-stm.h/2)/4)*4
 					if sx<0 then sx=0 end
 					if sy<0 then sy=0 end
@@ -1160,6 +1176,9 @@ local keypressfuncs = {
 	--L , last Stamp
 	[108] = function () if L.lastStamp then L.placeStamp=true end end,
 
+	--R , for stamp rotate
+	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate end end,
+
 	--S, stamp
 	[115] = function() L.stamp=true end,
 
@@ -1172,12 +1191,16 @@ local keypressfuncs = {
 	--X, cut a copystamp and clear
 	[120] = function() if L.ctrl then L.stamp=true L.copying=1 end end,
 
-	--R,W,Y disable (record, grav mode, air mode)
-	[114] = function() return false end,
+	--W,Y disable (grav mode, air mode)
 	[119] = function() return false end,
 	[121] = function() return false end,
 	--Z
 	[122] = function() myZ=true L.skipClick=true end,
+
+	[273] = function() if L.placeStamp then L.smoved=true end end,
+	[274] = function() if L.placeStamp then L.smoved=true end end,
+	[275] = function() if L.placeStamp then L.smoved=true end end,
+	[276] = function() if L.placeStamp then L.smoved=true end end,
 
 	--SHIFT,CTRL,ALT
 	[304] = function() L.shift=true conSend(36,string.char(17)) end,
