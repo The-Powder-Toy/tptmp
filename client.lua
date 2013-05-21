@@ -568,7 +568,7 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 		if c<= wallEnd then
 			sim.createWallLine(x1,y1,x2,y2,rx,ry,c-wallStart,brush)
 		elseif c<=toolEnd then
-			if c>=toolStart then sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush) end
+			if c>=toolStart then local str=1.0 if user.drawtype==4 and user.shift then str=10.0 elseif user.alt then str=0.1 end sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush,str) end
 		elseif c<= decoEnd then
 			sim.decoLine(x1,y1,x2,y2,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],c-decoStart,brush)
 		end
@@ -1047,8 +1047,8 @@ local function sendStuff()
 end
 local function updatePlayers()
 	if con.members then
-		for i=1,#con.members do
-			playerMouseMove(i)
+		for k,v in pairs(con.members) do
+			playerMouseMove(k)
 		end
 	end
 end
