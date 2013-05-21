@@ -1,8 +1,9 @@
 --TODO's
---check alt on mouseup for line/box snap
+--Custom graphics mode check after button clicked
 -------------------------------------------------------
 
 --CHANGES:
+--Stamp functions sync, using a stamp from 'k' will send full screen, alt snap
 --Lots of new api functions, nearly everything syncs
 --Most things synced.  Awaiting new tpt api functions for full sync
 --It connects to server! and chat
@@ -578,6 +579,23 @@ local function floodAny(x,y,c,cm,bm)
 	end
 	sim.floodParts(x,y,c,cm,bm)
 end
+local function lineSnapCoords(x1,y1,x2,y2)
+	local nx,ny
+	local snapAngle = math.floor(math.atan2(y2-y1, x2-x1)/(math.pi*0.25)+0.5)*math.pi*0.25;
+	local lineMag = math.sqrt(math.pow(x2-x1,2)+math.pow(y2-y1,2));
+	nx = math.floor(lineMag*math.cos(snapAngle)+x1+0.5);
+	ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
+	return nx,ny
+end
+
+function rectSnapCoords(x1,y1,x2,y2)
+	local nx,ny
+	local snapAngle = math.floor((math.atan2(y2-y1, x2-x1)+math.pi*0.25)/(math.pi*0.5)+0.5)*math.pi*0.5 - math.pi*0.25;
+	local lineMag = math.sqrt(math.pow(x2-x1,2)+math.pow(y2-y1,2));
+	nx = math.floor(lineMag*math.cos(snapAngle)+x1+0.5);
+	ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
+	return nx,ny
+end
 
 --clicky click
 local function playerMouseClick(id,btn,ev)
@@ -615,8 +633,13 @@ local function playerMouseClick(id,btn,ev)
 		createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,user)
 	elseif ev==2 and checkBut and user.drawtype then
 		--need to check alt on up!!!
-		if user.drawtype==2 then createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
-		else createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user) end
+		if user.drawtype==2 then
+			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
+			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
+		else
+			if user.alt then user.mousex,user.mousey = lineSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
+			createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
+		end
 		user.drawtype=false
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
@@ -916,8 +939,10 @@ local function drawStuff()
 			tpt.drawtext(x,y,("%s %dx%d"):format(user.name,brx,bry),0,255,0,192)
 			if user.drawtype then
 				if user.drawtype==1 then
+					if user.alt then x,y = lineSnapCoords(user.pmx,user.pmy,x,y) end
 					tpt.drawline(user.pmx,user.pmy,x,y,0,255,0,128)
 				elseif user.drawtype==2 then
+					if user.alt then x,y = rectSnapCoords(user.pmx,user.pmy,x,y) end
 					local tpmx,tpmy = user.pmx,user.pmy
 					if tpmx>x then tpmx,x=x,tpmx end
 					if tpmy>y then tpmy,y=y,tpmy end
