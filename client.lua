@@ -665,7 +665,7 @@ local function playerMouseMove(id)
 		createE,checkBut=user.selectedr,user.rbtn
 	elseif user.abtn then
 		createE,checkBut=user.selecteda,user.abtn
-	end
+	else return end
 	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1) end return end
 	if checkBut==3 then
 		if user.mousex>=612 then user.mousex=611 end
@@ -846,8 +846,6 @@ local dataCmds = {
 		tpt.something_airmode(cByte())
 	end,
 	--]]
-	
-	--Should these three be combined into one number with an arg determining what runs?
 	--clear sparks (no args)
 	[60] = function()
 		local id = cByte()
@@ -930,8 +928,8 @@ local dataCmds = {
 local function connectThink()
 	if not con.connected then return end
 	if not con.socket then chatwindow:addline("Disconnected") con.connected=false return end
-	--check byte for message
-	while 1 do --real all per frame now...
+	--read all messages
+	while 1 do
 		local s,r = con.socket:receive(1)
 		if s then
 			local cmd = string.byte(s)
@@ -1047,6 +1045,13 @@ local function sendStuff()
 		L.sendScreen=false
 	end
 end
+local function updatePlayers()
+	if con.members then
+		for i=1,#con.members do
+			playerMouseMove(i)
+		end
+	end
+end
 
 local function step()
 	chatwindow:draw()
@@ -1054,6 +1059,7 @@ local function step()
 	sendStuff()
 	if L.pauseNextFrame then L.pauseNextFrame=false tpt.set_pause(1) end
 	connectThink()
+	updatePlayers()
 end
 
 --some button locations that emulate tpt, return false will disable button
@@ -1095,7 +1101,6 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 				if L.copying==1 then
 					conSend(67,string.char(math.floor(L.stampx/16),((L.stampx%16)*16)+math.floor(L.stampy/256),(L.stampy%256),math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)))
 				end
-				--Round coords to grid for some reason
 				local w,h = sx-L.stampx,sy-L.stampy
 				local stm = "stamps/"..sim.saveStamp(L.stampx,L.stampy,w,h)..".stm"
 				sx,sy,L.stampx,L.stampy = math.ceil((sx+1)/4)*4,math.ceil((sy+1)/4)*4,math.floor(L.stampx/4)*4,math.floor(L.stampy/4)*4
@@ -1144,15 +1149,14 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	end
 
 	local obut,oevnt = L.mButt,L.mEvent
-	L.mButt,L.mEvent = button,event
-
-	if L.mButt~=obut or L.mEvent~=oevnt then --if different event
+	if button~=obut or event~=oevnt then
+		L.mButt,L.mEvent = button,event
 		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
 		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
 		conSend(32,string.char(b1,b2,b3))
 		L.mousex,L.mousey = mousex,mousey
 	    conSend(33,string.char(L.mButt*16+L.mEvent))
-	elseif L.mEvent==3 then
+	elseif L.mEvent==3 and (L.mousex~=mousex or L.mousey~=mousey) then
 		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
 		conSend(32,string.char(b1,b2,b3))
 		L.mousex,L.mousey = mousex,mousey
@@ -1162,7 +1166,6 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		if event==1 then
 			for k,v in pairs(tpt_buttons) do
 				if mousex>=v.x1 and mousex<=v.x2 and mousey>=v.y1 and mousey<=v.y2 then
-					--down inside!
 					L.downInside = k
 					break
 				end
@@ -1171,7 +1174,6 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		elseif event==2 and L.downInside then
 			local butt = tpt_buttons[L.downInside]
 			if mousex>=butt.x1 and mousex<=butt.x2 and mousey>=butt.y1 and mousey<=butt.y2 then
-				--up inside!
 				L.downInside = nil
 				return butt.f()~=false
 			end
@@ -1179,7 +1181,6 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		elseif event==3 and L.downInside then
 			local butt = tpt_buttons[L.downInside]
 			if mousex<butt.x1 or mousex>butt.x2 or mousey<butt.y1 or mousey>butt.y2 then
-				--moved out!
 				L.downInside = nil
 			end
 		end
