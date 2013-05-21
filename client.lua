@@ -499,6 +499,17 @@ new=function(x,y,w,h)
 	return chat
 end
 }
+local fadeText = {}
+--A little text that fades away, (align text (left/center/right)?)
+local function newFadeText(text,frames,x,y,r,g,b,noremove)
+	local t = {ticks=frames,max=frames,text=text,x=x,y=y,r=r,g=g,b=b,keep=noremove}
+	table.insert(fadeText,t)
+	return t
+end
+local function resetFade(fade,text) fade.ticks=fade.max if text then fade.text=text end end
+--Some text locations for repeated usage
+local infoText = newFadeText("",30,245,370,255,255,255,true)
+local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
 chatwindow = ui_chatbox.new(100,100,150,200)
 chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
@@ -588,7 +599,7 @@ local function lineSnapCoords(x1,y1,x2,y2)
 	return nx,ny
 end
 
-function rectSnapCoords(x1,y1,x2,y2)
+local function rectSnapCoords(x1,y1,x2,y2)
 	local nx,ny
 	local snapAngle = math.floor((math.atan2(y2-y1, x2-x1)+math.pi*0.25)/(math.pi*0.5)+0.5)*math.pi*0.5 - math.pi*0.25;
 	local lineMag = math.sqrt(math.pow(x2-x1,2)+math.pow(y2-y1,2));
@@ -676,7 +687,6 @@ local function loadStamp(size,x,y,reset)
 end
 
 local dataCmds = {
-	[2] = function() conSend(2,"",false) end,
 	[16] = function()
 	--room members
 		con.members = {}
@@ -684,7 +694,7 @@ local dataCmds = {
 		local peeps = {}
 		for i=1,amount do
 			local id = cByte()
-			con.members[id]={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
+			con.members[id]={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
 			local name = con.members[id].name
 			table.insert(peeps,name)
 		end
@@ -708,7 +718,6 @@ local dataCmds = {
 		local id = cByte()
 		local b1,b2,b3=cByte(),cByte(),cByte()
 		con.members[id].mousex,con.members[id].mousey=((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
-		--MANAGER_PRINT("x "..tostring(con.members[id].mousex).." y "..tostring(con.members[id].mousey))
 		playerMouseMove(id)
 	end,
 	--Mouse Click
@@ -766,13 +775,15 @@ local dataCmds = {
 	[48] = function()
 		local id = cByte()
 		tpt.display_mode(cByte())
-		--Display who set mode?
+		resetFade(cmodeText,con.members[id].name.." set:")
 	end,
 	--pause set (1 byte state)
 	[49] = function()
 		local id = cByte()
-		tpt.set_pause(cByte())
-		--Display who set pause?
+		local p,str = cByte(),"Pause"
+		tpt.set_pause(p)
+		if p==0 then str="Unpause" end
+		resetFade(infoText,str.." from "..con.members[id].name)
 	end,
 	--step frame, no args
 	[50] = function()
@@ -785,6 +796,7 @@ local dataCmds = {
 	[51] = function()
 		local id = cByte()
 		tpt.decorations_enable(cByte())
+		resetFade(cmodeText,con.members[id].name.." set:")
 	end,
 	--[[HUD mode, (1 byte state), deprecated
 	[52] = function()
@@ -860,6 +872,7 @@ local dataCmds = {
 	[63] = function()
 		local id = cByte()
 		sim.clearSim()
+		resetFade(infoText,con.members[id].name.." cleared the screen")
 	end,
 
 	--[[
@@ -884,6 +897,7 @@ local dataCmds = {
 		local x,y =((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
 		local d = cByte()*65536+cByte()*256+cByte()
 		loadStamp(d,x,y,false)
+		resetFade(infoText,"Stamp from "..con.members[id].name)
 	end,
 	--Clear an area, helper for cut (6 bytes, start(3), end(3))
 	[67] = function()
@@ -922,7 +936,7 @@ local function connectThink()
 		if s then
 			local cmd = string.byte(s)
 			--MANAGER_PRINT("GOT "..tostring(cmd))
-			if dataCmds[cmd] then dataCmds[cmd]() end
+			if dataCmds[cmd] then dataCmds[cmd]() else MANAGER_PRINT("TPTMP: Unknown protocol "..tostring(cmd),255,20,20) end
 		else break end
 	end
 
@@ -969,6 +983,13 @@ local function drawStuff()
 					gfx.drawLine(x,y-bry,x+brx,y+bry,0,255,0,128)
 				end
 			end
+		end
+	end
+	for k,v in pairs(fadeText) do
+		local a = math.floor(255*(v.ticks/v.max))
+		tpt.drawtext(v.x,v.y,v.text,v.r,v.g,v.b,a)
+		if v.ticks > 0 then v.ticks = v.ticks-1
+		else if not v.keep then table.remove(fadeText,k) end
 		end
 	end
 end
@@ -1043,7 +1064,7 @@ local tpt_buttons = {
 	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
 	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() --[[activate a run once display mode check on next step]] end},
-	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() return not con.connected --[[ No browser while connected (for now), go die]] end},
+	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if con.connected then resetFade(infoText,"Browser not supported") return false end end},
 }
 if jacobsmod then
 	tpt_buttons["clear"] = {x1=486, y1=404, x2=502, y2=423, f=function() conSend(63) end}
@@ -1052,7 +1073,7 @@ if jacobsmod then
 	tpt_buttons["newt"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end}
 	tpt_buttons["ambh"] = {x1=613, y1=81, x2=627, y2=95, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end}
 	tpt_buttons["disp"] = {x1=597, y1=404, x2=611, y2=423, f=function() --[[activate a run once display mode check on next step]] end}
-	tpt_buttons["open"] = {x1=0, y1=404, x2=17, y2=423, f=function() return not con.connected --[[ No browser while connected (for now), go die]] end}
+	tpt_buttons["open"] = {x1=0, y1=404, x2=17, y2=423, f=function() if con.connected then resetFade(infoText,"Browser not supported") return false end end}
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
@@ -1224,8 +1245,8 @@ local keypressfuncs = {
 	[120] = function() if L.ctrl then L.stamp=true L.copying=1 end end,
 
 	--W,Y disable (grav mode, air mode)
-	[119] = function() return false end,
-	[121] = function() return false end,
+	[119] = function() resetFade(infoText,"Grav modes not supported") return false end,
+	[121] = function() resetFade(infoText,"Air modes not supported") return false end,
 	--Z
 	[122] = function() myZ=true L.skipClick=true end,
 
