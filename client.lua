@@ -18,7 +18,7 @@ if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
-local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0,
+local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0, stick2=false,
 shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false}
 
 local tptversion = tpt.version.build
@@ -643,7 +643,6 @@ local function playerMouseClick(id,btn,ev)
 		end
 		createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,user)
 	elseif ev==2 and checkBut and user.drawtype then
-		--need to check alt on up!!!
 		if user.drawtype==2 then
 			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
@@ -941,6 +940,8 @@ local function connectThink()
 	--ping every minute
 	if os.time()>con.pingTime then conSend(2) con.pingTime=os.time()+60 end
 end
+--Track if we have STKM2 out, for WASD key changes
+elements.property(128,"Update",function() L.stick2=true end)
 
 local function drawStuff()
 	if con.members then
@@ -984,9 +985,10 @@ local function drawStuff()
 		end
 	end
 	for k,v in pairs(fadeText) do
-		local a = math.floor(255*(v.ticks/v.max))
-		tpt.drawtext(v.x,v.y,v.text,v.r,v.g,v.b,a)
-		if v.ticks > 0 then v.ticks = v.ticks-1
+		if v.ticks > 0 then
+			local a = math.floor(255*(v.ticks/v.max))
+			tpt.drawtext(v.x,v.y,v.text,v.r,v.g,v.b,a)
+			v.ticks = v.ticks-1
 		else if not v.keep then table.remove(fadeText,k) end
 		end
 	end
@@ -1051,6 +1053,9 @@ local function updatePlayers()
 			playerMouseMove(k)
 		end
 	end
+	--Keep last frame of stick2
+	L.lastStick2=L.stick2
+	L.stick2=false
 end
 
 local function step()
@@ -1234,7 +1239,7 @@ local keypressfuncs = {
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate end end,
 
 	--S, stamp
-	[115] = function() L.stamp=true end,
+	[115] = function() if L.lastStick2 and not L.ctrl then return end L.stamp=true end,
 
 	--U, ambient heat toggle
 	[117] = function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end,
@@ -1246,7 +1251,7 @@ local keypressfuncs = {
 	[120] = function() if L.ctrl then L.stamp=true L.copying=1 end end,
 
 	--W,Y disable (grav mode, air mode)
-	[119] = function() resetFade(infoText,"Grav modes not supported") return false end,
+	[119] = function() if L.lastStick2 and not L.ctrl then return end resetFade(infoText,"Grav modes not supported") return false end,
 	[121] = function() resetFade(infoText,"Air modes not supported") return false end,
 	--Z
 	[122] = function() myZ=true L.skipClick=true end,
