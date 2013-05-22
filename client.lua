@@ -476,7 +476,6 @@ new=function(x,y,w,h)
 	end,
 	join = function(self,msg,args)
 		if args[1] then joinChannel(args[1]) end
-
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
@@ -503,10 +502,10 @@ local fadeText = {}
 --A little text that fades away, (align text (left/center/right)?)
 local function newFadeText(text,frames,x,y,r,g,b,noremove)
 	local t = {ticks=frames,max=frames,text=text,x=x,y=y,r=r,g=g,b=b,keep=noremove}
+	t.reset = function(self,text) self.ticks=self.max if text then self.text=text end end
 	table.insert(fadeText,t)
 	return t
 end
-local function resetFade(fade,text) fade.ticks=fade.max if text then fade.text=text end end
 --Some text locations for repeated usage
 local infoText = newFadeText("",30,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
@@ -774,7 +773,7 @@ local dataCmds = {
 	[48] = function()
 		local id = cByte()
 		tpt.display_mode(cByte())
-		resetFade(cmodeText,con.members[id].name.." set:")
+		cmodeText:reset(con.members[id].name.." set:")
 	end,
 	--pause set (1 byte state)
 	[49] = function()
@@ -782,7 +781,7 @@ local dataCmds = {
 		local p,str = cByte(),"Pause"
 		tpt.set_pause(p)
 		if p==0 then str="Unpause" end
-		resetFade(infoText,str.." from "..con.members[id].name)
+		infoText:reset(str.." from "..con.members[id].name)
 	end,
 	--step frame, no args
 	[50] = function()
@@ -795,7 +794,7 @@ local dataCmds = {
 	[51] = function()
 		local id = cByte()
 		tpt.decorations_enable(cByte())
-		resetFade(cmodeText,con.members[id].name.." set:")
+		cmodeText:reset(con.members[id].name.." set:")
 	end,
 	--[[HUD mode, (1 byte state), deprecated
 	[52] = function()
@@ -869,7 +868,7 @@ local dataCmds = {
 	[63] = function()
 		local id = cByte()
 		sim.clearSim()
-		resetFade(infoText,con.members[id].name.." cleared the screen")
+		infoText:reset(con.members[id].name.." cleared the screen")
 	end,
 
 	--[[
@@ -894,7 +893,7 @@ local dataCmds = {
 		local x,y =((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
 		local d = cByte()*65536+cByte()*256+cByte()
 		loadStamp(d,x,y,false)
-		resetFade(infoText,"Stamp from "..con.members[id].name)
+		infoText:reset("Stamp from "..con.members[id].name)
 	end,
 	--Clear an area, helper for cut (6 bytes, start(3), end(3))
 	[67] = function()
@@ -1075,7 +1074,7 @@ local tpt_buttons = {
 	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
 	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() --[[activate a run once display mode check on next step]] end},
-	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if con.connected then resetFade(infoText,"Browser not supported") return false end end},
+	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if con.connected then infoText:reset("Browser not supported") return false end end},
 }
 if jacobsmod then
 	tpt_buttons["clear"] = {x1=486, y1=404, x2=502, y2=423, f=function() conSend(63) end}
@@ -1084,7 +1083,7 @@ if jacobsmod then
 	tpt_buttons["newt"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end}
 	tpt_buttons["ambh"] = {x1=613, y1=81, x2=627, y2=95, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end}
 	tpt_buttons["disp"] = {x1=597, y1=404, x2=611, y2=423, f=function() --[[activate a run once display mode check on next step]] end}
-	tpt_buttons["open"] = {x1=0, y1=404, x2=17, y2=423, f=function() if con.connected then resetFade(infoText,"Browser not supported") return false end end}
+	tpt_buttons["open"] = {x1=0, y1=404, x2=17, y2=423, f=function() if con.connected then infoText:reset("Browser not supported") return false end end}
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
@@ -1251,8 +1250,8 @@ local keypressfuncs = {
 	[120] = function() if L.ctrl then L.stamp=true L.copying=1 end end,
 
 	--W,Y disable (grav mode, air mode)
-	[119] = function() if L.lastStick2 and not L.ctrl then return end resetFade(infoText,"Grav modes not supported") return false end,
-	[121] = function() resetFade(infoText,"Air modes not supported") return false end,
+	[119] = function() if L.lastStick2 and not L.ctrl then return end infoText:reset("Grav modes not supported") return false end,
+	[121] = function() infoText:reset("Air modes not supported") return false end,
 	--Z
 	[122] = function() myZ=true L.skipClick=true end,
 
