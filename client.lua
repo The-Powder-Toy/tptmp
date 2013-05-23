@@ -1,5 +1,5 @@
 --TODO's
---Custom graphics mode check after button clicked
+--I don't know anymore...
 -------------------------------------------------------
 
 --CHANGES:
@@ -606,6 +606,18 @@ local function rectSnapCoords(x1,y1,x2,y2)
 	ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
 	return nx,ny
 end
+local renModes = {[4278252144]=1,[67171201]=2,[62338]=4,[62344]=8,[62340]=16,[16774016]=32,[1]=4278252144,[2]=67171201,[4]=62338,[8]=62344,[16]=62340,[32]=16774016}
+local function getViewModes()
+	local t={0,0,0}
+	for k,v in pairs(ren.displayModes()) do
+		t[1] = t[1]+v
+	end
+	for k,v in pairs(ren.renderModes()) do
+		t[2] = t[2]+renModes[v]
+	end
+	t[3] = ren.colorMode()
+	return t
+end
 
 --clicky click
 local function playerMouseClick(id,btn,ev)
@@ -870,17 +882,19 @@ local dataCmds = {
 		sim.clearSim()
 		infoText:reset(con.members[id].name.." cleared the screen")
 	end,
-
-	--[[
-	--Full graphics view mode (for manual changes in display menu) (3 bytes?)
+	--Full graphics view mode (for manual changes in display menu) (3 bytes)
 	[64] = function()
 		local id = cByte()
-		--do stuff with these
-		--ren.displayModes()
-		--ren.renderModes()
-		--ren.colorMode
+		local disM,renM,colM = cByte(),cByte(),cByte()
+		ren.displayModes({disM})
+		local t,i={},1
+		while i<=32 do
+			if bit.band(renM,i) then table.insert(t,renModes[i]) end
+			i=i*2
+		end
+		ren.renderModes(t)
+		ren.colorMode(colM)
 	end,
-	--]]
 	--Selected deco colour (4 bytes)
 	[65] = function()
 		local id = cByte()
@@ -1045,6 +1059,17 @@ local function sendStuff()
 		conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
 		L.sendScreen=false
 	end
+	if L.checkRen then
+		--Check if custom modes were changed
+		L.checkRen=false
+		local t,send=getViewModes(),false
+		for k,v in pairs(t) do
+			if v~=L.pModes[k] then
+				send=true break
+			end
+		end
+		if send then conSend(64,string.char(t[1],t[2],t[3])) end
+	end
 end
 local function updatePlayers()
 	if con.members then
@@ -1073,7 +1098,7 @@ local tpt_buttons = {
 	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end},
 	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
 	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
-	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() --[[activate a run once display mode check on next step]] end},
+	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
 	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if con.connected then infoText:reset("Browser not supported") return false end end},
 }
 if jacobsmod then
@@ -1082,7 +1107,7 @@ if jacobsmod then
 	tpt_buttons["deco"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end}
 	tpt_buttons["newt"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end}
 	tpt_buttons["ambh"] = {x1=613, y1=81, x2=627, y2=95, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end}
-	tpt_buttons["disp"] = {x1=597, y1=404, x2=611, y2=423, f=function() --[[activate a run once display mode check on next step]] end}
+	tpt_buttons["disp"] = {x1=597, y1=404, x2=611, y2=423, f=function() L.checkRen=true L.pModes=getViewModes() end}
 	tpt_buttons["open"] = {x1=0, y1=404, x2=17, y2=423, f=function() if con.connected then infoText:reset("Browser not supported") return false end end}
 end
 
@@ -1090,7 +1115,6 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
 	if L.skipClick then L.skipClick=false return true end
 	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
-
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 then
 			--initial stamp coords
