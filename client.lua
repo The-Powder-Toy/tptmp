@@ -935,7 +935,7 @@ local dataCmds = {
 	[128] = function()
 		local id = cByte()
 		local n = "stamps/"..sim.saveStamp(0,0,611,383)..".stm"
-		local f = assert(io.open(n))
+		local f = assert(io.open(n,"rb"))
 		local s = f:read"*a"
 		f:close()
 		os.remove(n)
@@ -1062,7 +1062,7 @@ local function sendStuff()
 			L.copying=false
 		end
 		local n = "stamps/"..sim.saveStamp(x,y,w,h)..".stm"
-		local f = assert(io.open(n))
+		local f = assert(io.open(n,"rb"))
 		local s = f:read"*a"
 		f:close()
 		os.remove(n)
@@ -1148,7 +1148,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 				local stm = "stamps/"..sim.saveStamp(L.stampx,L.stampy,w,h)..".stm"
 				sx,sy,L.stampx,L.stampy = math.ceil((sx+1)/4)*4,math.ceil((sy+1)/4)*4,math.floor(L.stampx/4)*4,math.floor(L.stampy/4)*4
 				w,h = sx-L.stampx, sy-L.stampy
-				local f = assert(io.open(stm))
+				local f = assert(io.open(stm,"rb"))
 				if L.copying then L.lastCopy = {data=f:read"*a",w=w,h=h} else L.lastStamp = {data=f:read"*a",w=w,h=h} end
 				f:close()
 				os.remove(stm)
