@@ -1,8 +1,10 @@
 --TODO's
---I don't know anymore...
+--Force the russian to complete the ui
+--A few more helpful api functions (save ID get and load it)
 -------------------------------------------------------
 
 --CHANGES:
+--Use newer api functions, option menu settings sync when closed.
 --Stamp functions sync, using a stamp from 'k' will send full screen, alt snap
 --Lots of new api functions, nearly everything syncs
 --Most things synced.  Awaiting new tpt api functions for full sync
@@ -22,7 +24,6 @@ local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mBu
 shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false}
 
 local tptversion = tpt.version.build
-local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
 local username = tpt.get_name()
 if username=="" then error"Please Identify" end
@@ -115,8 +116,8 @@ local function getArgs(msg)
 end
 
 --get different lists for other language keyboards
-local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'¿¿¿¿¿¿¿¿¿¿¿¿¿¿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#¿¿¿¿¿¿¿%&/()=?;:_*`^>",}  }
-local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'¿¿¿¿¿¿¿<",after=" qwertyuiopasdfghjklzxcvbnm1@¿¿¿¿¿¿¿$¿6{[]}\\,.-'~|",},}
+local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#Â¿Â¿Â¿Â¿Â¿Â¿Â¿%&/()=?;:_*`^>",}  }
+local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Â¿Â¿Â¿Â¿Â¿Â¿Â¿<",after=" qwertyuiopasdfghjklzxcvbnm1@Â¿Â¿Â¿Â¿Â¿Â¿Â¿$Â¿6{[]}\\,.-'~|",},}
 
 local function shift(s)
 	if keyboardshift[KEYBOARD]~=nil then
@@ -526,6 +527,8 @@ local eleNameTable = {
 ["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_VAC"] = 302,["DEFAULT_TOOL_AIR"] = 303,["DEFAULT_TOOL_GRAV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,
 ["DEFAULT_DECOR_SET"] = 306,["DEFAULT_DECOR_ADD"] = 307,["DEFAULT_DECOR_SUB"] = 308,["DEFAULT_DECOR_MUL"] = 309,["DEFAULT_DECOR_DIV"] = 310,["DEFAULT_DECOR_SMDG"] = 311,["DEFAULT_DECOR_CLR"] = 312,
 }
+local gravList= {[0]="Vertical",[1]="Off",[2]="Radial"}
+local airList= {[0]="On",[1]="Pressure Off",[2]="Velocity Off",[3]="Off",[4]="No Update"}
 local golStart,golEnd=256,279
 local wallStart,wallEnd=280,295
 local toolStart,toolEnd=300,305
@@ -837,25 +840,29 @@ local dataCmds = {
 	--legacy heat mode, (1 byte state)
 	[56] = function()
 		local id = cByte()
-		tpt.heat(cByte())
+		tpt.heat(cByte()==1 and 0 or 1)--tpt.heat in v88 beta is reversed, remove switch later
 	end,
-	--water equal, can ONLY toggle, could lose sync (no args)
+	--water equal, (1 byte state)
 	[57] = function()
 		local id = cByte()
-		tpt.watertest()
+		sim.waterEqualisation(cByte())
 	end,
-	--[[
-	--grav mode, (1 byte state) can't implement yet
+	
+	--grav mode, (1 byte state)
 	[58] = function()
 		local id = cByte()
-		tpt.something_gravmode(cByte())
+		local mode = cByte()
+		sim.gravityMode(mode)
+		cmodeText:reset(con.members[id].name.." set: Gravity: "..gravList[mode])
 	end,
-	--air mode, (1 byte state) can't implement yet
+	--air mode, (1 byte state)
 	[59] = function()
 		local id = cByte()
-		tpt.something_airmode(cByte())
+		local mode=cByte()
+		sim.airMode(mode)
+		cmodeText:reset(con.members[id].name.." set: Air: "..airList[mode])
 	end,
-	--]]
+	
 	--clear sparks (no args)
 	[60] = function()
 		local id = cByte()
@@ -918,6 +925,11 @@ local dataCmds = {
 		--clear walls and parts
 		createBoxAny(x1,y1,x2,y2,280)
 		createBoxAny(x1,y1,x2,y2,0)
+	end,
+	--Edge mode (1 byte state)
+	[68] = function()
+		local id = cByte()
+		sim.edgeMode(cByte())
 	end,
 	--A request to send stamp, from server
 	[128] = function()
@@ -1070,6 +1082,17 @@ local function sendStuff()
 		end
 		if send then conSend(64,string.char(t[1],t[2],t[3])) end
 	end
+	if L.checkOpt then
+		--Sync all option menu possibilities
+		L.checkOpt=false
+		conSend(56,string.char(tpt.heat()))
+		conSend(53,string.char(tpt.ambient_heat()))
+		conSend(54,string.char(tpt.newtonian_gravity()))
+		conSend(57,string.char(sim.waterEqualisation()))
+		conSend(58,string.char(sim.gravityMode()))
+		conSend(59,string.char(sim.airMode()))
+		conSend(68,string.char(sim.edgeMode()))
+	end
 end
 local function updatePlayers()
 	if con.members then
@@ -1094,22 +1117,14 @@ end
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
 	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() conSend(63) end},
+	["opts"] = {x1=581, y1=408, x2=595, y2=422, f=function() L.checkOpt=true end},
+	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
 	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end},
 	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end},
 	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
 	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
-	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
-	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if con.connected then infoText:reset("Browser not supported") return false end end},
+	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if con.connected then infoText:reset("Browser support coming soon.") return false end end},
 }
-if jacobsmod then
-	tpt_buttons["clear"] = {x1=486, y1=404, x2=502, y2=423, f=function() conSend(63) end}
-	tpt_buttons["pause"] = {x1=613, y1=404, x2=627, y2=423, f=function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end}
-	tpt_buttons["deco"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end}
-	tpt_buttons["newt"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end}
-	tpt_buttons["ambh"] = {x1=613, y1=81, x2=627, y2=95, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end}
-	tpt_buttons["disp"] = {x1=597, y1=404, x2=611, y2=423, f=function() L.checkRen=true L.pModes=getViewModes() end}
-	tpt_buttons["open"] = {x1=0, y1=404, x2=17, y2=423, f=function() if con.connected then infoText:reset("Browser not supported") return false end end}
-end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
 	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
@@ -1273,9 +1288,9 @@ local keypressfuncs = {
 	--X, cut a copystamp and clear
 	[120] = function() if L.ctrl then L.stamp=true L.copying=1 end end,
 
-	--W,Y disable (grav mode, air mode)
-	[119] = function() if L.lastStick2 and not L.ctrl then return end infoText:reset("Grav modes not supported") return false end,
-	[121] = function() infoText:reset("Air modes not supported") return false end,
+	--W,Y (grav mode, air mode)
+	[119] = function() if L.lastStick2 and not L.ctrl then return end conSend(58,string.char((sim.gravityMode()+1)%3)) return true end,
+	[121] = function() conSend(59,string.char((sim.airMode()+1)%5)) return true end,
 	--Z
 	[122] = function() myZ=true L.skipClick=true end,
 
@@ -1318,4 +1333,3 @@ end
 tpt.register_keypress(keyclicky)
 tpt.register_mouseclick(mouseclicky)
 tpt.register_step(step)
-
