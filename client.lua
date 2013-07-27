@@ -26,7 +26,7 @@ shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false, pa
 local tptversion = tpt.version.build
 math.randomseed(os.time())
 local username = tpt.get_name()
-if username=="" then error"Please Identify" end
+if username=="" then error"Please Login" end
 local con = {connected = false,
 		 socket = nil,
 		 members = nil,
@@ -609,7 +609,7 @@ local function rectSnapCoords(x1,y1,x2,y2)
 	ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
 	return nx,ny
 end
-local renModes = {[4278252144]=1,[67171201]=2,[62338]=4,[62344]=8,[62340]=16,[16774016]=32,[1]=4278252144,[2]=67171201,[4]=62338,[8]=62344,[16]=62340,[32]=16774016}
+local renModes = {[-16715152]=1,[4278252144]=1,[67171201]=2,[62338]=4,[62344]=8,[62340]=16,[16774016]=32,[1]=4278252144,[2]=67171201,[4]=62338,[8]=62344,[16]=62340,[32]=16774016}
 local function getViewModes()
 	local t={0,0,0}
 	for k,v in pairs(ren.displayModes()) do
@@ -896,7 +896,7 @@ local dataCmds = {
 		ren.displayModes({disM})
 		local t,i={},1
 		while i<=32 do
-			if bit.band(renM,i) then table.insert(t,renModes[i]) end
+			if bit.band(renM,i)>0 then table.insert(t,renModes[i]) end
 			i=i*2
 		end
 		ren.renderModes(t)
@@ -949,6 +949,7 @@ local dataCmds = {
 		conSend(130,string.char(id,58,sim.gravityMode()))
 		conSend(130,string.char(id,59,sim.airMode()))
 		conSend(130,string.char(id,68,sim.edgeMode()))
+		conSend(64,string.char(unpack(getViewModes())))
 	end,
 	--Recieve sync stamp
 	[129] = function()
