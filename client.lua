@@ -931,9 +931,10 @@ local dataCmds = {
 		local id = cByte()
 		sim.edgeMode(cByte())
 	end,
-	--A request to send stamp, from server
+	--A request to sync a player, from server, send screen, and various settings
 	[128] = function()
 		local id = cByte()
+		conSend(130,string.char(id,49,tpt.set_pause()))
 		local n = "stamps/"..sim.saveStamp(0,0,611,383)..".stm"
 		local f = assert(io.open(n,"rb"))
 		local s = f:read"*a"
@@ -941,6 +942,13 @@ local dataCmds = {
 		os.remove(n)
 		local d = #s
 		conSend(128,string.char(id,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
+		conSend(130,string.char(id,53,tpt.ambient_heat()))
+		conSend(130,string.char(id,54,tpt.newtonian_gravity()))
+		conSend(130,string.char(id,56,tpt.heat()))
+		conSend(130,string.char(id,57,sim.waterEqualisation()))
+		conSend(130,string.char(id,58,sim.gravityMode()))
+		conSend(130,string.char(id,59,sim.airMode()))
+		conSend(130,string.char(id,68,sim.edgeMode()))
 	end,
 	--Recieve sync stamp
 	[129] = function()
