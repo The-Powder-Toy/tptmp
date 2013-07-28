@@ -479,7 +479,7 @@ new=function(x,y,w,h)
 		if args[1] then joinChannel(args[1]) end
 	end,
 	sync = function(self,msg,args)
-		if con.connected then L.sendScreen=true end
+		if con.connected then L.sendScreen=true end --need to send 67 clear screen
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
@@ -890,6 +890,7 @@ local dataCmds = {
 	[63] = function()
 		local id = cByte()
 		sim.clearSim()
+		L.lastSave=nil
 		infoText:reset(con.members[id].name.." cleared the screen")
 	end,
 	--Full graphics view mode (for manual changes in display menu) (3 bytes)
@@ -938,7 +939,15 @@ local dataCmds = {
 	[69] = function()
 		local id = cByte()
 		local saveID = cByte()*65536+cByte()*256+cByte()
+		L.lastSave=saveID
 		sim.loadSave(saveID,1)
+		L.browseMode=3
+	end,
+	--Reload sim(from a stamp right now, no args)
+	[70] = function()
+		local id = cByte()
+		sim.clearSim()
+		sim.loadStamp("stamps/tmp.stm",0,0)
 	end,
 	--A request to sync a player, from server, send screen, and various settings
 	[128] = function()
@@ -1074,11 +1083,17 @@ local function sendStuff()
 	if L.browseMode==1 then
 		local id=sim.getSaveID()
 		if L.lastSave~=id then
+			L.lastSave=id
+			os.remove("stamps/tmp.stm") os.rename("stamps/"..sim.saveStamp(0,0,611,383)..".stm","stamps/tmp.stm")
 			conSend(69,string.char(math.floor(id/65536),math.floor(id/256)%256,id%256))
 		end
 		L.browseMode=nil
 	elseif L.browseMode==2 then
 		L.sendScreen=true
+		L.browseMode=nil
+	elseif L.browseMode==3 and L.lastSave==sim.getSaveID() then
+		--save this as a stamp for reloading (unless an api function exists to do this)
+		os.remove("stamps/tmp.stm") os.rename("stamps/"..sim.saveStamp(0,0,611,383)..".stm","stamps/tmp.stm")
 		L.browseMode=nil
 	end
 	
@@ -1151,14 +1166,15 @@ end
 
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
-	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() conSend(63) end},
+	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end},
+	["rload"] = {x1=19, y1=408, x2=355, y2=422, f=function() if L.lastSave then if L.ctrl then infoText:reset("If you re-opened the save, please type /sync") else conSend(70) end else infoText:reset("Reloading local saves is not synced currently. Type /sync") end end},
+	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() conSend(63) L.lastSave=nil end},
 	["opts"] = {x1=581, y1=408, x2=595, y2=422, f=function() L.checkOpt=true end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
 	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end},
 	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end},
 	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
 	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
-	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end},
 }
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
