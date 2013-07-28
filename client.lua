@@ -478,6 +478,9 @@ new=function(x,y,w,h)
 	join = function(self,msg,args)
 		if args[1] then joinChannel(args[1]) end
 	end,
+	sync = function(self,msg,args)
+		if con.connected then L.sendScreen=true end
+	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
 		local text = self.inputbox:textprocess(key,nkey,modifier,event)
@@ -931,6 +934,12 @@ local dataCmds = {
 		local id = cByte()
 		sim.edgeMode(cByte())
 	end,
+	--Load a save ID (3 bytes ID)
+	[69] = function()
+		local id = cByte()
+		local saveID = cByte()*65536+cByte()*256+cByte()
+		sim.loadSave(saveID,1)
+	end,
 	--A request to sync a player, from server, send screen, and various settings
 	[128] = function()
 		local id = cByte()
@@ -1060,6 +1069,20 @@ local function sendStuff()
 		L.dcolour=ncol
 		conSend(65,string.char(math.floor(ncol/16777216),math.floor(ncol/65536)%256,math.floor(ncol/256)%256,ncol%256))
     end
+	
+	--Tell others to open this save ID, or send screen if opened local browser
+	if L.browseMode==1 then
+		local id=sim.getSaveID()
+		if L.lastSave~=id then
+			conSend(69,string.char(math.floor(id/65536),math.floor(id/256)%256,id%256))
+		end
+		L.browseMode=nil
+	elseif L.browseMode==2 then
+		L.sendScreen=true
+		L.browseMode=nil
+	end
+	
+	--Send screen (or an area for known size) for stamps
 	if L.sendScreen then
 		local x,y,w,h = 0,0,611,383
 		if L.smoved then
@@ -1080,8 +1103,9 @@ local function sendStuff()
 		conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
 		L.sendScreen=false
 	end
+	
+	--Check if custom modes were changed
 	if L.checkRen then
-		--Check if custom modes were changed
 		L.checkRen=false
 		local t,send=getViewModes(),false
 		for k,v in pairs(t) do
@@ -1091,8 +1115,9 @@ local function sendStuff()
 		end
 		if send then conSend(64,string.char(t[1],t[2],t[3])) end
 	end
+	
+	--Send option menu settings
 	if L.checkOpt then
-		--Sync all option menu possibilities
 		L.checkOpt=false
 		conSend(56,string.char(tpt.heat()))
 		conSend(53,string.char(tpt.ambient_heat()))
@@ -1102,6 +1127,7 @@ local function sendStuff()
 		conSend(59,string.char(sim.airMode()))
 		conSend(68,string.char(sim.edgeMode()))
 	end
+
 end
 local function updatePlayers()
 	if con.members then
@@ -1132,7 +1158,7 @@ local tpt_buttons = {
 	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end},
 	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
 	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
-	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if con.connected then infoText:reset("Browser support coming soon.") return false end end},
+	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end},
 }
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
