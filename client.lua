@@ -428,8 +428,14 @@ new=function(x,y,w,h)
 	end)
 	function chat:addline(line,r,g,b)
 		if not line or line=="" then return end --No blank lines
-		table.insert(self.lines,ui_text.newscroll(line,self.x,0,self.max_width,false,r,g,b))
-		if #self.lines>self.max_lines then table.remove(self.lines,1) end
+		local linebreak=0
+		for i=0,#line do
+			if tpt.textwidth(line:sub(linebreak,i+1))>self.max_width or i==#line then
+				table.insert(self.lines,ui_text.new(line:sub(linebreak,i),self.x,0,r,g,b))
+				linebreak=i+1
+			end
+		end
+		while #self.lines>self.max_lines do table.remove(self.lines,1) end
 		self.scrollbar:update(#self.lines,self.shown_lines,#self.lines-self.shown_lines)
 	end
 	function chat:process(mx,my,button,event,wheel)
