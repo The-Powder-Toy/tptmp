@@ -1,10 +1,11 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
---VER 0.5 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
+--VER 0.51 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
  
---Version 0.5
+--Version 0.51
 
 --TODO's
+--FIGH,STKM,STK2,LIGH need a few more creation adjustments
 --Some more server functions
 --Force the russian to remake the ui
 --A few more helpful api functions (save ID get and load it)
@@ -123,8 +124,8 @@ local function getArgs(msg)
 end
 
 --get different lists for other language keyboards
-local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿%&/()=?;:_*`^>",}  }
-local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿<",after=" qwertyuiopasdfghjklzxcvbnm1@Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿$Ã‚Â¿6{[]}\\,.-'~|",},}
+local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#Â¿Â¿Â¿Â¿Â¿Â¿Â¿%&/()=?;:_*`^>",}  }
+local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Â¿Â¿Â¿Â¿Â¿Â¿Â¿<",after=" qwertyuiopasdfghjklzxcvbnm1@Â¿Â¿Â¿Â¿Â¿Â¿Â¿$Â¿6{[]}\\,.-'~|",},}
 
 local function shift(s)
 	if keyboardshift[KEYBOARD]~=nil then
@@ -563,6 +564,9 @@ local eleNameTable = {
 }
 local gravList= {[0]="Vertical",[1]="Off",[2]="Radial"}
 local airList= {[0]="On",[1]="Pressure Off",[2]="Velocity Off",[3]="Off",[4]="No Update"}
+local noFlood = {[15]=true,[55]=true,[87]=true,[128]=true,[158]=true}
+local noShape = {[55]=true,[87]=true,[128]=true,[158]=true}
+local createOverride = {[55]=function(x,y,rx,ry,c,brush) sim.createParts(x,y,0,0,c,brush) end ,[87]=function(x,y,rx,ry,c,brush) sim.createParts(x,y,0,0,c,brush) end,[128]=function(x,y,rx,ry,c,brush) sim.createParts(x,y,0,0,c,brush) end,[158]=function(x,y,rx,ry,c,brush) sim.createParts(x,y,0,0,c,brush) end}
 local golStart,golEnd=256,279
 local wallStart,wallEnd=280,295
 local toolStart,toolEnd=300,305
@@ -570,6 +574,7 @@ local decoStart,decoEnd=306,312
 
 --Functions that do stuff in powdertoy
 local function createBoxAny(x1,y1,x2,y2,c,user)
+	if noShape[c] then return end
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWallBox(x1,y1,x2,y2,c-wallStart)
@@ -597,9 +602,11 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
+	if createOverride[c] then createOverride[c](x,y,rx,ry,c,brush) return end
 	sim.createParts(x,y,rx,ry,c,brush)
 end
 local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
+	if noShape[c] then return end
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWallLine(x1,y1,x2,y2,rx,ry,c-wallStart,brush)
@@ -615,6 +622,7 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	sim.createLine(x1,y1,x2,y2,rx,ry,c,brush)
 end
 local function floodAny(x,y,c,cm,bm)
+	if noFlood[c] then return end
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.floodWalls(x,y,c-wallStart,cm,bm)
@@ -722,7 +730,7 @@ local function playerMouseMove(id)
 	end
 end
 local function loadStamp(size,x,y,reset)
-	con.socket:settimeout(nil)
+	con.socket:settimeout(3)
 	local s = con.socket:receive(size)
 	con.socket:settimeout(0)
 	local f = io.open(".tmp.stm","wb")
@@ -1045,12 +1053,10 @@ local function drawStuff()
 					tpt.drawrect(tpmx,tpmy,x-tpmx,y-tpmy,0,255,0,128)
 					drawBrush=false
 				elseif user.drawtype==3 then
-					for cross=1,5 do
-						tpt.drawpixel(x+cross,y,0,255,0,128)
-						tpt.drawpixel(x-cross,y,0,255,0,128)
-						tpt.drawpixel(x,y+cross,0,255,0,128)
-						tpt.drawpixel(x,y-cross,0,255,0,128)
-					end
+					tpt.drawline(x,y,x+5,y,0,255,0,128)
+					tpt.drawline(x,y,x-5,y,0,255,0,128)
+					tpt.drawline(x,y,x,y+5,0,255,0,128)
+					tpt.drawline(x,y,x,y-5,0,255,0,128)
 					drawBrush=false
 				end
 			end
@@ -1288,6 +1294,11 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		conSend(32,string.char(b1,b2,b3))
 		L.mousex,L.mousey = mousex,mousey
 	end
+	--Temporary SPRK floodfill crash block
+	if L.shift and L.ctrl and event == 1 and ((button == 1 and L.sell==15) or (button == 4 and L.selr==15) or (button == 2 and L.sela==15)) then
+		return false
+	end
+	
 	--Click inside button first
 	if button==1 then
 		if event==1 then
