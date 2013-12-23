@@ -1,5 +1,12 @@
+--Cracker64's Powder Toy Multiplayer
+--I highly recommend to use my Autorun Script Manager
+--VER 0.5 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
+ 
+--Version 0.5
+
 --TODO's
---Force the russian to complete the ui
+--Some more server functions
+--Force the russian to remake the ui
 --A few more helpful api functions (save ID get and load it)
 -------------------------------------------------------
 
@@ -20,7 +27,7 @@ if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
-local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0, stick2=false,
+local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=false, flashChat=false,
 shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false}
 
 local tptversion = tpt.version.build
@@ -116,8 +123,8 @@ local function getArgs(msg)
 end
 
 --get different lists for other language keyboards
-local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'¿¿¿¿¿¿¿¿¿¿¿¿¿¿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#¿¿¿¿¿¿¿%&/()=?;:_*`^>",}  }
-local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'¿¿¿¿¿¿¿<",after=" qwertyuiopasdfghjklzxcvbnm1@¿¿¿¿¿¿¿$¿6{[]}\\,.-'~|",},}
+local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿%&/()=?;:_*`^>",}  }
+local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿<",after=" qwertyuiopasdfghjklzxcvbnm1@Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿Ã‚Â¿$Ã‚Â¿6{[]}\\,.-'~|",},}
 
 local function shift(s)
 	if keyboardshift[KEYBOARD]~=nil then
@@ -406,8 +413,9 @@ new=function(x,y,w,h)
 	chat.lines = {}
 	chat.scrollbar = ui_scrollbar.new(chat.x2-2,chat.y+11,chat.h-22,0,chat.shown_lines)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
+	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true end,"->")
 	chat:drawadd(function(self)
-		tpt.drawtext(self.x+50,self.y+2,"Chat Box")
+		tpt.drawtext(self.x+85,self.y+2,"TPT Multiplayer")
 		tpt.drawline(self.x+1,self.y+10,self.x2-1,self.y+10,120,120,120)
 		self.scrollbar:draw()
 		local count=0
@@ -418,6 +426,7 @@ new=function(x,y,w,h)
 			end
 		end
 		self.inputbox:draw()
+		self.minimize:draw()
 	end)
 	chat:moveadd(function(self,x,y)
 		for i,line in ipairs(self.lines) do
@@ -425,6 +434,7 @@ new=function(x,y,w,h)
 		end
 		self.scrollbar:onmove(x,y)
 		self.inputbox:onmove(x,y)
+		self.minimize:onmove(x,y)
 	end)
 	function chat:addline(line,r,g,b)
 		if not line or line=="" then return end --No blank lines
@@ -437,8 +447,11 @@ new=function(x,y,w,h)
 		end
 		while #self.lines>self.max_lines do table.remove(self.lines,1) end
 		self.scrollbar:update(#self.lines,self.shown_lines,#self.lines-self.shown_lines)
+		if L.chatHidden then L.flashChat=true end
 	end
 	function chat:process(mx,my,button,event,wheel)
+		if L.chatHidden then return false end
+		self.minimize:process(mx,my,button,event,wheel)
 		if self.moving and event==3 then
 			local newx,newy = mx-self.relx,my-self.rely
 			local ax,ay = 0,0
@@ -489,18 +502,27 @@ new=function(x,y,w,h)
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
+		if L.chatHidden then return false end
 		local text = self.inputbox:textprocess(key,nkey,modifier,event)
 		if text then
 			local cmd = text:match("^/([^%s]+)")
 			if cmd then
 				local rest=text:sub(#cmd+3)
 				local args = getArgs(rest)
-				self:addline("CMD: "..cmd.." "..rest)
-				if chatcommands[cmd] then chatcommands[cmd](self,msg,args) end
+				if chatcommands[cmd] then
+					chatcommands[cmd](self,msg,args)
+					self:addline("Executed "..cmd.." "..rest)
+				else
+					self:addline("No such command: "..cmd.." "..rest,200,200,0)
+				end
 			else
 				--normal chat
-				conSend(19,text,true)
-				self:addline(username .. ": ".. text) 
+				if con.connected then
+					conSend(19,text,true)
+					self:addline(username .. ": ".. text,230,230,230)
+				else
+					self:addline("Not connected to server!",200,200,0)
+				end
 			end
 		end
 		if text==false then return false end
@@ -520,7 +542,10 @@ end
 local infoText = newFadeText("",30,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-chatwindow = ui_chatbox.new(100,100,150,200)
+local showbutton = ui_button.new(613,118,15,15,function() L.chatHidden=false L.flashChat=false end,"<<")
+local flashCount=0
+showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
+local chatwindow = ui_chatbox.new(100,100,250,200)
 chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
 
 local eleNameTable = {
@@ -1162,7 +1187,8 @@ local function updatePlayers()
 end
 
 local function step()
-	chatwindow:draw()
+	
+	if not L.chatHidden then chatwindow:draw() else showbutton:draw() end
 	drawStuff()
 	sendStuff()
 	if L.pauseNextFrame then L.pauseNextFrame=false tpt.set_pause(1) end
@@ -1186,6 +1212,7 @@ local tpt_buttons = {
 local function mouseclicky(mousex,mousey,button,event,wheel)
 	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
 	if L.skipClick then L.skipClick=false return true end
+	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) end
 	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 then
@@ -1390,3 +1417,4 @@ end
 tpt.register_keypress(keyclicky)
 tpt.register_mouseclick(mouseclicky)
 tpt.register_step(step)
+chatwindow:addline("TPTMP v0.5: Type '/connect' to join server.",200,200,200)
