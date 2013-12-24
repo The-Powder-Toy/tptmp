@@ -1,10 +1,11 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
---VER 0.51 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
+--VER 0.52 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
  
---Version 0.51
+--Version 0.52
 
 --TODO's
+--Support replace mode
 --FIGH,STKM,STK2,LIGH need a few more creation adjustments
 --Some more server functions
 --Force the russian to remake the ui
@@ -1343,6 +1344,10 @@ local keypressfuncs = {
 	[55] = function() conSend(48,"\6") end,
 	[56] = function() conSend(48,"\7") end,
 	[57] = function() conSend(48,"\8") end,
+	
+	--replace mode, TODO: implement
+	[59] = function() infoText:reset("Replace mode not supported currently") return false end,
+	[277] = function() infoText:reset("Replace mode not supported currently") return false end,
 	
 	--= key, pressure/spark reset
 	[61] = function() if L.ctrl then conSend(60) else conSend(61) end end,
