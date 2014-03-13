@@ -61,6 +61,8 @@ local function joinChannel(chan)
 end
 local function connectToMniip(ip,port)
 	if con.connected then return false,"Already connected" end
+	local newusername = tpt.get_name()
+	if newusername~="" then username = newusername end
 	ip = ip or "pwc-servers.com"
 	port = port or PORT
 	local sock = socket.tcp()
@@ -1473,7 +1475,7 @@ local keypressfuncs = {
 	--[100] = function() conSend(55) end,
 	
 	--F , frame step
-	[102] = function() conSend(50) end,
+	[102] = function() if not jacobsmod or not L.ctrl then conSend(50) end end,
 
 	--I , invert pressure
 	[105] = function() conSend(62) end,
