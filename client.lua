@@ -1,8 +1,9 @@
+
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
---VER 0.52 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
+--VER 0.6 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
  
---Version 0.52
+--Version 0.6
 
 --TODO's
 --Support replace mode
@@ -13,29 +14,28 @@
 -------------------------------------------------------
 
 --CHANGES:
---Use newer api functions, option menu settings sync when closed.
---Stamp functions sync, using a stamp from 'k' will send full screen, alt snap
---Lots of new api functions, nearly everything syncs
---Most things synced.  Awaiting new tpt api functions for full sync
---It connects to server! and chat
---Basic inputbox
---Basic chat box, moving window
---Cleared everything
+--More colors!
+--ESC key will unfocus, then minimize chat
+--Changes from jacob, including: Support jacobsMod, keyrepeat
 
 local issocket,socket = pcall(require,"socket")
-if not sim.loadSave then error"Tpt version not supported" end
+if not sim.loadStamp then error"Tpt version not supported" end
 if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
+local hooks_enabled = false --hooks only enabled once you maximize the button
 
 local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
-local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=false, flashChat=false,
-shift=false, alt=false, ctrl=false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false}
+local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
+shift=false, alt=false, ctrl=false, tabs = false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false}
 
 local tptversion = tpt.version.build
+local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
 local username = tpt.get_name()
-if username=="" then error"Please Login" end
+if username=="" then
+	username = "Guest"..math.random(10000,99999)
+end
 local con = {connected = false,
 		 socket = nil,
 		 members = nil,
@@ -46,7 +46,9 @@ local function conSend(cmd,msg,endNull)
 	if endNull then msg = msg.."\0" end
 	if cmd then msg = string.char(cmd)..msg end
 	--print("sent "..msg)
+	con.socket:settimeout(2.9)
 	con.socket:send(msg)
+	con.socket:settimeout(0)
 end
 local function joinChannel(chan)
 	conSend(16,chan,true)
@@ -125,8 +127,8 @@ local function getArgs(msg)
 end
 
 --get different lists for other language keyboards
-local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿Â¿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#Â¿Â¿Â¿Â¿Â¿Â¿Â¿%&/()=?;:_*`^>",}  }
-local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'Â¿Â¿Â¿Â¿Â¿Â¿Â¿<",after=" qwertyuiopasdfghjklzxcvbnm1@Â¿Â¿Â¿Â¿Â¿Â¿Â¿$Â¿6{[]}\\,.-'~|",},}
+local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'߿߿߿߿߿߿߿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#߿߿߿ߥ&/()=?;:_*`^>",}  }
+local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'߿߿߿߼",after=" qwertyuiopasdfghjklzxcvbnm1@߿߿߿ߤ߶{[]}\\,.-'~|",},}
 
 local function shift(s)
 	if keyboardshift[KEYBOARD]~=nil then
@@ -295,23 +297,24 @@ new=function(x,y,w,h)
 		if self.cursor<0 then self.cursor = 0 return end
 	end
 	function intext:textprocess(key,nkey,modifier,event)
-		local modi = (modifier%1024)
-		if not self.focus then return false end
+		if not self.focus then return end
 		if event~=1 then return end
+		if nkey==27 then self:setfocus(false) return true end
 		if nkey==13 then local text=self.t.text self.cursor=0 self.t.text="" return text end --enter
+		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
+		if nkey==276 then self:movecursor(-1) self.t:update(nil,self.cursor) return true end --left
+		local modi = (modifier%1024)
 		local newstr
-		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return end --right
-		if nkey==276 then self:movecursor(-1) self.t:update(nil,self.cursor) return end --left
-		if nkey==8 then newstr=self.t.text:sub(1,self.cursor-1) .. self.t.text:sub(self.cursor+1) self:movecursor(-1) --back
+		if nkey==8 and self.cursor > 0 then newstr=self.t.text:sub(1,self.cursor-1) .. self.t.text:sub(self.cursor+1) self:movecursor(-1) --back
 		elseif nkey==127 then newstr=self.t.text:sub(1,self.cursor) .. self.t.text:sub(self.cursor+2) --delete
 		else 
-			if nkey<32 or nkey>=127 then return end --normal key
+			if nkey<32 or nkey>=127 then return true end --normal key
 			local addkey = (modi==1 or modi==2) and shift(key) or key
 			if (math.floor(modi/512))==1 then addkey=altgr(key) end
 			newstr = self.t.text:sub(1,self.cursor) .. addkey .. self.t.text:sub(self.cursor+1)
 			self.t:update(newstr,self.cursor+1)
 			self:movecursor(1)
-			return
+			return true
 		end
 		if newstr then
 			self.t:update(newstr,self.cursor)
@@ -415,7 +418,7 @@ new=function(x,y,w,h)
 	chat.lines = {}
 	chat.scrollbar = ui_scrollbar.new(chat.x2-2,chat.y+11,chat.h-22,0,chat.shown_lines)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
-	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true end,"->")
+	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true end,">>")
 	chat:drawadd(function(self)
 		tpt.drawtext(self.x+85,self.y+2,"TPT Multiplayer")
 		tpt.drawline(self.x+1,self.y+10,self.x2-1,self.y+10,120,120,120)
@@ -471,16 +474,17 @@ new=function(x,y,w,h)
 		self.scrollbar:process(mx,my,button,event,wheel)
 		local which = math.floor((my-self.y)/10)
 		if event==1 and which==0 then self.moving=true self.lastx=mx self.lasty=my self.relx=mx-self.x self.rely=my-self.y return true end
-		if which==self.shown_lines+1 then self.inputbox:setfocus(true) return true else self.inputbox:setfocus(false) end --trigger input_box
+		if event==1 and which==self.shown_lines+1 then self.inputbox:setfocus(true) return true elseif self.inputbox.focus then return true end --trigger input_box
 		if which>0 and which<self.shown_lines+1 and self.lines[which+self.scrollbar.pos] then self.lines[which+self.scrollbar.pos]:process(mx,my,button,event,wheel) end
-		return true
+		return event==1
 	end
 	--commands for chat window
 	chatcommands = {
 	connect = function(self,msg,args)
 		if not issocket then self:addline("No luasockets found") return end
+		tpt.version.minor = 0
 		local s,r = connectToMniip(args[1],tonumber(args[2]))
-		if not s then self:addline(r) end
+		if not s then self:addline(r,255,50,50) end
 	end,
 	send = function(self,msg,args)
 		if tonumber(args[1]) and args[2] then
@@ -492,20 +496,41 @@ new=function(x,y,w,h)
 	end,
 	quit = function(self,msg,args)
 		con.socket:close()
-		self:addline("Disconnected")
+		self:addline("Disconnected",255,50,50)
 		con.connected = false
 		con.members = {}
 	end,
 	join = function(self,msg,args)
-		if args[1] then joinChannel(args[1]) end
+		if args[1] then
+			joinChannel(args[1])
+			self:addline("joined channel "..args[1],50,255,50)
+		end
 	end,
 	sync = function(self,msg,args)
 		if con.connected then L.sendScreen=true end --need to send 67 clear screen
+		self:addline("Synced screen to server",255,255,50)
+	end,
+	help = function(self,msg,args)
+		if not args[1] then self:addline("/help <command>, type /list for a list of commands") end
+		if args[1] == "connect" then self:addline("(/connect [ip] [port]) -- connect to a TPT multiplayer server, or no args to connect to the default one")
+		elseif args[1] == "send" then self:addline("(/send <something> <somethingelse>") -- send a raw command
+		elseif args[1] == "quit" then self:addline("(/quit, no arguments) -- quit the game")
+		elseif args[1] == "join" then self:addline("(/join <channel> -- joins a room on the server")
+		elseif args[1] == "sync" then self:addline("(/sync, no arguments) -- syncs your screen to everyone else in the room")
+		end
+	end,
+	list = function(self,msg,args)
+		local list = ""
+		for name in pairs(chatcommands) do
+			list=list..name..", "
+		end
+		self:addline("Commands: "..list:sub(1,#list-2))
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
 		if L.chatHidden then return false end
 		local text = self.inputbox:textprocess(key,nkey,modifier,event)
+		if type(text)=="boolean" then return text end
 		if text then
 			local cmd = text:match("^/([^%s]+)")
 			if cmd then
@@ -513,21 +538,20 @@ new=function(x,y,w,h)
 				local args = getArgs(rest)
 				if chatcommands[cmd] then
 					chatcommands[cmd](self,msg,args)
-					self:addline("Executed "..cmd.." "..rest)
+					--self:addline("Executed "..cmd.." "..rest)
 				else
-					self:addline("No such command: "..cmd.." "..rest,200,200,0)
+					self:addline("No such command: "..cmd.." "..rest,255,50,50)
 				end
 			else
 				--normal chat
 				if con.connected then
 					conSend(19,text,true)
-					self:addline(username .. ": ".. text,230,230,230)
+					self:addline(username .. ": ".. text,200,200,200)
 				else
-					self:addline("Not connected to server!",200,200,0)
+					self:addline("Not connected to server!",255,50,50)
 				end
 			end
 		end
-		if text==false then return false end
 	end
 	return chat
 end
@@ -541,10 +565,10 @@ local function newFadeText(text,frames,x,y,r,g,b,noremove)
 	return t
 end
 --Some text locations for repeated usage
-local infoText = newFadeText("",30,245,370,255,255,255,true)
+local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-local showbutton = ui_button.new(613,118,15,15,function() L.chatHidden=false L.flashChat=false end,"<<")
+local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if not hooks_enabled then enableMultiplayer() end L.chatHidden=false L.flashChat=false end,"<<")
 local flashCount=0
 showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
 local chatwindow = ui_chatbox.new(100,100,250,200)
@@ -561,8 +585,29 @@ local eleNameTable = {
 ["DEFAULT_WL_11"] = 291,["DEFAULT_WL_12"] = 292,["DEFAULT_WL_13"] = 293,["DEFAULT_WL_14"] = 294,["DEFAULT_WL_15"] = 295,
 ["DEFAULT_UI_SAMPLE"] = 296,["DEFAULT_UI_SIGN"] = 297,["DEFAULT_UI_PROPERTY"] = 298,["DEFAULT_UI_WIND"] = 299,
 ["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_VAC"] = 302,["DEFAULT_TOOL_AIR"] = 303,["DEFAULT_TOOL_GRAV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,
-["DEFAULT_DECOR_SET"] = 306,["DEFAULT_DECOR_ADD"] = 307,["DEFAULT_DECOR_SUB"] = 308,["DEFAULT_DECOR_MUL"] = 309,["DEFAULT_DECOR_DIV"] = 310,["DEFAULT_DECOR_SMDG"] = 311,["DEFAULT_DECOR_CLR"] = 312,
+["DEFAULT_DECOR_SET"] = 306,["DEFAULT_DECOR_ADD"] = 307,["DEFAULT_DECOR_SUB"] = 308,["DEFAULT_DECOR_MUL"] = 309,["DEFAULT_DECOR_DIV"] = 310,["DEFAULT_DECOR_SMDG"] = 311,["DEFAULT_DECOR_CLR"] = 312,["DEFAULT_DECOR_LIGH"] = 313, ["DEFAULT_DECOR_DARK"] = 314
 }
+local function convertDecoTool(c)
+	return c
+end
+if jacobsmod then
+	function convertDecoTool(c)
+		if c >= 307 and c <= 311 then
+			c = c + 1
+		elseif c == 312 then
+			c = 307
+		end
+		return c
+	end
+	local modNameTable = {
+	["DEFAULT_WL_ERASE"] = 280,["DEFAULT_WL_CNDTW"] = 281,["DEFAULT_WL_EWALL"] = 282,["DEFAULT_WL_DTECT"] = 283,["DEFAULT_WL_STRM"] = 284,
+	["DEFAULT_WL_FAN"] = 285,["DEFAULT_WL_LIQD"] = 286,["DEFAULT_WL_ABSRB"] = 287,["DEFAULT_WL_WALL"] = 288,["DEFAULT_WL_AIR"] = 289,["DEFAULT_WL_POWDR"] = 290,
+	["DEFAULT_WL_CNDTR"] = 291,["DEFAULT_WL_EHOLE"] = 292,["DEFAULT_WL_GAS"] = 293,["DEFAULT_WL_GRVTY"] = 294,["DEFAULT_WL_ENRGY"] = 295,["DEFAULT_WL_ERASEA"] = 280
+	}
+	for k,v in pairs(modNameTable) do
+		eleNameTable[k] = v
+	end
+end
 local gravList= {[0]="Vertical",[1]="Off",[2]="Radial"}
 local airList= {[0]="On",[1]="Pressure Off",[2]="Velocity Off",[3]="Off",[4]="No Update"}
 local noFlood = {[15]=true,[55]=true,[87]=true,[128]=true,[158]=true}
@@ -571,7 +616,7 @@ local createOverride = {[55]=function(x,y,rx,ry,c,brush) sim.createParts(x,y,0,0
 local golStart,golEnd=256,279
 local wallStart,wallEnd=280,295
 local toolStart,toolEnd=300,305
-local decoStart,decoEnd=306,312
+local decoStart,decoEnd=306,314
 
 --Functions that do stuff in powdertoy
 local function createBoxAny(x1,y1,x2,y2,c,user)
@@ -582,7 +627,7 @@ local function createBoxAny(x1,y1,x2,y2,c,user)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
 		elseif c<= decoEnd then
-			sim.decoBox(x1,y1,x2,y2,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],c-decoStart)
+			sim.decoBox(x1,y1,x2,y2,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart)
 		end
 		return
 	elseif c>=golStart then
@@ -593,11 +638,12 @@ end
 local function createPartsAny(x,y,rx,ry,c,brush,user)
 	if c>=wallStart then
 		if c<= wallEnd then
+			if c == 284 then rx,ry = 0,0 end
 			sim.createWalls(x,y,rx,ry,c-wallStart,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
-			sim.decoBrush(x,y,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],c-decoStart,brush)
+			sim.decoBrush(x,y,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -610,11 +656,12 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	if noShape[c] then return end
 	if c>=wallStart then
 		if c<= wallEnd then
+			if c == 284 then rx,ry = 0,0 end
 			sim.createWallLine(x1,y1,x2,y2,rx,ry,c-wallStart,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then local str=1.0 if user.drawtype==4 then if user.shift then str=10.0 elseif user.alt then str=0.1 end end sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush,str) end
 		elseif c<= decoEnd then
-			sim.decoLine(x1,y1,x2,y2,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],c-decoStart,brush)
+			sim.decoLine(x1,y1,x2,y2,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -652,14 +699,14 @@ local function rectSnapCoords(x1,y1,x2,y2)
 	ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
 	return nx,ny
 end
-local renModes = {[-16715152]=1,[4278252144]=1,[67171201]=2,[62338]=4,[62344]=8,[62340]=16,[16774016]=32,[1]=4278252144,[2]=67171201,[4]=62338,[8]=62344,[16]=62340,[32]=16774016}
+local renModes = {[0xff00f270]=1,[-16715152]=1,[0x0400f381]=2,[0xf382]=4,[0xf388]=8,[0xf384]=16,[0xfff380]=32,[1]=0xff00f270,[2]=0x0400f381,[4]=0xf382,[8]=0xf388,[16]=0xf384,[32]=0xfff380}
 local function getViewModes()
 	local t={0,0,0}
 	for k,v in pairs(ren.displayModes()) do
 		t[1] = t[1]+v
 	end
 	for k,v in pairs(ren.renderModes()) do
-		t[2] = t[2]+renModes[v]
+		t[2] = t[2]+(renModes[v] or 0)
 	end
 	t[3] = ren.colorMode()
 	return t
@@ -731,15 +778,36 @@ local function playerMouseMove(id)
 	end
 end
 local function loadStamp(size,x,y,reset)
-	con.socket:settimeout(3)
+	con.socket:settimeout(2.9)
 	local s = con.socket:receive(size)
 	con.socket:settimeout(0)
-	local f = io.open(".tmp.stm","wb")
-	f:write(s)
-	f:close()
-	if reset then sim.clearSim() end
-	sim.loadStamp(".tmp.stm",x,y)
-	os.remove".tmp.stm"
+	if s then
+		local f = io.open(".tmp.stm","wb")
+		f:write(s)
+		f:close()
+		if reset then sim.clearSim() end
+		if not sim.loadStamp(".tmp.stm",x,y) then
+			infoText:reset("Error loading stamp")
+		end
+		os.remove".tmp.stm"
+	else
+		infoText:reset("Error loading empty stamp")
+	end
+end
+local function saveStamp(x, y, w, h)
+	local stampName = sim.saveStamp(x, y, w, h)
+	if jacobsmod and not stampName then
+		stampName = sim.saveStamp(x, y, w, h, 3)
+	end
+	local fullName = "stamps/"..stampName..".stm"
+	return stampName, fullName
+end
+local function deleteStamp(name)
+	if sim.deleteStamp then
+		sim.deleteStamp(name)
+	else
+		os.remove("stamps/"..name..".stm")
+	end
 end
 
 local dataCmds = {
@@ -754,16 +822,16 @@ local dataCmds = {
 			local name = con.members[id].name
 			table.insert(peeps,name)
 		end
-		chatwindow:addline("Online: "..table.concat(peeps," "))
+		chatwindow:addline("Online: "..table.concat(peeps," "),255,255,50)
 	end,
 	[17]= function()
 		local id = cByte()
 		con.members[id] ={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
-		chatwindow:addline(con.members[id].name.." has joined")
+		chatwindow:addline(con.members[id].name.." has joined",100,255,100)
 	end,
 	[18] = function()
 		local id = cByte()
-		chatwindow:addline(con.members[id].name.." has left")
+		chatwindow:addline(con.members[id].name.." has left",255,255,100)
 		con.members[id]=nil
 	end,
 	[19] = function()
@@ -987,17 +1055,19 @@ local dataCmds = {
 	[70] = function()
 		local id = cByte()
 		sim.clearSim()
-		sim.loadStamp("stamps/tmp.stm",0,0)
+		if not sim.loadStamp("stamps/tmp.stm",0,0) then
+			infoText:reset("Error reloading save from "..con.members[id].name)
+		end
 	end,
 	--A request to sync a player, from server, send screen, and various settings
 	[128] = function()
 		local id = cByte()
 		conSend(130,string.char(id,49,tpt.set_pause()))
-		local n = "stamps/"..sim.saveStamp(0,0,611,383)..".stm"
-		local f = assert(io.open(n,"rb"))
+		local stampName,fullName = saveStamp(0,0,611,383)
+		local f = assert(io.open(fullName,"rb"))
 		local s = f:read"*a"
 		f:close()
-		os.remove(n)
+		deleteStamp(stampName)
 		local d = #s
 		conSend(128,string.char(id,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
 		conSend(130,string.char(id,53,tpt.ambient_heat()))
@@ -1008,6 +1078,7 @@ local dataCmds = {
 		conSend(130,string.char(id,59,sim.airMode()))
 		conSend(130,string.char(id,68,sim.edgeMode()))
 		conSend(64,string.char(unpack(getViewModes())))
+		conSend(34,string.char(tpt.brushx,tpt.brushy))
 	end,
 	--Recieve sync stamp
 	[129] = function()
@@ -1041,7 +1112,7 @@ local function drawStuff()
 			local x,y = user.mousex,user.mousey
 			local brx,bry=user.brushx,user.brushy
 			local brush,drawBrush=user.brush,true
-			tpt.drawtext(x,y,("%s %dx%d"):format(user.name,brx,bry),0,255,0,192)
+			gfx.drawText(x,y,("%s %dx%d"):format(user.name,brx,bry),0,255,0,192)
 			if user.drawtype then
 				if user.drawtype==1 then
 					if user.alt then x,y = lineSnapCoords(user.pmx,user.pmy,x,y) end
@@ -1093,7 +1164,7 @@ local function sendStuff()
         L.mousex,L.mousey = nmx,nmy
 		local b1,b2,b3 = math.floor(L.mousex/16),((L.mousex%16)*16)+math.floor(L.mousey/256),(L.mousey%256)
 		conSend(32,string.char(b1,b2,b3))
-    end
+	end
 	local nbx,nby = tpt.brushx,tpt.brushy
 	if L.brushx~=nbx or L.brushy~=nby then
 		L.brushx,L.brushy = nbx,nby
@@ -1110,7 +1181,7 @@ local function sendStuff()
     elseif L.selr~=nselr then
 		L.selr=nselr
 		conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
-    end
+	end
     local ncol = sim.decoColour()
     if L.dcolour~=ncol then
 		L.dcolour=ncol
@@ -1118,25 +1189,37 @@ local function sendStuff()
     end
 	
 	--Tell others to open this save ID, or send screen if opened local browser
-	if L.browseMode==1 then
+	if jacobsmod and L.browseMode and L.browseMode > 3 then
+		--hacky hack
+		L.browseMode = L.browseMode - 3
+	elseif L.browseMode==1 then
+		--loaded online save
 		local id=sim.getSaveID()
 		if L.lastSave~=id then
 			L.lastSave=id
-			os.remove("stamps/tmp.stm") os.rename("stamps/"..sim.saveStamp(0,0,611,383)..".stm","stamps/tmp.stm")
+			--save a backup for the reload button
+			local stampName,fullName = saveStamp(0,0,611,383)
+			os.remove("stamps/tmp.stm") os.rename(fullName,"stamps/tmp.stm")
 			conSend(69,string.char(math.floor(id/65536),math.floor(id/256)%256,id%256))
+			deleteStamp(stampName)
 		end
 		L.browseMode=nil
 	elseif L.browseMode==2 then
+		--loaded local save (should probably clear sim first instead?)
 		L.sendScreen=true
 		L.browseMode=nil
 	elseif L.browseMode==3 and L.lastSave==sim.getSaveID() then
-		--save this as a stamp for reloading (unless an api function exists to do this)
-		os.remove("stamps/tmp.stm") os.rename("stamps/"..sim.saveStamp(0,0,611,383)..".stm","stamps/tmp.stm")
 		L.browseMode=nil
+		--save this as a stamp for reloading (unless an api function exists to do this)
+		local stampName,fullName = saveStamp(0,0,611,383)
+		os.remove("stamps/tmp.stm") os.rename(fullName,"stamps/tmp.stm")
+		deleteStamp(stampName)
 	end
 	
 	--Send screen (or an area for known size) for stamps
-	if L.sendScreen then
+	if jacobsmod and L.sendScreen == 2 then
+		L.sendScreen = true
+	elseif L.sendScreen then
 		local x,y,w,h = 0,0,611,383
 		if L.smoved then
 			local stm
@@ -1146,19 +1229,22 @@ local function sendStuff()
 			L.smoved=false
 			L.copying=false
 		end
-		local n = "stamps/"..sim.saveStamp(x,y,w,h)..".stm"
-		local f = assert(io.open(n,"rb"))
+		L.sendScreen=false
+		local stampName,fullName = saveStamp(x,y,w,h)
+		local f = assert(io.open(fullName,"rb"))
 		local s = f:read"*a"
 		f:close()
-		os.remove(n)
+		deleteStamp(stampName)
 		local d = #s
 		local b1,b2,b3 = math.floor(x/16),((x%16)*16)+math.floor(y/256),(y%256)
+		conSend(67,string.char(math.floor(x/16),((x%16)*16)+math.floor(y/256),(y%256),math.floor((x+w)/16),(((x+w)%16)*16)+math.floor((y+h)/256),((y+h)%256)))
 		conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
-		L.sendScreen=false
 	end
 	
 	--Check if custom modes were changed
-	if L.checkRen then
+	if jacobsmod and L.checkRen == 2 then
+		L.checkRen = true
+	elseif L.checkRen then
 		L.checkRen=false
 		local t,send=getViewModes(),false
 		for k,v in pairs(t) do
@@ -1193,39 +1279,53 @@ local function updatePlayers()
 	L.stick2=false
 end
 
+local pressedKeys
 local function step()
-	
 	if not L.chatHidden then chatwindow:draw() else showbutton:draw() end
-	drawStuff()
-	sendStuff()
-	if L.pauseNextFrame then L.pauseNextFrame=false tpt.set_pause(1) end
-	connectThink()
-	updatePlayers()
+	if hooks_enabled then
+		if pressedKeys and pressedKeys["repeat"] < socket.gettime() then
+			chatwindow:textprocess(pressedKeys["key"],pressedKeys["nkey"],pressedKeys["modifier"],pressedKeys["event"])
+			pressedKeys["repeat"] = socket.gettime()+.05
+		end
+		drawStuff()
+		sendStuff()
+		if L.pauseNextFrame then L.pauseNextFrame=false tpt.set_pause(1) end
+		connectThink()
+		updatePlayers()
+	end
 end
 
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
 	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end},
-	["rload"] = {x1=19, y1=408, x2=355, y2=422, f=function() if L.lastSave then if L.ctrl then infoText:reset("If you re-opened the save, please type /sync") else conSend(70) end else infoText:reset("Reloading local saves is not synced currently. Type /sync") end end},
+	["rload"] = {x1=19, y1=408, x2=355, y2=422, firstClick = true, f=function() if L.lastSave then if L.ctrl then infoText:reset("If you re-opened the save, please type /sync") else conSend(70) end else infoText:reset("Reloading local saves is not synced currently. Type /sync") end end},
 	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() conSend(63) L.lastSave=nil end},
 	["opts"] = {x1=581, y1=408, x2=595, y2=422, f=function() L.checkOpt=true end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
-	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end},
+	["pause"] = {x1=613, y1=408, x2=627, y2=422, firstClick = true, f=function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end},
 	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end},
 	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
 	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
 }
+if jacobsmod then
+	tpt_buttons["tab"] = {x1=613, y1=1, x2=627, y2=15, firstClick = true, f=function() L.tabs = not L.tabs end}
+	tpt_buttons["opts"] = {x1=470, y1=408, x2=484, y2=422, f=function() L.checkOpt=true end}
+	tpt_buttons["clear"] = {x1=486, y1=408, x2=502, y2=422, firstClick = true, f=function() conSend(63) L.lastSave=nil end}
+	tpt_buttons["disp"] = {x1=597, y1=408, x2=611, y2=422, firstClick = true, f=function() L.checkRen=2 L.pModes=getViewModes() end}
+	tpt_buttons["open"] = {x1=1, y1=408, x2=17, y2=422, firstClick = true, f=function() if not L.ctrl then L.browseMode=4 else L.browseMode=5 end L.lastSave=sim.getSaveID() end}
+end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
-	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
+	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end
+	elseif chatwindow:process(mousex,mousey,button,event,wheel) then return false end
 	if L.skipClick then L.skipClick=false return true end
-	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) end
 	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 then
 			--initial stamp coords
 			L.stampx,L.stampy = mousex,mousey
 		elseif event==2 then
+			--stamp has been saved, make our own copy
 			if button==1 then
 				--save stamp ourself for data, delete it
 				local sx,sy = mousex,mousey
@@ -1233,16 +1333,17 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 				if sy<L.stampy then L.stampy,sy=sy,L.stampy end
 				--cheap cut hook to send a clear
 				if L.copying==1 then
+					--maybe this is ctrl+x? 67 is clear area
 					conSend(67,string.char(math.floor(L.stampx/16),((L.stampx%16)*16)+math.floor(L.stampy/256),(L.stampy%256),math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)))
 				end
 				local w,h = sx-L.stampx,sy-L.stampy
-				local stm = "stamps/"..sim.saveStamp(L.stampx,L.stampy,w,h)..".stm"
+				local stampName,fullName = saveStamp(L.stampx,L.stampy,w,h)
 				sx,sy,L.stampx,L.stampy = math.ceil((sx+1)/4)*4,math.ceil((sy+1)/4)*4,math.floor(L.stampx/4)*4,math.floor(L.stampy/4)*4
 				w,h = sx-L.stampx, sy-L.stampy
-				local f = assert(io.open(stm,"rb"))
+				local f = assert(io.open(fullName,"rb"))
 				if L.copying then L.lastCopy = {data=f:read"*a",w=w,h=h} else L.lastStamp = {data=f:read"*a",w=w,h=h} end
 				f:close()
-				os.remove(stm)
+				deleteStamp(stampName)
 			end
 			L.stamp=false
 			L.copying=false
@@ -1256,7 +1357,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 				if stm then
 					if not stm.data then
 						--unknown stamp, send full screen on next step, how can we read last created stamp, timestamps on files?
-						L.sendScreen=true
+						L.sendScreen = (jacobsmod and 2 or true)
 					else
 						--send the stamp
 						if L.smoved then
@@ -1303,16 +1404,23 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	--Click inside button first
 	if button==1 then
 		if event==1 then
+			if jacobsmod and (L.tabs or L.ctrl) and mousex>=613 and mousex<=627 and mousey >=17 and mousey<=143 then
+				L.sendScreen = 2
+			end
 			for k,v in pairs(tpt_buttons) do
 				if mousex>=v.x1 and mousex<=v.x2 and mousey>=v.y1 and mousey<=v.y2 then
-					L.downInside = k
+					if jacobsmod and tpt_buttons[k].firstClick then
+						return tpt_buttons[k].f()~=false
+					else
+						L.downInside = k
+					end
 					break
 				end
 			end
 		--Up inside the button we started with
 		elseif event==2 and L.downInside then
 			local butt = tpt_buttons[L.downInside]
-			if mousex>=butt.x1 and mousex<=butt.x2 and mousey>=butt.y1 and mousey<=butt.y2 then
+			if (jacobsmod and not butt.firstClick) or (mousex>=butt.x1 and mousex<=butt.x2 and mousey>=butt.y1 and mousey<=butt.y2) then
 				L.downInside = nil
 				return butt.f()~=false
 			end
@@ -1330,6 +1438,9 @@ local keypressfuncs = {
 	--TAB
 	[9] = function() conSend(35) end,
 	
+	--ESC
+	[27] = function() if not L.chatHidden then L.chatHidden = true return false end end,
+	
 	--space, pause toggle
 	[32] = function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
 		
@@ -1346,8 +1457,8 @@ local keypressfuncs = {
 	[57] = function() conSend(48,"\8") end,
 	
 	--replace mode, TODO: implement
-	[59] = function() infoText:reset("Replace mode not supported currently") return false end,
-	[277] = function() infoText:reset("Replace mode not supported currently") return false end,
+	[59] = function() if con.connected then infoText:reset("Replace mode not supported currently") return false end end,
+	[277] = function() if con.connected then infoText:reset("Replace mode not supported currently") return false end end,
 	
 	--= key, pressure/spark reset
 	[61] = function() if L.ctrl then conSend(60) else conSend(61) end end,
@@ -1373,11 +1484,17 @@ local keypressfuncs = {
 	--L , last Stamp
 	[108] = function () if L.lastStamp then L.placeStamp=true end end,
 
+	--N , newtonian gravity or new save
+	[110] = function () if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
+
 	--R , for stamp rotate
-	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate end end,
+	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif jacobsmod and L.ctl then conSend(70) end end,
 
 	--S, stamp
 	[115] = function() if L.lastStick2 and not L.ctrl then return end L.stamp=true end,
+
+	--T, tabs
+	[116] = function() if jacobsmod then L.tabs = not L.tabs end end,
 
 	--U, ambient heat toggle
 	[117] = function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end,
@@ -1400,6 +1517,9 @@ local keypressfuncs = {
 	[275] = function() if L.placeStamp then L.smoved=true end end,
 	[276] = function() if L.placeStamp then L.smoved=true end end,
 
+	--F5 , save reload
+	[286] = function() if jacobs_mod then conSend(70) end end,
+
 	--SHIFT,CTRL,ALT
 	[304] = function() L.shift=true conSend(36,string.char(17)) end,
 	[306] = function() L.ctrl=true conSend(36,string.char(1)) end,
@@ -1414,8 +1534,15 @@ local keyunpressfuncs = {
 	[308] = function() L.alt=false conSend(36,string.char(32)) end,
 }
 local function keyclicky(key,nkey,modifier,event)
+	if chatwindow.inputbox.focus then
+		if event == 1 and nkey~=27 then
+			pressedKeys = {["repeat"] = socket.gettime()+.6, ["key"] = key, ["nkey"] = nkey, ["modifier"] = modifier, ["event"] = event}
+		elseif event == 2 and pressedKeys and nkey == pressedKeys["nkey"] then
+			pressedKeys = nil
+		end
+	end
 	local check = chatwindow:textprocess(key,nkey,modifier,event)
-	if check~=false then return true end
+	if type(check)=="boolean" then return not check end
 	--MANAGER_PRINT(nkey)
 	local ret
 	if event==1 then
@@ -1430,7 +1557,11 @@ local function keyclicky(key,nkey,modifier,event)
 	if ret~= nil then return ret end
 end
 
-tpt.register_keypress(keyclicky)
-tpt.register_mouseclick(mouseclicky)
+function enableMultiplayer()
+	tpt.register_keypress(keyclicky)
+	chatwindow:addline("TPTMP v0.6: Type '/connect' to join server.",200,200,200)
+	hooks_enabled = true
+	enableMultiplayer = nil
+end
 tpt.register_step(step)
-chatwindow:addline("TPTMP v0.5: Type '/connect' to join server.",200,200,200)
+tpt.register_mouseclick(mouseclicky)
