@@ -46,7 +46,7 @@ local function conSend(cmd,msg,endNull)
 	if endNull then msg = msg.."\0" end
 	if cmd then msg = string.char(cmd)..msg end
 	--print("sent "..msg)
-	con.socket:settimeout(2.9)
+	con.socket:settimeout(10)
 	con.socket:send(msg)
 	con.socket:settimeout(0)
 end
@@ -531,7 +531,7 @@ new=function(x,y,w,h)
 		if L.chatHidden then return false end
 		local text = self.inputbox:textprocess(key,nkey,modifier,event)
 		if type(text)=="boolean" then return text end
-		if text then
+		if text and text~="" then
 			local cmd = text:match("^/([^%s]+)")
 			if cmd then
 				local rest=text:sub(#cmd+3)
@@ -778,7 +778,7 @@ local function playerMouseMove(id)
 	end
 end
 local function loadStamp(size,x,y,reset)
-	con.socket:settimeout(2.9)
+	con.socket:settimeout(10)
 	local s = con.socket:receive(size)
 	con.socket:settimeout(0)
 	if s then
@@ -1562,6 +1562,7 @@ function enableMultiplayer()
 	chatwindow:addline("TPTMP v0.6: Type '/connect' to join server.",200,200,200)
 	hooks_enabled = true
 	enableMultiplayer = nil
+	debug.sethook(nil,"",0)
 end
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
