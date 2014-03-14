@@ -47,6 +47,30 @@ local succ,err=pcall(function()
 		return coroutine.yield()
 	end
 	
+	-- nonblock read amt bytes from socket
+	function bytes(socket,amt)
+		local final = ""
+		local timeout,rec = os.time(),0
+		while true do
+			local s,r,e = socket:receive(amt-rec)
+			if not s then 
+				if r~="timeout" then
+					return false,"Error while getting stamp"
+				end
+				rec = rec + #e
+				if rec < amt then
+					e = e .. coroutine.yield()
+				end
+				final = final..e
+			else
+				final = final..s
+				break
+			end
+			if os.time()-timeout>11 then return false,"Stamp took too long" end
+		end
+		return true,final
+	end
+	
 	-- send to all users on room except given one (usually self)
 	function sendroomexcept(room,uid,data)
 		for _,id in ipairs(rooms[room]) do
@@ -55,10 +79,19 @@ local succ,err=pcall(function()
 			end
 		end
 	end
+	function sendroomexceptLarge(room,uid,data)
+		for _,id in ipairs(rooms[room]) do
+			if id~=uid then
+				clients[id].socket:settimeout(5)
+				local s,r,e = clients[id].socket:send(data)
+				clients[id].socket:settimeout(0)
+			end
+		end
+	end
 
 	-- leave a room
 	function leave(room,uid)
-		print(uid.." left "..room)
+		print(clients[uid].nick.." left "..room)
 		sendroomexcept(room,uid,"\18"..string.char(uid))
 		for i,id in ipairs(rooms[room]) do
 			if id==uid then
@@ -74,8 +107,8 @@ local succ,err=pcall(function()
 
 	-- join a room
 	function join(room,id)
-		print(id.." joined "..room)
 		local client=clients[id]
+		print(client.nick.." joined "..room)
 		if not rooms[room] then
 			rooms[room]={}
 			print("Created room '"..room.."'")
@@ -114,11 +147,15 @@ local succ,err=pcall(function()
 		client.size="\4\4"
 		client.selection={"\0\1","\64\0","\128\0"}
 		client.deco="\0\0\0\0"
-		print(id.." done identifying")
+		print(client.nick.." done identifying")
 		client.socket:send"\1"
 		join("null",id)
 		while 1 do
 			local cmd=byte()
+			--if cmd~=32 and cmd~=33 and cmd~=34 then
+			--	print("Got ["..cmd.."] from "..client.nick)
+			--end
+			
 			-- JOIN
 			if cmd==16 then
 				leave(client.room,id)
@@ -127,7 +164,7 @@ local succ,err=pcall(function()
 			-- MSG
 			elseif cmd==19 then
 				local msg=nullstr()
-				print(id.." '"..msg.."'")
+				print("<"..client.nick.."> "..msg)
 				sendroomexcept(client.room,id,"\19"..string.char(id)..msg.."\0")
 			elseif cmd==2 then
 				client.lastping=os.time()
@@ -206,10 +243,13 @@ local succ,err=pcall(function()
 				local loc=char()..char()..char()
 				local b1,b2,b3=byte(),byte(),byte()
 				local sz=b1*65536+b2*256+b3
-				client.socket:settimeout(10)
-				local s=client.socket:receive(sz)
-				client.socket:settimeout(0)
-				sendroomexcept(client.room,id,"\66"..string.char(id)..loc..string.char(b1,b2,b3)..s)
+				print("STAMP! Loading From "..client.nick.." size "..sz )
+				local s,stm = bytes(client.socket,sz)
+				if s then
+					sendroomexceptLarge(client.room,id,"\66"..string.char(id)..loc..string.char(b1,b2,b3)..stm)
+				else
+					disconnect(id,stm)
+				end
 			elseif cmd==67 then
 				local data=char()..char()..char()..char()..char()..char()
 				sendroomexcept(client.room,id,"\67"..string.char(id)..data)
@@ -225,13 +265,15 @@ local succ,err=pcall(function()
 				local i=byte()
 				local b1,b2,b3=byte(),byte(),byte()
 				local sz=b1*65536+b2*256+b3
-				print(id.." provided sync for "..i..", it was "..sz.." bytes")
-				client.socket:settimeout(10)
-				local s=client.socket:receive(sz)
-				client.socket:settimeout(0)
-				if clients[i] then
-					clients[i].socket:send("\129"..string.char(b1,b2,b3)..s)
-				end
+				print(client.nick.." provided sync for "..clients[i].nick..", it was "..sz.." bytes")
+				local s,stm = bytes(client.socket,sz)
+				if s then
+					clients[i].socket:settimeout(5)
+					clients[i].socket:send("\129"..string.char(b1,b2,b3)..stm)
+					clients[i].socket:settimeout(0)
+				else
+					disconnect(id,stm)
+				end				
 			--special mode sync sent to specific user (called from 128)
 			elseif cmd==130 then
 				local i=byte()
@@ -245,8 +287,9 @@ local succ,err=pcall(function()
 	-- disconnects a client
 	function disconnect(id,err)
 		local client=clients[id]
+		if not client then return end
 		client.socket:close()
-		print(id..": Connection to "..(client.host or"?")..":"..(client.port or"?").." closed: "..err)
+		print(client.nick..": Connection to "..(client.host or"?")..":"..(client.port or"?").." closed: "..err)
 		if client.room then
 			leave(client.room,id)
 		else
