@@ -299,10 +299,13 @@ new=function(x,y,w,h)
 		if self.cursor<0 then self.cursor = 0 return end
 	end
 	function intext:textprocess(key,nkey,modifier,event)
-		if not self.focus then return end
 		if event~=1 then return end
+		if not self.focus then
+			if nkey==13 then self:setfocus(true) return true end
+			return
+		end
 		if nkey==27 then self:setfocus(false) return true end
-		if nkey==13 then local text=self.t.text self.cursor=0 self.t.text="" return text end --enter
+		if nkey==13 then local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" return text end end --enter
 		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
 		if nkey==276 then self:movecursor(-1) self.t:update(nil,self.cursor) return true end --left
 		local modi = (modifier%1024)
@@ -472,7 +475,7 @@ new=function(x,y,w,h)
 			return true
 		end
 		if self.moving and event==2 then self.moving=false return true end
-		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then self.inputbox:setfocus(false) return false end
+		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then self.inputbox:setfocus(false) return false elseif event==1 and not self.inputbox.focus then self.inputbox:setfocus(true) end
 		self.scrollbar:process(mx,my,button,event,wheel)
 		local which = math.floor((my-self.y)/10)
 		if event==1 and which==0 then self.moving=true self.lastx=mx self.lasty=my self.relx=mx-self.x self.rely=my-self.y return true end
@@ -798,9 +801,6 @@ local function loadStamp(size,x,y,reset)
 end
 local function saveStamp(x, y, w, h)
 	local stampName = sim.saveStamp(x, y, w, h)
-	if jacobsmod and not stampName then
-		stampName = sim.saveStamp(x, y, w, h, 3)
-	end
 	local fullName = "stamps/"..stampName..".stm"
 	return stampName, fullName
 end
@@ -1318,10 +1318,10 @@ if jacobsmod then
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
+	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end
 	elseif chatwindow:process(mousex,mousey,button,event,wheel) then return false end
 	if L.skipClick then L.skipClick=false return true end
-	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 then
 			--initial stamp coords
@@ -1475,7 +1475,7 @@ local keypressfuncs = {
 	--[100] = function() conSend(55) end,
 	
 	--F , frame step
-	[102] = function() if not jacobsmod or not L.ctrl then conSend(50) end end,
+	[102] = function() if not jacobsmod or (not L.ctrl and not L.shift) then conSend(50) end end,
 
 	--I , invert pressure
 	[105] = function() conSend(62) end,
@@ -1490,7 +1490,7 @@ local keypressfuncs = {
 	[110] = function () if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
 
 	--R , for stamp rotate
-	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif jacobsmod and L.ctl then conSend(70) end end,
+	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif jacobsmod and L.ctrl then conSend(70) end end,
 
 	--S, stamp
 	[115] = function() if L.lastStick2 and not L.ctrl then return end L.stamp=true end,
@@ -1537,7 +1537,7 @@ local keyunpressfuncs = {
 }
 local function keyclicky(key,nkey,modifier,event)
 	if chatwindow.inputbox.focus then
-		if event == 1 and nkey~=27 then
+		if event == 1 and nkey~=13 and nkey~=27 then
 			pressedKeys = {["repeat"] = socket.gettime()+.6, ["key"] = key, ["nkey"] = nkey, ["modifier"] = modifier, ["event"] = event}
 		elseif event == 2 and pressedKeys and nkey == pressedKeys["nkey"] then
 			pressedKeys = nil
@@ -1568,3 +1568,4 @@ function enableMultiplayer()
 end
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
+
