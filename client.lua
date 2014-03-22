@@ -330,6 +330,15 @@ new=function(x,y,w,h)
 		local newstr
 		if nkey==8 and self.cursor > 0 then newstr=self.t.text:sub(1,self.cursor-1) .. self.t.text:sub(self.cursor+1) self:movecursor(-1) --back
 		elseif nkey==127 then newstr=self.t.text:sub(1,self.cursor) .. self.t.text:sub(self.cursor+2) --delete
+		elseif nkey==9 then --tab complete
+			local nickstart,nickend,nick = self.t.text:sub(1,self.cursor+1):find("([^%s%c]+)"..(self.cursor == #self.t.text and "" or " ").."$")
+			if con.members and nick then
+				for k,v in pairs(con.members) do
+					if v.name:sub(1,#nick) == nick then
+						nick = v.name if nickstart == 1 then nick = nick..":" end newstr = self.t.text:sub(1,nickstart-1)..nick.." "..self.t.text:sub(nickend+1,#self.t.text) self.cursor = nickstart+#nick
+					end
+				end
+			end
 		else 
 			if nkey<32 or nkey>=127 then return true end --normal key
 			local addkey = (modi==1 or modi==2) and shift(key) or key
@@ -492,10 +501,10 @@ new=function(x,y,w,h)
 			self.lasty=my-ay
 			return true
 		end
-		if self.moving and event==2 then self.moving=false return true end
-		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then self.inputbox:setfocus(false) return false elseif event==1 and not self.inputbox.focus then self.inputbox:setfocus(true) end
-		self.scrollbar:process(mx,my,button,event,wheel)
 		local which = math.floor((my-self.y)/10)
+		if self.moving and event==2 then self.moving=false return true end
+		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then self.inputbox:setfocus(false) return false elseif event==1 and which ~= 0 and not self.inputbox.focus then self.inputbox:setfocus(true) end
+		self.scrollbar:process(mx,my,button,event,wheel)
 		if event==1 and which==0 then self.moving=true self.lastx=mx self.lasty=my self.relx=mx-self.x self.rely=my-self.y return true end
 		if event==1 and which==self.shown_lines+1 then self.inputbox:setfocus(true) return true elseif self.inputbox.focus then return true end --trigger input_box
 		if which>0 and which<self.shown_lines+1 and self.lines[which+self.scrollbar.pos] then self.lines[which+self.scrollbar.pos]:process(mx,my,button,event,wheel) end
