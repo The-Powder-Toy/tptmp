@@ -1,4 +1,5 @@
 #!/usr/bin/lua
+local server
 local succ,err=pcall(function()
 	local f=io.open".tptmp.pid"
 	if f then
@@ -17,7 +18,7 @@ local succ,err=pcall(function()
 	-- init server socket
 	local socket=require"socket"
 	local config=dofile"config.lua"
-	local server=socket.tcp()
+	server=socket.tcp()
 	local succ,err=server:bind(config.bindhost,config.bindport)
 	local crackbotServer=socket.tcp()
 	local crackbot = nil
@@ -142,12 +143,16 @@ local succ,err=pcall(function()
 
 	-- coroutine that handles the client
 	function handler(id,client)
-		local major,minor=byte(),byte()
+		local major,minor,scriptver=byte(),byte(),byte()
 		client.nick=nullstr()
 		if minor~=config.versionminor or major~=config.versionmajor then
-			client.socket:send"\0Your version mismatched\0"
-			disconnect(id,"Bad version")
+			client.socket:send("\0Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")\0")
+			disconnect(id,"Bad version "..major.."."..minor)
 			return
+		end
+		if scriptver~=config.scriptversion then
+			client.socket:send("\0Your script version mismatched, try updating it\0")
+			disconnect(id,"Bad script version "..scriptver)
 		end
 		client.brush=0
 		client.size="\4\4"
@@ -172,6 +177,32 @@ local succ,err=pcall(function()
 				local msg=nullstr()
 				print("<"..client.nick.."> "..msg)
 				sendroomexcept(client.room,id,"\19"..string.char(id)..msg.."\0")
+			elseif cmd==20 then
+				local msg=nullstr()
+				print("* "..client.nick.." "..msg)
+				sendroomexcept(client.room,id,"\20"..string.char(id)..msg.."\0")
+			elseif cmd==21 then
+				local msg = nullstr()
+				if client.room == "null" then
+					client.socket:send("\22You can't kick people from the lobby\0"..string.char(127)..string.char(255)..string.char(255))
+				elseif clients[rooms[client.room][1]].nick ~= client.nick then
+					client.socket:send("\22You can't kick people from here\0"..string.char(127)..string.char(255)..string.char(255))
+				else
+					local nick,reason = msg:match("([^%s%c]+) (.+)")
+					local found = false
+					if not nick then nick,reason = msg:match("([^%s%c]+)"), client.nick end
+					for _,uid in ipairs(rooms[client.room]) do
+						if clients[uid].nick == nick then
+							clients[uid].socket:send("\22You were kicked by "..nick..": "..reason.."\0"..string.char(255)..string.char(50)..string.char(50))
+							print(client.nick.." kicked "..nick.." from "..client.room.." ("..reason..")")
+							disconnect(uid, reason)
+							found = true
+						end
+					end
+					if not found then
+						client.socket:send("\22User \""..nick.."\" not found\0"..string.char(127)..string.char(255)..string.char(255))
+					end
+				end
 			elseif cmd==2 then
 				client.lastping=os.time()
 			elseif cmd==32 then
@@ -401,3 +432,4 @@ if not succ and not err:match"interrupted!$" then
 	io.stderr:write("*** CRASH! "..err,"\n")
 	io.stderr:write(debug.traceback(),"\n")
 end
+

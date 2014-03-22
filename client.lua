@@ -18,6 +18,7 @@
 --ESC key will unfocus, then minimize chat
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 
+local scriptversion = 1 -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not sim.loadStamp then error"Tpt version not supported" end
 if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
@@ -36,10 +37,23 @@ local username = tpt.get_name()
 if username=="" then
 	username = "Guest"..math.random(10000,99999)
 end
+local chatwindow
 local con = {connected = false,
 		 socket = nil,
 		 members = nil,
 		 pingTime = os.time()+60}
+local function disconnected(reason)
+	if con.socket then
+		con.socket:close()
+	end
+	if reason then
+		chatwindow:addline(reason,255,50,50)
+	else
+		chatwindow:addline("Connection was closed",255,50,50)
+	end
+	con.connected = false
+	con.members = {}
+end
 local function conSend(cmd,msg,endNull)
 	if not con.connected then return false,"Not connected" end
 	msg = msg or ""
@@ -71,7 +85,7 @@ local function connectToMniip(ip,port)
 	if not s then return false,r end
 	sock:settimeout(0)
 	sock:setoption("keepalive",true)
-	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..username.."\0")
+	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..string.char(scriptversion)..username.."\0")
 	local c,r
 	while not c do
 	c,r = sock:receive(1)
@@ -100,10 +114,12 @@ end
 local function conGetNull()
 	con.socket:settimeout(nil)
 	local c,r = con.socket:receive(1)
+	if not c and r ~= "timeout" then disconnected() return nil end
 	local rstring=""
 	while c~="\0" do
 	rstring = rstring..c
 	c,r = con.socket:receive(1)
+	if not c and r ~= "timeout" then disconnected() return nil end
 	end
 	con.socket:settimeout(0)
 	return rstring
@@ -113,10 +129,12 @@ local function cChar()
 	con.socket:settimeout(nil)
 	local c,r = con.socket:receive(1)
 	con.socket:settimeout(0)
-	return c or error(r)
+	if not c then disconnected() end
+	return c
 end
 local function cByte()
-	return cChar():byte()
+	local byte = cChar()
+	return byte and byte:byte() or nil
 end
 --return table of arguments
 local function getArgs(msg)
@@ -487,7 +505,6 @@ new=function(x,y,w,h)
 	chatcommands = {
 	connect = function(self,msg,args)
 		if not issocket then self:addline("No luasockets found") return end
-		tpt.version.minor = 0
 		local s,r = connectToMniip(args[1],tonumber(args[2]))
 		if not s then self:addline(r,255,50,50) end
 	end,
@@ -500,10 +517,7 @@ new=function(x,y,w,h)
 		end
 	end,
 	quit = function(self,msg,args)
-		con.socket:close()
-		self:addline("Disconnected",255,50,50)
-		con.connected = false
-		con.members = {}
+		disconnected("Disconnected")
 	end,
 	join = function(self,msg,args)
 		if args[1] then
@@ -518,10 +532,12 @@ new=function(x,y,w,h)
 	help = function(self,msg,args)
 		if not args[1] then self:addline("/help <command>, type /list for a list of commands") end
 		if args[1] == "connect" then self:addline("(/connect [ip] [port]) -- connect to a TPT multiplayer server, or no args to connect to the default one")
-		elseif args[1] == "send" then self:addline("(/send <something> <somethingelse>") -- send a raw command
+		--elseif args[1] == "send" then self:addline("(/send <something> <somethingelse>) -- send raw data to the server") -- send a raw command
 		elseif args[1] == "quit" then self:addline("(/quit, no arguments) -- quit the game")
 		elseif args[1] == "join" then self:addline("(/join <channel> -- joins a room on the server")
 		elseif args[1] == "sync" then self:addline("(/sync, no arguments) -- syncs your screen to everyone else in the room")
+		elseif args[1] == "me" then self:addline("(/me <message>) -- say something in 3rd person") -- send a raw command
+		elseif args[1] == "kick" then self:addline("(/kick <nick> <reason>) -- kick a user, only works if you have been in a channel the longest")
 		end
 	end,
 	list = function(self,msg,args)
@@ -530,6 +546,15 @@ new=function(x,y,w,h)
 			list=list..name..", "
 		end
 		self:addline("Commands: "..list:sub(1,#list-2))
+	end,
+	me = function(self, msg, args)
+		if not con.connected then return end
+		self:addline("* " .. username .. " ".. table.concat(args, " "),200,200,200)
+		conSend(20,table.concat(args, " "),true)
+	end,
+	kick = function(self, msg, args)
+		if not con.connected then return end
+		conSend(21, table.concat(args, " "),true)
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
@@ -576,7 +601,7 @@ local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if not hooks_enabled then enableMultiplayer() end L.chatHidden=false L.flashChat=false end,"<<")
 local flashCount=0
 showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
-local chatwindow = ui_chatbox.new(100,100,250,200)
+chatwindow = ui_chatbox.new(100,100,250,200)
 chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
 
 local eleNameTable = {
@@ -839,6 +864,12 @@ local dataCmds = {
 	[19] = function()
 		chatwindow:addline(con.members[cByte()].name .. ": " .. conGetNull())
 	end,
+	[20] = function()
+		chatwindow:addline("* "..con.members[cByte()].name .. " " .. conGetNull())
+	end,
+	[22] = function()
+		chatwindow:addline("[SERVER] "..conGetNull(), cByte(), cByte(), cByte())
+	end,
 	--Mouse Position
 	[32] = function()
 		local id = cByte()
@@ -1091,7 +1122,7 @@ local dataCmds = {
 
 local function connectThink()
 	if not con.connected then return end
-	if not con.socket then chatwindow:addline("Disconnected") con.connected=false return end
+	if not con.socket then disconnected() return end
 	--read all messages
 	while 1 do
 		local s,r = con.socket:receive(1)
@@ -1099,7 +1130,10 @@ local function connectThink()
 			local cmd = string.byte(s)
 			--MANAGER_PRINT("GOT "..tostring(cmd))
 			if dataCmds[cmd] then dataCmds[cmd]() else MANAGER_PRINT("TPTMP: Unknown protocol "..tostring(cmd),255,20,20) end
-		else break end
+		else
+			if r ~= "timeout" then disconnected() end
+			break
+		end
 	end
 
 	--ping every minute
