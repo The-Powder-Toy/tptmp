@@ -19,15 +19,20 @@ local succ,err=pcall(function()
 	local config=dofile"config.lua"
 	local server=socket.tcp()
 	local succ,err=server:bind(config.bindhost,config.bindport)
+	local crackbotServer=socket.tcp()
+	local crackbot = nil
+	crackbotServer:bind("localhost",34404)
+	crackbotServer:listen(1)
+	crackbotServer:settimeout(0)
+	
 	if not succ then
 		error("Could not bind: "..err)
 	end
 	server:listen(10)
 	server:settimeout(0)
 
-	local clients={}
-	local rooms={}
-
+	clients={}
+	rooms={}
 	-- nonblockingly read a null-terminated string
 	function nullstr()
 		local t={}
@@ -51,7 +56,7 @@ local succ,err=pcall(function()
 	function bytes(socket,amt)
 		local final = ""
 		local timeout,rec = os.time(),0
-		while true do
+		while rec<amt do
 			local s,r,e = socket:receive(amt-rec)
 			if not s then 
 				if r~="timeout" then
@@ -60,6 +65,7 @@ local succ,err=pcall(function()
 				rec = rec + #e
 				if rec < amt then
 					e = e .. coroutine.yield()
+					rec = rec+1
 				end
 				final = final..e
 			else
@@ -289,7 +295,7 @@ local succ,err=pcall(function()
 		local client=clients[id]
 		if not client then return end
 		client.socket:close()
-		print(client.nick..": Connection to "..(client.host or"?")..":"..(client.port or"?").." closed: "..err)
+		print((client.nick or id)..": Connection to "..(client.host or"?")..":"..(client.port or"?").." closed: "..err)
 		if client.room then
 			leave(client.room,id)
 		else
@@ -297,12 +303,44 @@ local succ,err=pcall(function()
 		end
 		clients[id]=nil
 	end
-
+	local function runLua(msg)
+	local e,err = loadstring(msg)
+	if e then
+		--debug.sethook(infhook,"l")
+		local s,r = pcall(e)
+		--debug.sethook()
+		--stepcount=0
+		if s then
+			local str = tostring(r):gsub("[\r\n]"," ")
+			return str
+		else
+			return "ERROR: " .. r
+		end
+		return
+	end
+	return "ERROR: " .. err
+	end
+	function readCrackbot()
+		local s,r = crackbot:receive("*l")
+		if not s then
+			if r~= "timeout" then
+				crackbot=nil
+			end
+			return
+		end
+		crackbot:send(runLua(s).."\n")
+	end
 -------- MAIN LOOP
 	while 1 do
 		-- has anything happened on this iteration
 		local anything
 		-- check connections
+		if not crackbot then
+			crackbot = crackbotServer:accept()
+			if crackbot then crackbot:settimeout(0) end
+		else
+			readCrackbot()
+		end
 		local conn,err=server:accept()
 		if err and err~="timeout" then
 			io.stderr:write("!!! Failed to accept client: "..err)
