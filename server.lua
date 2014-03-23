@@ -154,6 +154,10 @@ local succ,err=pcall(function()
 			client.socket:send("\0Your script version mismatched, try updating it\0")
 			disconnect(id,"Bad script version "..scriptver)
 		end
+		if not client.nick:match("^[%w%-%_]+$") then
+			client.socket:send("\0Bad Nickname!\0")
+			disconnect(id,"Bad nickname")
+		end
 		client.brush=0
 		client.size="\4\4"
 		client.selection={"\0\1","\64\0","\128\0"}
@@ -182,15 +186,13 @@ local succ,err=pcall(function()
 				print("* "..client.nick.." "..msg)
 				sendroomexcept(client.room,id,"\20"..string.char(id)..msg.."\0")
 			elseif cmd==21 then
-				local msg = nullstr()
+				local nick,reason = nullstr(), nullstr()
 				if client.room == "null" then
 					client.socket:send("\22You can't kick people from the lobby\0"..string.char(127)..string.char(255)..string.char(255))
-				elseif clients[rooms[client.room][1]].nick ~= client.nick then
+				elseif rooms[client.room][1] ~= id then
 					client.socket:send("\22You can't kick people from here\0"..string.char(127)..string.char(255)..string.char(255))
 				else
-					local nick,reason = msg:match("([^%s%c]+) (.+)")
-					local found = false
-					if not nick then nick,reason = msg:match("([^%s%c]+)"), client.nick end
+					local found=false
 					for _,uid in ipairs(rooms[client.room]) do
 						if clients[uid].nick == nick then
 							clients[uid].socket:send("\22You were kicked by "..nick..": "..reason.."\0"..string.char(255)..string.char(50)..string.char(50))
