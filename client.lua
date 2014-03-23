@@ -1334,7 +1334,7 @@ local function step()
 	if hooks_enabled then
 		if pressedKeys and pressedKeys["repeat"] < socket.gettime() then
 			chatwindow:textprocess(pressedKeys["key"],pressedKeys["nkey"],pressedKeys["modifier"],pressedKeys["event"])
-			pressedKeys["repeat"] = socket.gettime()+.05
+			pressedKeys["repeat"] = socket.gettime()+.075
 		end
 		drawStuff()
 		sendStuff()
@@ -1365,10 +1365,10 @@ if jacobsmod then
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
-	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end
 	elseif chatwindow:process(mousex,mousey,button,event,wheel) then return false end
 	if L.skipClick then L.skipClick=false return true end
+	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 then
 			--initial stamp coords
@@ -1542,7 +1542,7 @@ local keypressfuncs = {
 	--N , newtonian gravity or new save
 	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
 
-	--O, old button in jacobs mod
+	--O, old menu in jacobs mod
 	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 then showbutton:onmove(0, 241) else showbutton:onmove(0, -241) end end end,
 	
 	--R , for stamp rotate
