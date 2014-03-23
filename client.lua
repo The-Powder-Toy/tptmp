@@ -17,14 +17,14 @@
 --ESC key will unfocus, then minimize chat
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 
-if disableMultiplayer then if TPTMPversion <= 1 then disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
-TPTMPversion = 1 -- script version sent on connect to ensure server protocol is the same
+if TPTMP then if TPTMP.version <= 1 then TPTMP.disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
+TPTMP = {["version"] = 1} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not sim.loadStamp then error"Tpt version not supported" end
 if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 local hooks_enabled = false --hooks only enabled once you maximize the button
 
-local PORT = 34403 --Change 34403 to your desired port
+local PORT = 34405 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
@@ -85,7 +85,7 @@ local function connectToMniip(ip,port)
 	if not s then return false,r end
 	sock:settimeout(0)
 	sock:setoption("keepalive",true)
-	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..string.char(TPTMPversion)..username.."\0")
+	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..string.char(TPTMP.version)..username.."\0")
 	local c,r
 	while not c do
 	c,r = sock:receive(1)
@@ -608,7 +608,7 @@ end
 local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if not hooks_enabled then enableMultiplayer() end L.chatHidden=false L.flashChat=false end,"<<")
+local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false L.flashChat=false end,"<<")
 local flashCount=0
 showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
 chatwindow = ui_chatbox.new(100,100,250,200)
@@ -1606,19 +1606,19 @@ local function keyclicky(key,nkey,modifier,event)
 	if ret~= nil then return ret end
 end
 
-function disableMultiplayer()
+function TPTMP.disableMultiplayer()
 	tpt.unregister_step(step)
 	tpt.unregister_mouseclick(mouseclicky)
 	tpt.unregister_keypress(keyclicky)
-	enableMultiplayer, disableMultiplayer = nil, nil
+	TPTMP = nil
 	disconnected("TPTMP unloaded")
 end
 
-function enableMultiplayer()
+function TPTMP.enableMultiplayer()
 	tpt.register_keypress(keyclicky)
 	chatwindow:addline("TPTMP v0.6: Type '/connect' to join server.",200,200,200)
 	hooks_enabled = true
-	enableMultiplayer = nil
+	TPTMP.enableMultiplayer = nil
 	debug.sethook(nil,"",0)
 end
 tpt.register_step(step)
