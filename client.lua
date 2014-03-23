@@ -18,8 +18,8 @@
 --ESC key will unfocus, then minimize chat
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 
-if disableMultiplayer then disableMultiplayer() end -- if script already running, replace it
-local scriptversion = 1 -- script version sent on connect to ensure server protocol is the same
+if disableMultiplayer then if TPTMPversion <= 1 then disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
+TPTMPversion = 1 -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not sim.loadStamp then error"Tpt version not supported" end
 if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
@@ -86,7 +86,7 @@ local function connectToMniip(ip,port)
 	if not s then return false,r end
 	sock:settimeout(0)
 	sock:setoption("keepalive",true)
-	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..string.char(scriptversion)..username.."\0")
+	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..string.char(TPTMPversion)..username.."\0")
 	local c,r
 	while not c do
 	c,r = sock:receive(1)
@@ -1508,7 +1508,10 @@ local keypressfuncs = {
 	
 	--= key, pressure/spark reset
 	[61] = function() if L.ctrl then conSend(60) else conSend(61) end end,
-
+	
+	--`, console
+	[96] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false end end,
+	
 	--b , deco, pauses sim
 	[98] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
 
@@ -1606,14 +1609,16 @@ end
 function disableMultiplayer()
 	tpt.unregister_step(step)
 	tpt.unregister_mouseclick(mouseclicky)
+	tpt.unregister_keypress(keyclicky)
 	enableMultiplayer, disableMultiplayer = nil, nil
+	disconnected("TPTMP unloaded")
 end
 
 function enableMultiplayer()
 	tpt.register_keypress(keyclicky)
 	chatwindow:addline("TPTMP v0.6: Type '/connect' to join server.",200,200,200)
 	hooks_enabled = true
-	enableMultiplayer, disableMultiplayer = nil, nil
+	enableMultiplayer = nil
 	debug.sethook(nil,"",0)
 end
 tpt.register_step(step)
