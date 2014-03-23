@@ -18,6 +18,7 @@
 --ESC key will unfocus, then minimize chat
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 
+if disableMultiplayer then disableMultiplayer() end -- if script already running, replace it
 local scriptversion = 1 -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not sim.loadStamp then error"Tpt version not supported" end
@@ -567,7 +568,7 @@ new=function(x,y,w,h)
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
-		if L.chatHidden then return false end
+		if L.chatHidden then return nil end
 		local text = self.inputbox:textprocess(key,nkey,modifier,event)
 		if type(text)=="boolean" then return text end
 		if text and text~="" then
@@ -1602,11 +1603,17 @@ local function keyclicky(key,nkey,modifier,event)
 	if ret~= nil then return ret end
 end
 
+function disableMultiplayer()
+	tpt.unregister_step(step)
+	tpt.unregister_mouseclick(mouseclicky)
+	enableMultiplayer, disableMultiplayer = nil, nil
+end
+
 function enableMultiplayer()
 	tpt.register_keypress(keyclicky)
 	chatwindow:addline("TPTMP v0.6: Type '/connect' to join server.",200,200,200)
 	hooks_enabled = true
-	enableMultiplayer = nil
+	enableMultiplayer, disableMultiplayer = nil, nil
 	debug.sethook(nil,"",0)
 end
 tpt.register_step(step)
