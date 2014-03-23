@@ -24,7 +24,7 @@ if not sim.loadStamp then error"Tpt version not supported" end
 if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 local hooks_enabled = false --hooks only enabled once you maximize the button
 
-local PORT = 34405 --Change 34403 to your desired port
+local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
@@ -609,6 +609,9 @@ local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
 local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false L.flashChat=false end,"<<")
+if jacobsmod and tpt.oldmenu()~=0 then
+	showbutton:onmove(0, 241)
+end
 local flashCount=0
 showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
 chatwindow = ui_chatbox.new(100,100,250,200)
@@ -1524,6 +1527,9 @@ local keypressfuncs = {
 	--F , frame step
 	[102] = function() if not jacobsmod or (not L.ctrl and not L.shift) then conSend(50) end end,
 
+	--H , HUD and intro text
+	[104] = function() if L.ctrl and jacobsmod then return false end end,
+	
 	--I , invert pressure
 	[105] = function() conSend(62) end,
 	
@@ -1531,16 +1537,19 @@ local keypressfuncs = {
 	[107] = function() L.lastStamp={data=nil} L.placeStamp=true end,
 
 	--L , last Stamp
-	[108] = function () if L.lastStamp then L.placeStamp=true end end,
+	[108] = function() if L.lastStamp then L.placeStamp=true end end,
 
 	--N , newtonian gravity or new save
-	[110] = function () if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
+	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
 
+	--O, old button in jacobs mod
+	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 then showbutton:onmove(0, 241) else showbutton:onmove(0, -241) end end end,
+	
 	--R , for stamp rotate
-	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif jacobsmod and L.ctrl then conSend(70) end end,
+	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then conSend(70) end end,
 
 	--S, stamp
-	[115] = function() if L.lastStick2 and not L.ctrl then return end L.stamp=true end,
+	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true end,
 
 	--T, tabs
 	[116] = function() if jacobsmod then L.tabs = not L.tabs end end,
@@ -1565,21 +1574,30 @@ local keypressfuncs = {
 	[274] = function() if L.placeStamp then L.smoved=true end end,
 	[275] = function() if L.placeStamp then L.smoved=true end end,
 	[276] = function() if L.placeStamp then L.smoved=true end end,
-
+	
+	--F1 , intro text
+	[282] = function() if jacobsmod then return false end end,
+	
 	--F5 , save reload
-	[286] = function() if jacobs_mod then conSend(70) end end,
+	[286] = function() conSend(70) end,
 
 	--SHIFT,CTRL,ALT
+	[303] = function() L.shift=true conSend(36,string.char(17)) end,
 	[304] = function() L.shift=true conSend(36,string.char(17)) end,
+	[305] = function() L.ctrl=true conSend(36,string.char(1)) end,
 	[306] = function() L.ctrl=true conSend(36,string.char(1)) end,
+	[307] = function() L.alt=true conSend(36,string.char(33)) end,
 	[308] = function() L.alt=true conSend(36,string.char(33)) end,
 }
 local keyunpressfuncs = {
 	--Z
 	[122] = function() myZ=false L.skipClick=false if L.alt then L.skipClick=true end end,
 	--SHIFT,CTRL,ALT
+	[303] = function() L.shift=false conSend(36,string.char(16)) end,
 	[304] = function() L.shift=false conSend(36,string.char(16)) end,
+	[305] = function() L.ctrl=false conSend(36,string.char(0)) end,
 	[306] = function() L.ctrl=false conSend(36,string.char(0)) end,
+	[307] = function() L.alt=false conSend(36,string.char(32)) end,
 	[308] = function() L.alt=false conSend(36,string.char(32)) end,
 }
 local function keyclicky(key,nkey,modifier,event)
@@ -1620,6 +1638,10 @@ function TPTMP.enableMultiplayer()
 	hooks_enabled = true
 	TPTMP.enableMultiplayer = nil
 	debug.sethook(nil,"",0)
+	if jacobsmod then
+		--clear intro text tooltip
+		gfx.toolTip("", 0, 0, 0, 4)
+	end
 end
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
