@@ -563,7 +563,8 @@ new=function(x,y,w,h)
 	end,
 	kick = function(self, msg, args)
 		if not con.connected then return end
-		conSend(21, args[1].."\0"..args[2],true)
+		if not args[1] then self:addline("Need a nick! '/kick <nick> [reason]'") return end
+		conSend(21, args[1].."\0"..(args[2] or ""),true)
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
