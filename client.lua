@@ -1,4 +1,3 @@
-
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
 --VER 0.6 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
@@ -564,7 +563,7 @@ new=function(x,y,w,h)
 	end,
 	kick = function(self, msg, args)
 		if not con.connected then return end
-		conSend(21, table.concat(args, " "),true)
+		conSend(21, args[1].."\0"..args[2],true)
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
