@@ -102,7 +102,6 @@ local function connectToMniip(ip,port,nick)
 		end
 		if err=="This nick is already on the server" then
 			nick = nick:gsub("(.)$",function(s) local n=tonumber(s) if n and n+1 <= 9 then return n+1 else return n..'0' end end)
-			username = nick
 			return connectToMniip(ip,port,nick)
 		end
 		return false,err
@@ -112,6 +111,7 @@ local function connectToMniip(ip,port,nick)
 
 	con.socket = sock
 	con.connected = true
+	username = nick
 	return true
 end
 --get up to a null (\0)
