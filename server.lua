@@ -158,6 +158,16 @@ local succ,err=pcall(function()
 			client.socket:send("\0Bad Nickname!\0")
 			disconnect(id,"Bad nickname")
 		end
+		if #client.nick > 32 then
+			client.socket:send("\0Nick too long!\0")
+			disconnect(id,"Nick too long")
+		end
+		for k,v in pairs(clients) do
+			if k~=id and v.nick == client.nick then
+				client.socket:send("\0This nick is already on the server\0")
+				disconnect(id,"Duplicate nick")
+			end
+		end
 		client.brush=0
 		client.size="\4\4"
 		client.selection={"\0\1","\64\0","\128\0"}
@@ -195,7 +205,7 @@ local succ,err=pcall(function()
 					local found=false
 					for _,uid in ipairs(rooms[client.room]) do
 						if clients[uid].nick == nick then
-							clients[uid].socket:send("\22You were kicked by "..nick..": "..reason.."\0"..string.char(255)..string.char(50)..string.char(50))
+							clients[uid].socket:send("\22You were kicked by "..clients[id].nick..": "..reason.."\0"..string.char(255)..string.char(50)..string.char(50))
 							print(client.nick.." kicked "..nick.." from "..client.room.." ("..reason..")")
 							disconnect(uid, reason)
 							found = true
