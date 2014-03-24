@@ -73,10 +73,8 @@ local function joinChannel(chan)
 	conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
 	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
 end
-local function connectToMniip(ip,port)
+local function connectToMniip(ip,port,nick)
 	if con.connected then return false,"Already connected" end
-	local newusername = tpt.get_name()
-	if newusername~="" then username = newusername end
 	ip = ip or "pwc-servers.com"
 	port = port or PORT
 	local sock = socket.tcp()
@@ -85,7 +83,7 @@ local function connectToMniip(ip,port)
 	if not s then return false,r end
 	sock:settimeout(0)
 	sock:setoption("keepalive",true)
-	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..string.char(TPTMP.version)..username.."\0")
+	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..string.char(TPTMP.version)..nick.."\0")
 	local c,r
 	while not c do
 	c,r = sock:receive(1)
@@ -100,6 +98,11 @@ local function connectToMniip(ip,port)
 		while c~="\0" do
 		err = err..c
 		c,r = sock:receive(1)
+		end
+		if err=="This nick is already on the server" then
+			nick = nick:gsub("(.)$",function(s) local n=tonumber(s) if n and n+1 <= 9 then return n+1 else return n..'0' end end)
+			username = nick
+			return connectToMniip(ip,port,nick)
 		end
 		return false,err
 	end
@@ -514,7 +517,8 @@ new=function(x,y,w,h)
 	chatcommands = {
 	connect = function(self,msg,args)
 		if not issocket then self:addline("No luasockets found") return end
-		local s,r = connectToMniip(args[1],tonumber(args[2]))
+		local newname = tpt.get_name()
+		local s,r = connectToMniip(args[1],tonumber(args[2]), newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
 	end,
 	send = function(self,msg,args)
@@ -1645,4 +1649,3 @@ function TPTMP.enableMultiplayer()
 end
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
-
