@@ -1,8 +1,8 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
---VER 0.6 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
+--VER 0.7 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
  
---Version 0.6
+--Version 0.7
 
 --TODO's
 --Support replace mode
@@ -13,6 +13,7 @@
 -------------------------------------------------------
 
 --CHANGES:
+--Lots of Fixes
 --More colors!
 --ESC key will unfocus, then minimize chat
 --Changes from jacob, including: Support jacobsMod, keyrepeat
@@ -1638,7 +1639,7 @@ end
 
 function TPTMP.enableMultiplayer()
 	tpt.register_keypress(keyclicky)
-	chatwindow:addline("TPTMP v0.6: Type '/connect' to join server.",200,200,200)
+	chatwindow:addline("TPTMP v0.7: Type '/connect' to join server.",200,200,200)
 	hooks_enabled = true
 	TPTMP.enableMultiplayer = nil
 	debug.sethook(nil,"",0)
