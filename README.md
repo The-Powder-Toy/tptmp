@@ -5,7 +5,7 @@ The Powder Toy Multiplayer Script
 
 Server Usage
 ------------
-1. `lua server.lua`
+1. `lua server.lua [port]`
 
 Client Usage
 ------------
