@@ -6,25 +6,25 @@ print("TPTMP v" .. config.scriptversion .. " -- Powder Toy v" .. config.versionm
 
 -- Help function
 function help ()
-    print("Usage: " .. arg[0] .. " [port]\n")
-    print("    Default port is 34403.\n")
-    print("    --help        display this help message")
+	print("Usage: " .. arg[0] .. " [port]\n")
+	print("    Default port is 34403.\n")
+	print("    --help        display this help message")
 end
 
 -------- ARGUMENTS
 -- Check for '--help'
 for index,value in ipairs(arg) do
-    if value == "--help" then
-        help()
-        return
-    end
+	if value == "--help" then
+    		help()
+        	return
+	end
 end
 
 -- Port
-if tonumber(arg[1]) and (tonumber(arg[1]) <= 65535) then
-    config.bindport = tonumber(arg[1])
+if tonumber(arg[1]) <= 65535 then
+	config.bindport = tonumber(arg[1])
 else
-    print("\nWarning: " .. arg[1] .. " is not a valid port! Defaulting to port 34403.")
+	print("\nWarning: " .. arg[1] .. " is not a valid port! Defaulting to port 34403.")
 end
 -------- END ARGUMENTS
 
