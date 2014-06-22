@@ -55,6 +55,9 @@ local succ,err=pcall(function()
 	crackbotServer:settimeout(0)
 	
 	if not succ then
+        if config.bindport <= 1024 then
+            print("Warning: Try running as root, or try a port larger than 1024.")
+        end
 		error("Could not bind: "..err)
     else
         print("Started server on localhost:" .. config.bindport .. "\n")
