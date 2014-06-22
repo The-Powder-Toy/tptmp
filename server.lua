@@ -2,7 +2,7 @@
 
 -- Read in the config
 local config=dofile"config.lua"
-print("TPTMP for Powder Toy v" .. config.versionmajor .. "." .. config.versionminor)
+print("TPTMP v" .. config.scriptversion .. " -- Powder Toy v" .. config.versionmajor .. "." .. config.versionminor)
 
 -- Help function
 function help ()
