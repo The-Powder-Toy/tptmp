@@ -1,4 +1,33 @@
 #!/usr/bin/lua
+
+-- Read in the config
+local config=dofile"config.lua"
+print("TPTMP for Powder Toy v" .. config.versionmajor .. "." .. config.versionminor)
+
+-- Help function
+function help ()
+    print("Usage: " .. arg[0] .. " [port]\n")
+    print("    Default port is 34403.\n")
+    print("    --help        display this help message")
+end
+
+-------- ARGUMENTS
+-- Check for '--help'
+for index,value in ipairs(arg) do
+    if value == "--help" then
+        help()
+        return
+    end
+end
+
+-- Port
+if tonumber(arg[1]) and (tonumber(arg[1]) <= 65535) then
+    config.bindport = tonumber(arg[1])
+else
+    print("\nWarning: " .. arg[1] .. " is not a valid port! Defaulting to port 34403.")
+end
+-------- END ARGUMENTS
+
 local server
 local succ,err=pcall(function()
 	local f=io.open".tptmp.pid"
@@ -17,17 +46,18 @@ local succ,err=pcall(function()
 
 	-- init server socket
 	local socket=require"socket"
-	local config=dofile"config.lua"
 	server=socket.tcp()
 	local succ,err=server:bind(config.bindhost,config.bindport)
 	local crackbotServer=socket.tcp()
 	local crackbot = nil
-	crackbotServer:bind("localhost",34404)
+	crackbotServer:bind("localhost", config.bindport)
 	crackbotServer:listen(1)
 	crackbotServer:settimeout(0)
 	
 	if not succ then
 		error("Could not bind: "..err)
+    else
+        print("Started server on localhost:" .. config.bindport .. "\n")
 	end
 	server:listen(10)
 	server:settimeout(0)
