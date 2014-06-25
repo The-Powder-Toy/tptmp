@@ -302,8 +302,11 @@ ui_inputbox = {
 new=function(x,y,w,h)
 	local intext=ui_box.new(x,y,w,h)
 	intext.cursor=0
+	intext.line=1
 	intext.focus=false
 	intext.t=ui_text.newscroll("",x+2,y+2,w-2,true)
+	intext.history={}
+	intext.max_history=200
 	intext:drawadd(function(self)
 		local cursoradjust=tpt.textwidth(self.t.text:sub(self.t.start,self.cursor))+2
 		tpt.drawline(self.x+cursoradjust,self.y,self.x+cursoradjust,self.y+10,255,255,255)
@@ -320,6 +323,18 @@ new=function(x,y,w,h)
 		if self.cursor>self.t.length then self.cursor = self.t.length end
 		if self.cursor<0 then self.cursor = 0 return end
 	end
+	function intext:addhistory(str)
+		self.history[#self.history+1] = str
+		if #self.history >= self.max_history then
+			table.remove(self.history, 1)
+		end
+	end
+	function intext:moveline(amt)
+		self.line = self.line+amt
+		if self.line>#self.history then self.line=#self.history
+		elseif self.line<1 then self.line=1 end
+		self.cursor = string.len(self.history[self.line])
+	end
 	function intext:textprocess(key,nkey,modifier,event)
 		if event~=1 then return end
 		if not self.focus then
@@ -327,7 +342,9 @@ new=function(x,y,w,h)
 			return
 		end
 		if nkey==27 then self:setfocus(false) return true end
-		if nkey==13 then local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" return text end end --enter
+		if nkey==13 then local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history return text end end --enter
+		if nkey==273 then self:moveline(-1) self.t:update(self.history[self.line],self.cursor) return true end --up
+		if nkey==274 then self:moveline(1) self.t:update(self.history[self.line],self.cursor) return true end --down
 		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
 		if nkey==276 then self:movecursor(-1) self.t:update(nil,self.cursor) return true end --left
 		local modi = (modifier%1024)
@@ -348,6 +365,7 @@ new=function(x,y,w,h)
 			local addkey = (modi==1 or modi==2) and shift(key) or key
 			if (math.floor(modi/512))==1 then addkey=altgr(key) end
 			newstr = self.t.text:sub(1,self.cursor) .. addkey .. self.t.text:sub(self.cursor+1)
+			self.history[#self.history] = newstr
 			self.t:update(newstr,self.cursor+1)
 			self:movecursor(1)
 			return true
@@ -577,6 +595,7 @@ new=function(x,y,w,h)
 		local text = self.inputbox:textprocess(key,nkey,modifier,event)
 		if type(text)=="boolean" then return text end
 		if text and text~="" then
+
 			local cmd = text:match("^/([^%s]+)")
 			if cmd then
 				local rest=text:sub(#cmd+3)
