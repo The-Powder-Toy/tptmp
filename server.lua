@@ -18,22 +18,31 @@ local succ,err=pcall(function()
 	-- init server socket
 	local socket=require"socket"
 	local config=dofile"config.lua"
-	server=socket.tcp()
-	local succ,err=server:bind(config.bindhost,config.bindport)
-	local crackbotServer=socket.tcp()
-	local crackbot = nil
-	crackbotServer:bind("localhost",34404)
-	crackbotServer:listen(1)
+	local succ,err=socket.bind(config.bindhost,config.bindport,10)
+	local crackbotServer=socket.bind("localhost",34404,1)--socket.tcp()
+	crackbot = nil
 	crackbotServer:settimeout(0)
 	
 	if not succ then
 		error("Could not bind: "..err)
 	end
-	server:listen(10)
+	server = succ
 	server:settimeout(0)
+	
+	bans={}
 
 	clients={}
 	rooms={}
+	
+	chatHooks = {}
+	function onChat(client,cmd,msg)
+		for k,v in pairs(chatHooks) do
+			if type(v)=="function" then
+				v(client,cmd,msg)
+			end
+		end
+	end
+	
 	-- nonblockingly read a null-terminated string
 	function nullstr()
 		local t={}
@@ -139,10 +148,17 @@ local succ,err=pcall(function()
 			print("asking "..rooms[room][1].." to provide sync")
 			clients[rooms[room][1]].socket:send("\128"..string.char(id))
 		end
+		onChat(client,1,room)
 	end
 
 	-- coroutine that handles the client
 	function handler(id,client)
+		for k,v in pairs(bans) do
+			if client.host:match(v) then
+				client.socket:send("\0You are banned\0")
+				disconnect(id,"Banned user")
+			end
+		end
 		local major,minor,scriptver=byte(),byte(),byte()
 		client.nick=nullstr()
 		if minor~=config.versionminor or major~=config.versionmajor then
@@ -153,19 +169,23 @@ local succ,err=pcall(function()
 		if scriptver~=config.scriptversion then
 			client.socket:send("\0Your script version mismatched, try updating it\0")
 			disconnect(id,"Bad script version "..scriptver)
+			return
 		end
 		if not client.nick:match("^[%w%-%_]+$") then
 			client.socket:send("\0Bad Nickname!\0")
 			disconnect(id,"Bad nickname")
+			return
 		end
 		if #client.nick > 32 then
 			client.socket:send("\0Nick too long!\0")
 			disconnect(id,"Nick too long")
+			return
 		end
 		for k,v in pairs(clients) do
 			if k~=id and v.nick == client.nick then
 				client.socket:send("\0This nick is already on the server\0")
 				disconnect(id,"Duplicate nick")
+				return
 			end
 		end
 		client.brush=0
@@ -186,14 +206,17 @@ local succ,err=pcall(function()
 				leave(client.room,id)
 				local room=nullstr():lower()
 				join(room,id)
+				onChat(client,16,room)
 			-- MSG
 			elseif cmd==19 then
 				local msg=nullstr()
 				print("<"..client.nick.."> "..msg)
+				onChat(client,19,msg)
 				sendroomexcept(client.room,id,"\19"..string.char(id)..msg.."\0")
 			elseif cmd==20 then
 				local msg=nullstr()
 				print("* "..client.nick.." "..msg)
+				onChat(client,20,msg)
 				sendroomexcept(client.room,id,"\20"..string.char(id)..msg.."\0")
 			elseif cmd==21 then
 				local nick,reason = nullstr(), nullstr()
@@ -208,6 +231,7 @@ local succ,err=pcall(function()
 							clients[uid].socket:send("\22You were kicked by "..clients[id].nick..": "..reason.."\0"..string.char(255)..string.char(50)..string.char(50))
 							print(client.nick.." kicked "..nick.." from "..client.room.." ("..reason..")")
 							disconnect(uid, reason)
+							onChat(client,21,nick.." "..reason)
 							found = true
 						end
 					end
@@ -345,6 +369,7 @@ local succ,err=pcall(function()
 			print"nothing to leave"
 		end
 		clients[id]=nil
+		onChat(client,-1,err)
 	end
 	local function runLua(msg)
 	local e,err = loadstring(msg)
@@ -444,4 +469,3 @@ if not succ and not err:match"interrupted!$" then
 	io.stderr:write("*** CRASH! "..err,"\n")
 	io.stderr:write(debug.traceback(),"\n")
 end
-
