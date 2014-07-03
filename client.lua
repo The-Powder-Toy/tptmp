@@ -303,6 +303,7 @@ new=function(x,y,w,h)
 	local intext=ui_box.new(x,y,w,h)
 	intext.cursor=0
 	intext.line=1
+	intext.currentline = ""
 	intext.focus=false
 	intext.t=ui_text.newscroll("",x+2,y+2,w-2,true)
 	intext.history={}
@@ -331,9 +332,13 @@ new=function(x,y,w,h)
 	end
 	function intext:moveline(amt)
 		self.line = self.line+amt
-		if self.line>#self.history+1 then self.line=#self.history+1
+		local max = #self.currentline and #self.history+2 or #self.history+1
+		if self.line>max then self.line=max
 		elseif self.line<1 then self.line=1 end
-		self.cursor = string.len(self.history[self.line] or "")
+		local history = self.history[self.line] or ""
+		if self.line == #self.history+1 then history = self.currentline end
+		self.cursor = string.len(history)
+		self.t:update(history, self.cursor)
 	end
 	function intext:textprocess(key,nkey,modifier,event)
 		if event~=1 then return end
@@ -342,9 +347,9 @@ new=function(x,y,w,h)
 			return
 		end
 		if nkey==27 then self:setfocus(false) return true end
-		if nkey==13 then local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 return text end end --enter
-		if nkey==273 then self:moveline(-1) self.t:update(self.history[self.line] or "",self.cursor) return true end --up
-		if nkey==274 then self:moveline(1) self.t:update(self.history[self.line] or "",self.cursor) return true end --down
+		if nkey==13 then local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 self.currentline = "" return text end end --enter
+		if nkey==273 then self:moveline(-1) return true end --up
+		if nkey==274 then self:moveline(1) return true end --down
 		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
 		if nkey==276 then self:movecursor(-1) self.t:update(nil,self.cursor) return true end --left
 		local modi = (modifier%1024)
@@ -365,6 +370,7 @@ new=function(x,y,w,h)
 			local addkey = (modi==1 or modi==2) and shift(key) or key
 			if (math.floor(modi/512))==1 then addkey=altgr(key) end
 			newstr = self.t.text:sub(1,self.cursor) .. addkey .. self.t.text:sub(self.cursor+1)
+			self.currentline = newstr
 			self.t:update(newstr,self.cursor+1)
 			self:movecursor(1)
 			return true
@@ -1677,4 +1683,4 @@ function TPTMP.enableMultiplayer()
 end
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
-tpt.register_keypress(keyclicky)pressedKeys = nil
+tpt.register_keypress(keyclicky)
