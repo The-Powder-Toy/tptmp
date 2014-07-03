@@ -1,8 +1,8 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
---VER 0.7 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
+--VER 0.71 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
  
---Version 0.7
+--Version 0.71
 
 --TODO's
 --Support replace mode
@@ -76,7 +76,7 @@ local function joinChannel(chan)
 end
 local function connectToMniip(ip,port,nick)
 	if con.connected then return false,"Already connected" end
-	ip = ip or "pwc-servers.com"
+	ip = ip or "play.pwc-gaming.com"
 	port = port or PORT
 	local sock = socket.tcp()
 	sock:settimeout(10)
@@ -101,7 +101,7 @@ local function connectToMniip(ip,port,nick)
 		c,r = sock:receive(1)
 		end
 		if err=="This nick is already on the server" then
-			nick = nick:gsub("(.)$",function(s) local n=tonumber(s) if n and n+1 <= 9 then return n+1 else return n..'0' end end)
+			nick = nick:gsub("(.)$",function(s) local n=tonumber(s) if n and n+1 <= 9 then return n+1 else return nick:sub(-1)..'0' end end)
 			return connectToMniip(ip,port,nick)
 		end
 		return false,err
@@ -331,9 +331,9 @@ new=function(x,y,w,h)
 	end
 	function intext:moveline(amt)
 		self.line = self.line+amt
-		if self.line>#self.history then self.line=#self.history
+		if self.line>#self.history+1 then self.line=#self.history+1
 		elseif self.line<1 then self.line=1 end
-		self.cursor = string.len(self.history[self.line])
+		self.cursor = string.len(self.history[self.line] or "")
 	end
 	function intext:textprocess(key,nkey,modifier,event)
 		if event~=1 then return end
@@ -342,9 +342,9 @@ new=function(x,y,w,h)
 			return
 		end
 		if nkey==27 then self:setfocus(false) return true end
-		if nkey==13 then local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history return text end end --enter
-		if nkey==273 then self:moveline(-1) self.t:update(self.history[self.line],self.cursor) return true end --up
-		if nkey==274 then self:moveline(1) self.t:update(self.history[self.line],self.cursor) return true end --down
+		if nkey==13 then local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 return text end end --enter
+		if nkey==273 then self:moveline(-1) self.t:update(self.history[self.line] or "",self.cursor) return true end --up
+		if nkey==274 then self:moveline(1) self.t:update(self.history[self.line] or "",self.cursor) return true end --down
 		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
 		if nkey==276 then self:movecursor(-1) self.t:update(nil,self.cursor) return true end --left
 		local modi = (modifier%1024)
@@ -365,7 +365,6 @@ new=function(x,y,w,h)
 			local addkey = (modi==1 or modi==2) and shift(key) or key
 			if (math.floor(modi/512))==1 then addkey=altgr(key) end
 			newstr = self.t.text:sub(1,self.cursor) .. addkey .. self.t.text:sub(self.cursor+1)
-			self.history[#self.history] = newstr
 			self.t:update(newstr,self.cursor+1)
 			self:movecursor(1)
 			return true
@@ -474,7 +473,7 @@ new=function(x,y,w,h)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
 	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true end,">>")
 	chat:drawadd(function(self)
-		tpt.drawtext(self.x+85,self.y+2,"TPT Multiplayer")
+		tpt.drawtext(self.x+55,self.y+2,"TPT Multiplayer, by cracker64")
 		tpt.drawline(self.x+1,self.y+10,self.x2-1,self.y+10,120,120,120)
 		self.scrollbar:draw()
 		local count=0
@@ -539,6 +538,7 @@ new=function(x,y,w,h)
 		local newname = tpt.get_name()
 		local s,r = connectToMniip(args[1],tonumber(args[2]), newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
+		pressedKeys = nil
 	end,
 	send = function(self,msg,args)
 		if tonumber(args[1]) and args[2] then
@@ -549,6 +549,9 @@ new=function(x,y,w,h)
 		end
 	end,
 	quit = function(self,msg,args)
+		disconnected("Disconnected")
+	end,
+	disconnect = function(self,msg,args)
 		disconnected("Disconnected")
 	end,
 	join = function(self,msg,args)
@@ -565,7 +568,7 @@ new=function(x,y,w,h)
 		if not args[1] then self:addline("/help <command>, type /list for a list of commands") end
 		if args[1] == "connect" then self:addline("(/connect [ip] [port]) -- connect to a TPT multiplayer server, or no args to connect to the default one")
 		--elseif args[1] == "send" then self:addline("(/send <something> <somethingelse>) -- send raw data to the server") -- send a raw command
-		elseif args[1] == "quit" then self:addline("(/quit, no arguments) -- quit the game")
+		elseif args[1] == "quit" or args[1] == "disconnect" then self:addline("(/quit, no arguments) -- quit the game")
 		elseif args[1] == "join" then self:addline("(/join <channel> -- joins a room on the server")
 		elseif args[1] == "sync" then self:addline("(/sync, no arguments) -- syncs your screen to everyone else in the room")
 		elseif args[1] == "me" then self:addline("(/me <message>) -- say something in 3rd person") -- send a raw command
@@ -603,17 +606,15 @@ new=function(x,y,w,h)
 				if chatcommands[cmd] then
 					chatcommands[cmd](self,msg,args)
 					--self:addline("Executed "..cmd.." "..rest)
-				else
-					self:addline("No such command: "..cmd.." "..rest,255,50,50)
+					return
 				end
+			end
+			--normal chat
+			if con.connected then
+				conSend(19,text,true)
+				self:addline(username .. ": ".. text,200,200,200)
 			else
-				--normal chat
-				if con.connected then
-					conSend(19,text,true)
-					self:addline(username .. ": ".. text,200,200,200)
-				else
-					self:addline("Not connected to server!",255,50,50)
-				end
+				self:addline("Not connected to server!",255,50,50)
 			end
 		end
 	end
@@ -651,7 +652,7 @@ local eleNameTable = {
 ["DEFAULT_WL_5"] = 285,["DEFAULT_WL_6"] = 286,["DEFAULT_WL_7"] = 287,["DEFAULT_WL_8"] = 288,["DEFAULT_WL_9"] = 289,["DEFAULT_WL_10"] = 290,
 ["DEFAULT_WL_11"] = 291,["DEFAULT_WL_12"] = 292,["DEFAULT_WL_13"] = 293,["DEFAULT_WL_14"] = 294,["DEFAULT_WL_15"] = 295,
 ["DEFAULT_UI_SAMPLE"] = 296,["DEFAULT_UI_SIGN"] = 297,["DEFAULT_UI_PROPERTY"] = 298,["DEFAULT_UI_WIND"] = 299,
-["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_VAC"] = 302,["DEFAULT_TOOL_AIR"] = 303,["DEFAULT_TOOL_GRAV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,
+["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_VAC"] = 302,["DEFAULT_TOOL_AIR"] = 303,["DEFAULT_TOOL_PGRV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,
 ["DEFAULT_DECOR_SET"] = 306,["DEFAULT_DECOR_ADD"] = 307,["DEFAULT_DECOR_SUB"] = 308,["DEFAULT_DECOR_MUL"] = 309,["DEFAULT_DECOR_DIV"] = 310,["DEFAULT_DECOR_SMDG"] = 311,["DEFAULT_DECOR_CLR"] = 312,["DEFAULT_DECOR_LIGH"] = 313, ["DEFAULT_DECOR_DARK"] = 314
 }
 local function convertDecoTool(c)
@@ -862,7 +863,7 @@ local function loadStamp(size,x,y,reset)
 	end
 end
 local function saveStamp(x, y, w, h)
-	local stampName = sim.saveStamp(x, y, w, h)
+	local stampName = sim.saveStamp(x, y, w, h) or "errorsavingstamp"
 	local fullName = "stamps/"..stampName..".stm"
 	return stampName, fullName
 end
@@ -1357,8 +1358,12 @@ local function step()
 	if not L.chatHidden then chatwindow:draw() else showbutton:draw() end
 	if hooks_enabled then
 		if pressedKeys and pressedKeys["repeat"] < socket.gettime() then
-			chatwindow:textprocess(pressedKeys["key"],pressedKeys["nkey"],pressedKeys["modifier"],pressedKeys["event"])
-			pressedKeys["repeat"] = socket.gettime()+.075
+			if pressedKeys["repeat"] < socket.gettime()-.05 then
+				pressedKeys = nil
+			else
+				chatwindow:textprocess(pressedKeys["key"],pressedKeys["nkey"],pressedKeys["modifier"],pressedKeys["event"])
+				pressedKeys["repeat"] = socket.gettime()+.065
+			end
 		end
 		drawStuff()
 		sendStuff()
@@ -1558,7 +1563,7 @@ local keypressfuncs = {
 	[105] = function() conSend(62) end,
 	
 	--K , stamp menu, abort our known stamp, who knows what they picked, send full screen?
-	[107] = function() L.lastStamp={data=nil} L.placeStamp=true end,
+	[107] = function() L.lastStamp={data=nil,w=0,h=0} L.placeStamp=true end,
 
 	--L , last Stamp
 	[108] = function() if L.lastStamp then L.placeStamp=true end end,
@@ -1625,6 +1630,10 @@ local keyunpressfuncs = {
 	[308] = function() L.alt=false conSend(36,string.char(32)) end,
 }
 local function keyclicky(key,nkey,modifier,event)
+	if not hooks_enabled then
+		if jacobsmod and not L.ctrl and key == 'o' and event == 1 then if tpt.oldmenu()==0 then showbutton:onmove(0, 241) else showbutton:onmove(0, -241) end end
+		return
+	end
 	if chatwindow.inputbox.focus then
 		if event == 1 and nkey~=13 and nkey~=27 then
 			pressedKeys = {["repeat"] = socket.gettime()+.6, ["key"] = key, ["nkey"] = nkey, ["modifier"] = modifier, ["event"] = event}
@@ -1657,8 +1666,7 @@ function TPTMP.disableMultiplayer()
 end
 
 function TPTMP.enableMultiplayer()
-	tpt.register_keypress(keyclicky)
-	chatwindow:addline("TPTMP v0.7: Type '/connect' to join server.",200,200,200)
+	chatwindow:addline("TPTMP v0.71: Type '/connect' to join server, or    /list for a list of commands.",200,200,200)
 	hooks_enabled = true
 	TPTMP.enableMultiplayer = nil
 	debug.sethook(nil,"",0)
@@ -1669,3 +1677,4 @@ function TPTMP.enableMultiplayer()
 end
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
+tpt.register_keypress(keyclicky)pressedKeys = nil
