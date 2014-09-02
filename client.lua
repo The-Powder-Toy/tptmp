@@ -18,7 +18,7 @@ local versionstring = "0.8"
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 --Support replace mode
 
-if TPTMP then if TPTMP.version <= 1 then TPTMP.disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
+if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
 TPTMP = {["version"] = 2} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not tpt.selectedreplace then error"Tpt version not supported" end
@@ -756,14 +756,14 @@ local function floodAny(x,y,c,cm,bm,user)
 	if noFlood[c] then return end
 	if c>=wallStart then
 		if c<= wallEnd then
-			sim.floodWalls(x,y,c-wallStart,cm,bm)
+			sim.floodWalls(x,y,c-wallStart,bm)
 		end
 		--other tools shouldn't flood
 		return
 	elseif c>=golStart then --GoL adjust
 		c = 78+(c-golStart)*256
 	end
-	sim.floodParts(x,y,c,cm,bm,user.replacemode)
+	sim.floodParts(x,y,c,cm,user.replacemode)
 end
 local function lineSnapCoords(x1,y1,x2,y2)
 	local nx,ny
@@ -823,7 +823,7 @@ local function playerMouseClick(id,btn,ev)
 			--left line
 			if user.shift and not user.ctrl then user.drawtype = 1 return end
 			--floodfill
-			if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,createE,-1,user) user.drawtype = 3 return end
+			if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,createE,-1,-1,user) user.drawtype = 3 return end
 			--an alt click
 			if user.alt then return end
 			user.drawtype=4 --normal hold
@@ -852,7 +852,7 @@ local function playerMouseMove(id)
 	elseif user.abtn then
 		createE,checkBut=user.selecteda,user.abtn
 	else return end
-	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1,user) end return end
+	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1,-1,user) end return end
 	if checkBut==3 then
 		if user.mousex>=612 then user.mousex=611 end
 		if user.mousey>=384 then user.mousey=383 end
