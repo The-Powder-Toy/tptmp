@@ -137,9 +137,10 @@ local succ,err=pcall(function()
 		end
 		for _,uid in ipairs(rooms[room]) do
 			client.socket:send(("\35"..string.char(uid)):rep(clients[uid].brush).."\34"..string.char(uid)..clients[uid].size)
-			for i=1,3 do
+			for i=1,4 do
 				client.socket:send("\37"..string.char(uid)..clients[uid].selection[i])
 			end
+			client.socket:send("\38"..string.char(uid)..clients[uid].replacemode)
 			client.socket:send("\65"..string.char(uid)..clients[uid].deco)
 		end
 		table.insert(rooms[room],id)
@@ -191,6 +192,7 @@ local succ,err=pcall(function()
 		client.brush=0
 		client.size="\4\4"
 		client.selection={"\0\1","\64\0","\128\0"}
+		client.replacemode="0"
 		client.deco="\0\0\0\0"
 		print(client.nick.." done identifying")
 		client.socket:send"\1"
@@ -262,6 +264,10 @@ local succ,err=pcall(function()
 				local btn=math.floor(data:byte(1)/64)
 				client.selection[btn+1]=data
 				sendroomexcept(client.room,id,"\37"..string.char(id)..data)
+			elseif cmd==38 then
+				local data=char()
+				client.replacemode = data
+				sendroomexcept(client.room,id,"\38"..string.char(id)..data)
 			elseif cmd==48 then
 				local data=char()
 				sendroomexcept(client.room,id,"\48"..string.char(id)..data)

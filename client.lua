@@ -1,11 +1,10 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
---VER 0.71 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
- 
---Version 0.71
+--VER 0.8 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
+
+local versionstring = "0.8"
 
 --TODO's
---Support replace mode
 --FIGH,STKM,STK2,LIGH need a few more creation adjustments
 --Some more server functions
 --Force the russian to remake the ui
@@ -17,18 +16,19 @@
 --More colors!
 --ESC key will unfocus, then minimize chat
 --Changes from jacob, including: Support jacobsMod, keyrepeat
+--Support replace mode
 
 if TPTMP then if TPTMP.version <= 1 then TPTMP.disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
-TPTMP = {["version"] = 1} -- script version sent on connect to ensure server protocol is the same
+TPTMP = {["version"] = 2} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
-if not sim.loadStamp then error"Tpt version not supported" end
+if not tpt.selectedreplace then error"Tpt version not supported" end
 if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 local hooks_enabled = false --hooks only enabled once you maximize the button
 
 local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
-local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
+local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, selrep=0, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
 shift=false, alt=false, ctrl=false, tabs = false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false}
 
 local tptversion = tpt.version.build
@@ -72,11 +72,13 @@ local function joinChannel(chan)
 	conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
 	conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
 	conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
+	conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
+	conSend(38,L.replacemode)
 	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
 end
 local function connectToMniip(ip,port,nick)
 	if con.connected then return false,"Already connected" end
-	ip = ip or "play.pwc-gaming.com"
+	ip = ip or "starcatcher.us"
 	port = port or PORT
 	local sock = socket.tcp()
 	sock:settimeout(10)
@@ -112,6 +114,13 @@ local function connectToMniip(ip,port,nick)
 	con.socket = sock
 	con.connected = true
 	username = nick
+	conSend(34,string.char(L.brushx,L.brushy))
+	conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
+	conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
+	conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
+	conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
+	conSend(38,L.replacemode)
+	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
 	return true
 end
 --get up to a null (\0)
@@ -707,7 +716,7 @@ local function createBoxAny(x1,y1,x2,y2,c,user)
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
-	sim.createBox(x1,y1,x2,y2,c)
+	sim.createBox(x1,y1,x2,y2,c,user.replacemode)
 end
 local function createPartsAny(x,y,rx,ry,c,brush,user)
 	if c>=wallStart then
@@ -724,7 +733,7 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 		c = 78+(c-golStart)*256
 	end
 	if createOverride[c] then createOverride[c](x,y,rx,ry,c,brush) return end
-	sim.createParts(x,y,rx,ry,c,brush)
+	sim.createParts(x,y,rx,ry,c,brush,user.replacemode)
 end
 local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	if noShape[c] then return end
@@ -741,9 +750,9 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
-	sim.createLine(x1,y1,x2,y2,rx,ry,c,brush)
+	sim.createLine(x1,y1,x2,y2,rx,ry,c,brush,user.replacemode)
 end
-local function floodAny(x,y,c,cm,bm)
+local function floodAny(x,y,c,cm,bm,user)
 	if noFlood[c] then return end
 	if c>=wallStart then
 		if c<= wallEnd then
@@ -754,7 +763,7 @@ local function floodAny(x,y,c,cm,bm)
 	elseif c>=golStart then --GoL adjust
 		c = 78+(c-golStart)*256
 	end
-	sim.floodParts(x,y,c,cm,bm)
+	sim.floodParts(x,y,c,cm,bm,user.replacemode)
 end
 local function lineSnapCoords(x1,y1,x2,y2)
 	local nx,ny
@@ -814,7 +823,7 @@ local function playerMouseClick(id,btn,ev)
 			--left line
 			if user.shift and not user.ctrl then user.drawtype = 1 return end
 			--floodfill
-			if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,createE,-1) user.drawtype = 3 return end
+			if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,createE,-1,user) user.drawtype = 3 return end
 			--an alt click
 			if user.alt then return end
 			user.drawtype=4 --normal hold
@@ -843,7 +852,7 @@ local function playerMouseMove(id)
 	elseif user.abtn then
 		createE,checkBut=user.selecteda,user.abtn
 	else return end
-	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1) end return end
+	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1,user) end return end
 	if checkBut==3 then
 		if user.mousex>=612 then user.mousex=611 end
 		if user.mousey>=384 then user.mousey=383 end
@@ -889,7 +898,7 @@ local dataCmds = {
 		local peeps = {}
 		for i=1,amount do
 			local id = cByte()
-			con.members[id]={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
+			con.members[id]={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,replacemode=0,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
 			local name = con.members[id].name
 			table.insert(peeps,name)
 		end
@@ -897,7 +906,7 @@ local dataCmds = {
 	end,
 	[17]= function()
 		local id = cByte()
-		con.members[id] ={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
+		con.members[id] ={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,replacemode=0,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
 		chatwindow:addline(con.members[id].name.." has joined",100,255,100)
 	end,
 	[18] = function()
@@ -970,7 +979,16 @@ local dataCmds = {
 			con.members[id].selecteda=el
 		elseif btn==2 then
 			con.members[id].selectedr=el
+		elseif btn==3 then
+			--sync replace mode element between all players since apparently you have to set tpt.selectedreplace to use replace mode ...
+			tpt.selectedreplace = elem.property(el, "Identifier")
 		end
+	end,
+	--replace mode / specific delete
+	[38] = function()
+		local id = cByte()
+		local mod = cByte()
+		con.members[id].replacemode = mod
 	end,
 	--cmode defaults (1 byte mode)
 	[48] = function()
@@ -1251,7 +1269,7 @@ local function sendStuff()
 		conSend(34,string.char(L.brushx,L.brushy))
 	end
     --check selected elements
-    local nsell,nsela,nselr = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr]
+    local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
     if L.sell~=nsell then
 		L.sell=nsell
 		conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
@@ -1261,6 +1279,9 @@ local function sendStuff()
     elseif L.selr~=nselr then
 		L.selr=nselr
 		conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
+	elseif L.selrep~=nselrep then
+		L.selrep=nselrep
+		conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
 	end
     local ncol = sim.decoColour()
     if L.dcolour~=ncol then
@@ -1540,9 +1561,10 @@ local keypressfuncs = {
 	[56] = function() conSend(48,"\7") end,
 	[57] = function() conSend(48,"\8") end,
 	
-	--replace mode, TODO: implement
-	[59] = function() if con.connected then infoText:reset("Replace mode not supported currently") return false end end,
-	[277] = function() if con.connected then infoText:reset("Replace mode not supported currently") return false end end,
+	--semicolon / ins / del for replace mode
+	[59] = function() if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end conSend(38, L.replacemode) end,
+	[277] = function() L.replacemode = bit.bxor(L.replacemode, 1) conSend(38, L.replacemode) end,
+	[127] = function() L.replacemode = bit.bxor(L.replacemode, 2) conSend(38, L.replacemode) end,
 	
 	--= key, pressure/spark reset
 	[61] = function() if L.ctrl then conSend(60) else conSend(61) end end,
@@ -1672,7 +1694,7 @@ function TPTMP.disableMultiplayer()
 end
 
 function TPTMP.enableMultiplayer()
-	chatwindow:addline("TPTMP v0.71: Type '/connect' to join server, or    /list for a list of commands.",200,200,200)
+	chatwindow:addline("TPTMP v"..versionstring..": Type '/connect' to join server, or    /list for a list of commands.",200,200,200)
 	hooks_enabled = true
 	TPTMP.enableMultiplayer = nil
 	debug.sethook(nil,"",0)
