@@ -1,8 +1,8 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
---VER 0.8 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
+--VER 0.81 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
 
-local versionstring = "0.8"
+local versionstring = "0.81"
 
 --TODO's
 --FIGH,STKM,STK2,LIGH need a few more creation adjustments
