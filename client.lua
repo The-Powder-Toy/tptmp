@@ -716,7 +716,7 @@ local function createBoxAny(x1,y1,x2,y2,c,user)
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
-	sim.createBox(x1,y1,x2,y2,c,user.replacemode)
+	sim.createBox(x1,y1,x2,y2,c,user and user.replacemode)
 end
 local function createPartsAny(x,y,rx,ry,c,brush,user)
 	if c>=wallStart then
