@@ -1,17 +1,20 @@
 #!/usr/bin/lua
 local server
+local WINDOWS = package.config:sub(1,1) == "\\"
 local succ,err=pcall(function()
-	local f=io.open".tptmp.pid"
-	if f then
-		local n=f:read"*n"
-		os.execute("kill -2 "..n)
+	if not WINDOWS then
+		local f=io.open".tptmp.pid"
+		if f then
+			local n=f:read"*n"
+			os.execute("kill -2 "..n)
+			f:close()
+		end
+		f=io.open(".tptmp.pid","w")
+		local p=io.popen"echo $PPID"
+		f:write(p:read"*a")
+		p:close()
 		f:close()
 	end
-	f=io.open(".tptmp.pid","w")
-	local p=io.popen"echo $PPID"
-	f:write(p:read"*a")
-	p:close()
-	f:close()
 
 -------- SERVER BODY
 
