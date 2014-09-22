@@ -94,7 +94,7 @@ local function connectToMniip(ip,port,nick)
 	end
 	if not c and r~="timeout" then return false,r end
 
-	if c~= "\1" then 
+	if c~= "\1" then
 	if c=="\0" then
 		local err=""
 		c,r = sock:receive(1)
@@ -228,9 +228,9 @@ new = function(text,x,y,r,g,b)
 	txt.x=x or 0 txt.y=y or 0 txt.r=r or 255 txt.g=g or 255 txt.b=b or 255
 	function txt:setcolor(r,g,b) self.r=r self.g=g self.b=b end
 	txt:drawadd(function(self,x,y) tpt.drawtext(x or self.x,y or self.y,self.text,self.r,self.g,self.b) end)
-	txt:moveadd(function(self,x,y) 
+	txt:moveadd(function(self,x,y)
 		if x then self.x=self.x+x end
-		if y then self.y=self.y+y end   
+		if y then self.y=self.y+y end
 	end)
 	function txt:process() return false end
 	return txt
@@ -250,7 +250,7 @@ newscroll = function(text,x,y,vis,force,r,g,b)
 	txt.minlast=last-1
 	txt.ppl=((txt.visible-6)/(txt.length-txt.minlast+1))
 	function txt:update(text,pos)
-		if text then 
+		if text then
 			self.text=text
 			self.length=string.len(text)
 			local last=2
@@ -288,8 +288,8 @@ newscroll = function(text,x,y,vis,force,r,g,b)
 		end
 	end
 	txt.drawlist={} --reset draw
-	txt:drawadd(function(self,x,y) 
-		tpt.drawtext(x or self.x,y or self.y, self.text:sub(self.start,self.last) ,self.r,self.g,self.b) 
+	txt:drawadd(function(self,x,y)
+		tpt.drawtext(x or self.x,y or self.y, self.text:sub(self.start,self.last) ,self.r,self.g,self.b)
 	end)
 	function txt:process(mx,my,button,event,wheel)
 		if event==3 then
@@ -374,7 +374,7 @@ new=function(x,y,w,h)
 					end
 				end
 			end
-		else 
+		else
 			if nkey<32 or nkey>=127 then return true end --normal key
 			local addkey = (modi==1 or modi==2) and shift(key) or key
 			if (math.floor(modi/512))==1 then addkey=altgr(key) end
@@ -420,9 +420,9 @@ new = function(x,y,h,t,m)
 			tpt.drawline(self.x,self.y+self.soffset,self.x,self.y+self.soffset+self.length)
 		end
 	end)
-	bar:moveadd(function(self,x,y) 
+	bar:moveadd(function(self,x,y)
 		if x then self.x=self.x+x end
-		if y then self.y=self.y+y end   
+		if y then self.y=self.y+y end
 	end)
 	function bar:process(mx,my,button,event,wheel)
 		if wheel~=0 and not hidden_mode then
@@ -448,7 +448,7 @@ new = function(x,y,w,h,f,text)
 	b.drawbox=false
 	b.almostselected=false
 	b.invert=true
-	b:drawadd(function(self) 
+	b:drawadd(function(self)
 		if self.invert and self.almostselected then
 			self.almostselected=false
 			tpt.fillrect(self.x,self.y,self.w,self.h)
@@ -457,11 +457,11 @@ new = function(x,y,w,h,f,text)
 			b.t:draw()
 			b.t:setcolor(tr,tg,tb)
 		else
-			b.t:draw() 
+			b.t:draw()
 		end
 	end)
 	b:moveadd(function(self,x,y)
-		self.t:onmove(x,y) 
+		self.t:onmove(x,y)
 	end)
 	function b:process(mx,my,button,event,wheel)
 		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then return false end
@@ -799,7 +799,7 @@ end
 local function playerMouseClick(id,btn,ev)
 	local user = con.members[id]
 	local createE, checkBut
-	
+
 	--MANAGER_PRINT(tostring(btn)..tostring(ev))
 	if ev==0 then return end
 	if btn==1 then
@@ -812,9 +812,9 @@ local function playerMouseClick(id,btn,ev)
 		user.lbtn,user.abtn = false,false
 		createE,checkBut=user.selectedr,user.rbtn
 	else return end
-	
+
 	if user.mousex>=612 or user.mousey>=384 then user.drawtype=false return end
-	
+
 	if ev==1 then
 		user.pmx,user.pmy = user.mousex,user.mousey
 		if not user.drawtype then
@@ -1010,7 +1010,7 @@ local dataCmds = {
 		tpt.set_pause(0)
 		L.pauseNextFrame=true
 	end,
-	
+
 	--deco mode, (1 byte state)
 	[51] = function()
 		local id = cByte()
@@ -1034,7 +1034,7 @@ local dataCmds = {
 		local id = cByte()
 		tpt.newtonian_gravity(cByte())
 	end,
-	
+
 	--[[
 	--debug mode (1 byte state?) can't implement
 	[55] = function()
@@ -1053,7 +1053,7 @@ local dataCmds = {
 		local id = cByte()
 		sim.waterEqualisation(cByte())
 	end,
-	
+
 	--grav mode, (1 byte state)
 	[58] = function()
 		local id = cByte()
@@ -1068,7 +1068,7 @@ local dataCmds = {
 		sim.airMode(mode)
 		cmodeText:reset(con.members[id].name.." set: Air: "..airList[mode])
 	end,
-	
+
 	--clear sparks (no args)
 	[60] = function()
 		local id = cByte()
@@ -1254,12 +1254,12 @@ local function drawStuff()
 end
 
 local function sendStuff()
-    if not con.connected then return end
-    --mouse position every frame, not exactly needed, might be better/more accurate from clicks
-    local nmx,nmy = tpt.mousex,tpt.mousey
-    if nmx<612 and nmy<384 then nmx,nmy = sim.adjustCoords(nmx,nmy) end
-    if L.mousex~= nmx or L.mousey~= nmy then
-        L.mousex,L.mousey = nmx,nmy
+	if not con.connected then return end
+	--mouse position every frame, not exactly needed, might be better/more accurate from clicks
+	local nmx,nmy = tpt.mousex,tpt.mousey
+	if nmx<612 and nmy<384 then nmx,nmy = sim.adjustCoords(nmx,nmy) end
+	if L.mousex~= nmx or L.mousey~= nmy then
+		L.mousex,L.mousey = nmx,nmy
 		local b1,b2,b3 = math.floor(L.mousex/16),((L.mousex%16)*16)+math.floor(L.mousey/256),(L.mousey%256)
 		conSend(32,string.char(b1,b2,b3))
 	end
@@ -1268,27 +1268,27 @@ local function sendStuff()
 		L.brushx,L.brushy = nbx,nby
 		conSend(34,string.char(L.brushx,L.brushy))
 	end
-    --check selected elements
-    local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
-    if L.sell~=nsell then
+	--check selected elements
+	local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
+	if L.sell~=nsell then
 		L.sell=nsell
 		conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
-    elseif L.sela~=nsela then
+	elseif L.sela~=nsela then
 		L.sela=nsela
 		conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
-    elseif L.selr~=nselr then
+	elseif L.selr~=nselr then
 		L.selr=nselr
 		conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
 	elseif L.selrep~=nselrep then
 		L.selrep=nselrep
 		conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
 	end
-    local ncol = sim.decoColour()
-    if L.dcolour~=ncol then
+	local ncol = sim.decoColour()
+	if L.dcolour~=ncol then
 		L.dcolour=ncol
 		conSend(65,string.char(math.floor(ncol/16777216),math.floor(ncol/65536)%256,math.floor(ncol/256)%256,ncol%256))
-    end
-	
+	end
+
 	--Tell others to open this save ID, or send screen if opened local browser
 	if jacobsmod and L.browseMode and L.browseMode > 3 then
 		--hacky hack
@@ -1316,7 +1316,7 @@ local function sendStuff()
 		os.remove("stamps/tmp.stm") os.rename(fullName,"stamps/tmp.stm")
 		deleteStamp(stampName)
 	end
-	
+
 	--Send screen (or an area for known size) for stamps
 	if jacobsmod and L.sendScreen == 2 then
 		L.sendScreen = true
@@ -1341,7 +1341,7 @@ local function sendStuff()
 		conSend(67,string.char(math.floor(x/16),((x%16)*16)+math.floor(y/256),(y%256),math.floor((x+w)/16),(((x+w)%16)*16)+math.floor((y+h)/256),((y+h)%256)))
 		conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
 	end
-	
+
 	--Check if custom modes were changed
 	if jacobsmod and L.checkRen == 2 then
 		L.checkRen = true
@@ -1355,7 +1355,7 @@ local function sendStuff()
 		end
 		if send then conSend(64,string.char(t[1],t[2],t[3])) end
 	end
-	
+
 	--Send option menu settings
 	if L.checkOpt then
 		L.checkOpt=false
@@ -1495,7 +1495,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
 		conSend(32,string.char(b1,b2,b3))
 		L.mousex,L.mousey = mousex,mousey
-	    conSend(33,string.char(L.mButt*16+L.mEvent))
+		conSend(33,string.char(L.mButt*16+L.mEvent))
 	elseif L.mEvent==3 and (L.mousex~=mousex or L.mousey~=mousey) then
 		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
 		conSend(32,string.char(b1,b2,b3))
@@ -1505,7 +1505,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	if L.shift and L.ctrl and event == 1 and ((button == 1 and L.sell==15) or (button == 4 and L.selr==15) or (button == 2 and L.sela==15)) then
 		return false
 	end
-	
+
 	--Click inside button first
 	if button==1 then
 		if event==1 then
@@ -1542,13 +1542,13 @@ end
 local keypressfuncs = {
 	--TAB
 	[9] = function() conSend(35) end,
-	
+
 	--ESC
 	[27] = function() if not L.chatHidden then L.chatHidden = true return false end end,
-	
+
 	--space, pause toggle
 	[32] = function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
-		
+
 	--View modes 0-9
 	[48] = function() conSend(48,"\10") end,
 	[49] = function() if L.shift then conSend(48,"\9") tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end conSend(48,"\0") end,
@@ -1560,18 +1560,18 @@ local keypressfuncs = {
 	[55] = function() conSend(48,"\6") end,
 	[56] = function() conSend(48,"\7") end,
 	[57] = function() conSend(48,"\8") end,
-	
+
 	--semicolon / ins / del for replace mode
 	[59] = function() if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end conSend(38, L.replacemode) end,
 	[277] = function() L.replacemode = bit.bxor(L.replacemode, 1) conSend(38, L.replacemode) end,
 	[127] = function() L.replacemode = bit.bxor(L.replacemode, 2) conSend(38, L.replacemode) end,
-	
+
 	--= key, pressure/spark reset
 	[61] = function() if L.ctrl then conSend(60) else conSend(61) end end,
-	
+
 	--`, console
 	[96] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false end end,
-	
+
 	--b , deco, pauses sim
 	[98] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
 
@@ -1580,16 +1580,16 @@ local keypressfuncs = {
 
 	--d key, debug, api broken right now
 	--[100] = function() conSend(55) end,
-	
+
 	--F , frame step
 	[102] = function() if not jacobsmod or (not L.ctrl and not L.shift) then conSend(50) end end,
 
 	--H , HUD and intro text
 	[104] = function() if L.ctrl and jacobsmod then return false end end,
-	
+
 	--I , invert pressure
 	[105] = function() conSend(62) end,
-	
+
 	--K , stamp menu, abort our known stamp, who knows what they picked, send full screen?
 	[107] = function() L.lastStamp={data=nil,w=0,h=0} L.placeStamp=true end,
 
@@ -1601,7 +1601,7 @@ local keypressfuncs = {
 
 	--O, old menu in jacobs mod
 	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 then showbutton:onmove(0, 241) else showbutton:onmove(0, -241) end end end,
-	
+
 	--R , for stamp rotate
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then conSend(70) end end,
 
@@ -1631,10 +1631,10 @@ local keypressfuncs = {
 	[274] = function() if L.placeStamp then L.smoved=true end end,
 	[275] = function() if L.placeStamp then L.smoved=true end end,
 	[276] = function() if L.placeStamp then L.smoved=true end end,
-	
+
 	--F1 , intro text
 	[282] = function() if jacobsmod then return false end end,
-	
+
 	--F5 , save reload
 	[286] = function() conSend(70) end,
 
@@ -1706,3 +1706,4 @@ end
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
 tpt.register_keypress(keyclicky)
+

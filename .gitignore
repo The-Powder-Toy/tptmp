@@ -8,7 +8,9 @@
 lua/*
 mime/*
 socket/*
+stamps/*
 
 ltn12.lua
 mime.lua
 socket.lua
+powder.pref
