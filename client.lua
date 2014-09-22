@@ -1048,7 +1048,7 @@ local dataCmds = {
 	--legacy heat mode, (1 byte state)
 	[56] = function()
 		local id = cByte()
-		tpt.heat(cByte()==1 and 0 or 1)--tpt.heat in v88 beta is reversed, remove switch later
+		tpt.heat(cByte())
 	end,
 	--water equal, (1 byte state)
 	[57] = function()
