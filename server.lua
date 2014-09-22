@@ -39,9 +39,13 @@ local succ,err=pcall(function()
 	
 	chatHooks = {}
 	function onChat(client,cmd,msg)
+		if not crackbot then return end
 		for k,v in pairs(chatHooks) do
 			if type(v)=="function" then
-				v(client,cmd,msg)
+				local succ,err = pcall(v,client,cmd,msg)
+				if not succ then
+					crackbot:send("Hook error: "..err)
+				end
 			end
 		end
 	end
