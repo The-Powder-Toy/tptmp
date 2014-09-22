@@ -1,3 +1,14 @@
 *~
 *.txt
+*.dll
+*.bat
+*.bak
+*.exe
 
+lua/*
+mime/*
+socket/*
+
+ltn12.lua
+mime.lua
+socket.lua
