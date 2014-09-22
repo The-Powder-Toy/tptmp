@@ -45,6 +45,8 @@ local succ,err=pcall(function()
 				local succ,err = pcall(v,client,cmd,msg)
 				if not succ then
 					crackbot:send("Hook error: "..err)
+				elseif err then
+					return true
 				end
 			end
 		end
@@ -209,24 +211,32 @@ local succ,err=pcall(function()
 			--if cmd~=32 and cmd~=33 and cmd~=34 then
 			--	print("Got ["..cmd.."] from "..client.nick)
 			--end
-			
+			if cmd~=16 and cmd~=19 and cmd~=20 and cmd~=21 then --handled separately with more info
+				if onChat(client,cmd) then --allow any events to be canceled with hooks
+					cmd=0 --hack
+				end 
+			end
+
 			-- JOIN
 			if cmd==16 then
 				leave(client.room,id)
 				local room=nullstr():lower()
-				join(room,id)
-				onChat(client,16,room)
+				if not onChat(client,16,room) then
+					join(room,id)
+				end
 			-- MSG
 			elseif cmd==19 then
 				local msg=nullstr()
 				print("<"..client.nick.."> "..msg)
-				onChat(client,19,msg)
-				sendroomexcept(client.room,id,"\19"..string.char(id)..msg.."\0")
+				if not onChat(client,19,msg) then
+					sendroomexcept(client.room,id,"\19"..string.char(id)..msg.."\0")
+				end
 			elseif cmd==20 then
 				local msg=nullstr()
 				print("* "..client.nick.." "..msg)
-				onChat(client,20,msg)
-				sendroomexcept(client.room,id,"\20"..string.char(id)..msg.."\0")
+				if not onChat(client,20,msg) then
+					sendroomexcept(client.room,id,"\20"..string.char(id)..msg.."\0")
+				end
 			elseif cmd==21 then
 				local nick,reason = nullstr(), nullstr()
 				if client.room == "null" then
@@ -237,10 +247,11 @@ local succ,err=pcall(function()
 					local found=false
 					for _,uid in ipairs(rooms[client.room]) do
 						if clients[uid].nick == nick then
-							clients[uid].socket:send("\22You were kicked by "..clients[id].nick..": "..reason.."\0"..string.char(255)..string.char(50)..string.char(50))
-							print(client.nick.." kicked "..nick.." from "..client.room.." ("..reason..")")
-							disconnect(uid, reason)
-							onChat(client,21,nick.." "..reason)
+							if not onChat(client,21,nick.." "..reason) then
+								clients[uid].socket:send("\22You were kicked by "..clients[id].nick..": "..reason.."\0"..string.char(255)..string.char(50)..string.char(50))
+								print(client.nick.." kicked "..nick.." from "..client.room.." ("..reason..")")
+								disconnect(uid, reason)
+							end
 							found = true
 						end
 					end
