@@ -376,7 +376,9 @@ new=function(x,y,w,h)
 			end
 		else
 			if nkey<32 or nkey>=127 then return true end --normal key
-			local addkey = (modi==1 or modi==2) and shift(key) or key
+			local shiftkey = (modi==1 or modi==2)
+			if math.floor((modifier%16384)/8192)==1 and key >= 'a' and key <= 'z' then shiftkey = not shiftkey end
+			local addkey = shiftkey and shift(key) or key
 			if (math.floor(modi/512))==1 then addkey=altgr(key) end
 			newstr = self.t.text:sub(1,self.cursor) .. addkey .. self.t.text:sub(self.cursor+1)
 			self.currentline = newstr
