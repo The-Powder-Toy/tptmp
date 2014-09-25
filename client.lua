@@ -1258,6 +1258,8 @@ end
 local function sendStuff()
 	if not con.connected then return end
 	--mouse position every frame, not exactly needed, might be better/more accurate from clicks
+	if tpt.mousex > 255 then tpt.mousex = 255 end
+	if tpt.mousey > 255 then tpt.mousey = 255 end
 	local nmx,nmy = tpt.mousex,tpt.mousey
 	if nmx<612 and nmy<384 then nmx,nmy = sim.adjustCoords(nmx,nmy) end
 	if L.mousex~= nmx or L.mousey~= nmy then
@@ -1265,6 +1267,8 @@ local function sendStuff()
 		local b1,b2,b3 = math.floor(L.mousex/16),((L.mousex%16)*16)+math.floor(L.mousey/256),(L.mousey%256)
 		conSend(32,string.char(b1,b2,b3))
 	end
+	if tpt.brushx > 255 then tpt.brushx = 255 end
+	if tpt.brushy > 255 then tpt.brushy = 255 end
 	local nbx,nby = tpt.brushx,tpt.brushy
 	if L.brushx~=nbx or L.brushy~=nby then
 		L.brushx,L.brushy = nbx,nby
