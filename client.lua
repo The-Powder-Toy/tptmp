@@ -490,7 +490,11 @@ new=function(x,y,w,h)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
 	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true end,">>")
 	chat:drawadd(function(self)
-		tpt.drawtext(self.x+55,self.y+2,"TPT Multiplayer, by cracker64")
+		if self.w > 175 and jacobsmod then
+			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer, by cracker64")/2,self.y+2,"TPT Multiplayer, by cracker64")
+		elseif self.w > 100 then
+			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer")/2,self.y+2,"TPT Multiplayer")
+		end
 		tpt.drawline(self.x+1,self.y+10,self.x2-1,self.y+10,120,120,120)
 		self.scrollbar:draw()
 		local count=0
@@ -590,6 +594,7 @@ new=function(x,y,w,h)
 		elseif args[1] == "sync" then self:addline("(/sync, no arguments) -- syncs your screen to everyone else in the room")
 		elseif args[1] == "me" then self:addline("(/me <message>) -- say something in 3rd person") -- send a raw command
 		elseif args[1] == "kick" then self:addline("(/kick <nick> <reason>) -- kick a user, only works if you have been in a channel the longest")
+		elseif args[1] == "size" then self:addline("(/size <width> <height>) -- sets the size of the chat window")
 		end
 	end,
 	list = function(self,msg,args)
@@ -609,6 +614,16 @@ new=function(x,y,w,h)
 		if not args[1] then self:addline("Need a nick! '/kick <nick> [reason]'") return end
 		conSend(21, args[1].."\0"..(args[2] or ""),true)
 	end,
+	size = function(self, msg, args)
+		if args[2] then
+			local w, h = tonumber(args[1]), tonumber(args[2])
+			if w < 75 or h < 50 then self:addline("size too small") return
+			elseif w > sim.XRES-100 or h > sim.YRES-100 then self:addline("size too large") return
+			end
+			chatwindow = ui_chatbox.new(100,100,w,h)
+			chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
+		end
+	end
 	}
 	function chat:textprocess(key,nkey,modifier,event)
 		if L.chatHidden then return nil end
@@ -1258,8 +1273,6 @@ end
 local function sendStuff()
 	if not con.connected then return end
 	--mouse position every frame, not exactly needed, might be better/more accurate from clicks
-	if tpt.mousex > 255 then tpt.mousex = 255 end
-	if tpt.mousey > 255 then tpt.mousey = 255 end
 	local nmx,nmy = tpt.mousex,tpt.mousey
 	if nmx<612 and nmy<384 then nmx,nmy = sim.adjustCoords(nmx,nmy) end
 	if L.mousex~= nmx or L.mousey~= nmy then
