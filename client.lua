@@ -2,7 +2,7 @@
 --I highly recommend to use my Autorun Script Manager
 --VER 0.81 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
 
-local versionstring = "0.81"
+local versionstring = "0.82"
 
 --TODO's
 --FIGH,STKM,STK2,LIGH need a few more creation adjustments
@@ -76,7 +76,7 @@ local function joinChannel(chan)
 	conSend(38,L.replacemode)
 	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
 end
-local function connectToMniip(ip,port,nick)
+local function connectToServer(ip,port,nick)
 	if con.connected then return false,"Already connected" end
 	ip = ip or "starcatcher.us"
 	port = port or PORT
@@ -104,7 +104,7 @@ local function connectToMniip(ip,port,nick)
 		end
 		if err=="This nick is already on the server" then
 			nick = nick:gsub("(.)$",function(s) local n=tonumber(s) if n and n+1 <= 9 then return n+1 else return nick:sub(-1)..'0' end end)
-			return connectToMniip(ip,port,nick)
+			return connectToServer(ip,port,nick)
 		end
 		return false,err
 	end
@@ -558,7 +558,7 @@ new=function(x,y,w,h)
 	connect = function(self,msg,args)
 		if not issocket then self:addline("No luasockets found") return end
 		local newname = tpt.get_name()
-		local s,r = connectToMniip(args[1],tonumber(args[2]), newname~="" and newname or username)
+		local s,r = connectToServer(args[1],tonumber(args[2]), newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
 		pressedKeys = nil
 	end,
