@@ -515,7 +515,7 @@ new=function(x,y,w,h)
 		self.inputbox:onmove(x,y)
 		self.minimize:onmove(x,y)
 	end)
-	function chat:addline(line,r,g,b)
+	function chat:addline(line,r,g,b,noflash)
 		if not line or line=="" then return end --No blank lines
 		local linebreak=0
 		for i=0,#line do
@@ -526,8 +526,9 @@ new=function(x,y,w,h)
 		end
 		while #self.lines>self.max_lines do table.remove(self.lines,1) end
 		self.scrollbar:update(#self.lines,self.shown_lines,#self.lines-self.shown_lines)
-		if L.chatHidden then L.flashChat=true end
+		if L.chatHidden and not noflash then L.flashChat=true end
 	end
+	chat:addline("TPTMP v"..versionstring..": Type '/connect' to join server, or /list for a list of commands.",200,200,200,true)
 	function chat:process(mx,my,button,event,wheel)
 		if L.chatHidden then return false end
 		self.minimize:process(mx,my,button,event,wheel)
@@ -536,8 +537,8 @@ new=function(x,y,w,h)
 			local ax,ay = 0,0
 			if newx<0 then ax = newx end
 			if newy<0 then ay = newy end
-			if (newx+self.w)>=612 then ax = newx+self.w-612 end
-			if (newy+self.h)>=384 then ay = newy+self.h-384 end
+			if (newx+self.w)>=sim.XRES then ax = newx+self.w-sim.XRES end
+			if (newy+self.h)>=sim.YRES then ay = newy+self.h-sim.YRES end
 			self:onmove(mx-self.lastx-ax,my-self.lasty-ay)
 			self.lastx=mx-ax
 			self.lasty=my-ay
@@ -671,7 +672,7 @@ if jacobsmod and tpt.oldmenu()~=0 then
 end
 local flashCount=0
 showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
-chatwindow = ui_chatbox.new(100,100,250,200)
+chatwindow = ui_chatbox.new(100,100,225,150)
 chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
 
 local eleNameTable = {
@@ -830,7 +831,7 @@ local function playerMouseClick(id,btn,ev)
 		createE,checkBut=user.selectedr,user.rbtn
 	else return end
 
-	if user.mousex>=612 or user.mousey>=384 then user.drawtype=false return end
+	if user.mousex>=sim.XRES or user.mousey>=sim.YRES then user.drawtype=false return end
 
 	if ev==1 then
 		user.pmx,user.pmy = user.mousex,user.mousey
@@ -871,8 +872,8 @@ local function playerMouseMove(id)
 	else return end
 	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1,-1,user) end return end
 	if checkBut==3 then
-		if user.mousex>=612 then user.mousex=611 end
-		if user.mousey>=384 then user.mousey=383 end
+		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
+		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
 		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
@@ -1175,7 +1176,7 @@ local dataCmds = {
 	[128] = function()
 		local id = cByte()
 		conSend(130,string.char(id,49,tpt.set_pause()))
-		local stampName,fullName = saveStamp(0,0,611,383)
+		local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
 		local f = assert(io.open(fullName,"rb"))
 		local s = f:read"*a"
 		f:close()
@@ -1274,7 +1275,7 @@ local function sendStuff()
 	if not con.connected then return end
 	--mouse position every frame, not exactly needed, might be better/more accurate from clicks
 	local nmx,nmy = tpt.mousex,tpt.mousey
-	if nmx<612 and nmy<384 then nmx,nmy = sim.adjustCoords(nmx,nmy) end
+	if nmx<sim.XRES and nmy<sim.YRES then nmx,nmy = sim.adjustCoords(nmx,nmy) end
 	if L.mousex~= nmx or L.mousey~= nmy then
 		L.mousex,L.mousey = nmx,nmy
 		local b1,b2,b3 = math.floor(L.mousex/16),((L.mousex%16)*16)+math.floor(L.mousey/256),(L.mousey%256)
@@ -1318,7 +1319,7 @@ local function sendStuff()
 		if L.lastSave~=id then
 			L.lastSave=id
 			--save a backup for the reload button
-			local stampName,fullName = saveStamp(0,0,611,383)
+			local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
 			os.remove("stamps/tmp.stm") os.rename(fullName,"stamps/tmp.stm")
 			conSend(69,string.char(math.floor(id/65536),math.floor(id/256)%256,id%256))
 			deleteStamp(stampName)
@@ -1331,7 +1332,7 @@ local function sendStuff()
 	elseif L.browseMode==3 and L.lastSave==sim.getSaveID() then
 		L.browseMode=nil
 		--save this as a stamp for reloading (unless an api function exists to do this)
-		local stampName,fullName = saveStamp(0,0,611,383)
+		local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
 		os.remove("stamps/tmp.stm") os.rename(fullName,"stamps/tmp.stm")
 		deleteStamp(stampName)
 	end
@@ -1340,7 +1341,7 @@ local function sendStuff()
 	if jacobsmod and L.sendScreen == 2 then
 		L.sendScreen = true
 	elseif L.sendScreen then
-		local x,y,w,h = 0,0,611,383
+		local x,y,w,h = 0,0,sim.XRES-1,sim.YRES-1
 		if L.smoved then
 			local stm
 			if L.copying then stm=L.lastCopy else stm=L.lastStamp end
@@ -1443,7 +1444,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end
 	elseif chatwindow:process(mousex,mousey,button,event,wheel) then return false end
 	if L.skipClick then L.skipClick=false return true end
-	if mousex<612 and mousey<384 then mousex,mousey = sim.adjustCoords(mousex,mousey) end
+	if mousex<sim.XRES and mousey<sim.YRES then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 then
 			--initial stamp coords
@@ -1493,8 +1494,8 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 						local sx,sy = mousex-math.floor(stm.w/2),mousey-math.floor((stm.h)/2)
 						if sx<0 then sx=0 end
 						if sy<0 then sy=0 end
-						if sx+stm.w>611 then sx=612-stm.w end
-						if sy+stm.h>383 then sy=384-stm.h end
+						if sx+stm.w>sim.XRES-1 then sx=sim.XRES-stm.w end
+						if sy+stm.h>sim.YRES-1 then sy=sim.YRES-stm.h end
 						local b1,b2,b3 = math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)
 						local d = #stm.data
 						conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..stm.data)
@@ -1713,7 +1714,6 @@ function TPTMP.disableMultiplayer()
 end
 
 function TPTMP.enableMultiplayer()
-	chatwindow:addline("TPTMP v"..versionstring..": Type '/connect' to join server, or    /list for a list of commands.",200,200,200)
 	hooks_enabled = true
 	TPTMP.enableMultiplayer = nil
 	debug.sethook(nil,"",0)
