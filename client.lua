@@ -36,7 +36,7 @@ local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
 local username = tpt.get_name()
 if username=="" then
-	username = "Guest"..math.random(10000,99999)
+	username = "JGuest"..math.random(10000,99999)
 end
 local chatwindow
 local con = {connected = false,
@@ -528,7 +528,7 @@ new=function(x,y,w,h)
 		self.scrollbar:update(#self.lines,self.shown_lines,#self.lines-self.shown_lines)
 		if L.chatHidden and not noflash then L.flashChat=true end
 	end
-	chat:addline("TPTMP v"..versionstring..": Type '/connect' to join server, or /list for a list of commands.",200,200,200,true)
+	chat:addline("TPTMPJ v"..versionstring..": Type '/connect' to join server, or /list for a list of commands.",200,200,200,true)
 	function chat:process(mx,my,button,event,wheel)
 		if L.chatHidden then return false end
 		self.minimize:process(mx,my,button,event,wheel)
@@ -579,7 +579,7 @@ new=function(x,y,w,h)
 	join = function(self,msg,args)
 		if args[1] then
 			joinChannel(args[1])
-			self:addline("joined channel "..args[1],50,255,50)
+			self:addline("Joined channel "..args[1],50,255,50)
 		end
 	end,
 	sync = function(self,msg,args)
