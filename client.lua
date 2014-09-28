@@ -18,10 +18,10 @@ local versionstring = "0.82"
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 --Support replace mode
 
-if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
+if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("There is a newer version already running") end end -- if script already running, replace it
 TPTMP = {["version"] = 2} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
-if not tpt.selectedreplace then error"Tpt version not supported" end
+if not tpt.selectedreplace then error"Your powder toy version is outdated!" end
 if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 local hooks_enabled = false --hooks only enabled once you maximize the button
 
