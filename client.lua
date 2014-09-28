@@ -18,10 +18,10 @@ local versionstring = "0.82"
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 --Support replace mode
 
-if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
+if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("There is a newer version already running") end end -- if script already running, replace it
 TPTMP = {["version"] = 2} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
-if not tpt.selectedreplace then error"Tpt version not supported" end
+if not tpt.selectedreplace then error"Your powder toy version is outdated!" end
 if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
 local hooks_enabled = false --hooks only enabled once you maximize the button
 
@@ -36,7 +36,7 @@ local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
 local username = tpt.get_name()
 if username=="" then
-	username = "Guest"..math.random(10000,99999)
+	username = "The Guest"..math.random(10000,99999)
 end
 local chatwindow
 local con = {connected = false,
@@ -108,7 +108,7 @@ local function connectToServer(ip,port,nick)
 		end
 		return false,err
 	end
-	return false,"Bad Connect"
+	return false,"Bad Connection"
 	end
 
 	con.socket = sock
@@ -579,12 +579,12 @@ new=function(x,y,w,h)
 	join = function(self,msg,args)
 		if args[1] then
 			joinChannel(args[1])
-			self:addline("joined channel "..args[1],50,255,50)
+			self:addline("Joined channel "..args[1],50,255,50)
 		end
 	end,
 	sync = function(self,msg,args)
 		if con.connected then L.sendScreen=true end --need to send 67 clear screen
-		self:addline("Synced screen to server",255,255,50)
+		self:addline("Synced your screen to server",255,255,50)
 	end,
 	help = function(self,msg,args)
 		if not args[1] then self:addline("/help <command>, type /list for a list of commands") end
@@ -593,9 +593,9 @@ new=function(x,y,w,h)
 		elseif args[1] == "quit" or args[1] == "disconnect" then self:addline("(/quit, no arguments) -- quit the game")
 		elseif args[1] == "join" then self:addline("(/join <channel> -- joins a room on the server")
 		elseif args[1] == "sync" then self:addline("(/sync, no arguments) -- syncs your screen to everyone else in the room")
-		elseif args[1] == "me" then self:addline("(/me <message>) -- say something in 3rd person") -- send a raw command
-		elseif args[1] == "kick" then self:addline("(/kick <nick> <reason>) -- kick a user, only works if you have been in a channel the longest")
-		elseif args[1] == "size" then self:addline("(/size <width> <height>) -- sets the size of the chat window")
+		elseif args[1] == "me" then self:addline("(/me <message>) -- say something in 3rd person, used in roleplaying.") -- send a raw command
+		elseif args[1] == "kick" then self:addline("(/kick <nick> <reason>) -- kick a user, this only works if you have been in a channel the longest")
+		elseif args[1] == "size" then self:addline("(/size <width> <height>) -- this sets the size of the chat window")
 		end
 	end,
 	list = function(self,msg,args)
@@ -612,14 +612,14 @@ new=function(x,y,w,h)
 	end,
 	kick = function(self, msg, args)
 		if not con.connected then return end
-		if not args[1] then self:addline("Need a nick! '/kick <nick> [reason]'") return end
+		if not args[1] then self:addline("You need a nick! '/kick <nick> [reason]'") return end
 		conSend(21, args[1].."\0"..(args[2] or ""),true)
 	end,
 	size = function(self, msg, args)
 		if args[2] then
 			local w, h = tonumber(args[1]), tonumber(args[2])
-			if w < 75 or h < 50 then self:addline("size too small") return
-			elseif w > sim.XRES-100 or h > sim.YRES-100 then self:addline("size too large") return
+			if w < 75 or h < 50 then self:addline("What size moniter do you have? It's too small.") return
+			elseif w > sim.XRES-100 or h > sim.YRES-100 then self:addline("The size is too large") return
 			end
 			chatwindow = ui_chatbox.new(100,100,w,h)
 			chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
@@ -647,7 +647,7 @@ new=function(x,y,w,h)
 				conSend(19,text,true)
 				self:addline(username .. ": ".. text,200,200,200)
 			else
-				self:addline("Not connected to server!",255,50,50)
+				self:addline("You aren't connected to a server!!",255,50,50)
 			end
 		end
 	end
