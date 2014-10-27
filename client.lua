@@ -566,8 +566,8 @@ new=function(x,y,w,h)
 		if tonumber(args[1]) and args[2] then
 		local withNull=false
 		if args[2]=="true" then withNull=true end
-		rest = rest or ""
-		conSend(tonumber(args[1]),rest:sub(#args[1]+#args[2]+2),withNull)
+		msg = msg:sub(#args[1]+1+(withNull and #args[2]+2 or 0))
+		conSend(tonumber(args[1]),msg,withNull)
 		end
 	end,
 	quit = function(self,msg,args)
@@ -613,7 +613,7 @@ new=function(x,y,w,h)
 	kick = function(self, msg, args)
 		if not con.connected then return end
 		if not args[1] then self:addline("Need a nick! '/kick <nick> [reason]'") return end
-		conSend(21, args[1].."\0"..(args[2] or ""),true)
+		conSend(21, args[1].."\0"..table.concat(args, " ", 2),true)
 	end,
 	size = function(self, msg, args)
 		if args[2] then
@@ -634,8 +634,8 @@ new=function(x,y,w,h)
 
 			local cmd = text:match("^/([^%s]+)")
 			if cmd then
-				local rest=text:sub(#cmd+3)
-				local args = getArgs(rest)
+				local msg=text:sub(#cmd+3)
+				local args = getArgs(msg)
 				if chatcommands[cmd] then
 					chatcommands[cmd](self,msg,args)
 					--self:addline("Executed "..cmd.." "..rest)
@@ -668,7 +668,7 @@ local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
 local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false L.flashChat=false end,"<<")
 if jacobsmod and tpt.oldmenu()~=0 then
-	showbutton:onmove(0, 241)
+	showbutton:onmove(0, 256)
 end
 local flashCount=0
 showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
@@ -755,6 +755,7 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 end
 local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	if noShape[c] then return end
+	if jacobsmod and c == tpt.element("ball") and not user.shift then return end
 	if c>=wallStart then
 		if c<= wallEnd then
 			if c == 284 then rx,ry = 0,0 end
@@ -1620,7 +1621,7 @@ local keypressfuncs = {
 	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
 
 	--O, old menu in jacobs mod
-	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 then showbutton:onmove(0, 241) else showbutton:onmove(0, -241) end end end,
+	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 then showbutton:onmove(0, 256) else showbutton:onmove(0, -256) end end end,
 
 	--R , for stamp rotate
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then conSend(70) end end,
@@ -1679,7 +1680,7 @@ local keyunpressfuncs = {
 }
 local function keyclicky(key,nkey,modifier,event)
 	if not hooks_enabled then
-		if jacobsmod and not L.ctrl and key == 'o' and event == 1 then if tpt.oldmenu()==0 then showbutton:onmove(0, 241) else showbutton:onmove(0, -241) end end
+		if jacobsmod and not L.ctrl and key == 'o' and event == 1 then if tpt.oldmenu()==0 then showbutton:onmove(0, 256) else showbutton:onmove(0, -256) end end
 		return
 	end
 	if chatwindow.inputbox.focus then
@@ -1725,4 +1726,3 @@ end
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
 tpt.register_keypress(keyclicky)
-
