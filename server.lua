@@ -91,7 +91,7 @@ local succ,err=pcall(function()
 				final = final..s
 				break
 			end
-			if os.time()-timeout>11 then return false,"Stamp took too long" end
+			if os.time()-timeout>15 then return false,"Stamp took too long" end
 		end
 		return true,final
 	end
@@ -107,7 +107,7 @@ local succ,err=pcall(function()
 	function sendroomexceptLarge(room,uid,data)
 		for _,id in ipairs(rooms[room]) do
 			if id~=uid then
-				clients[id].socket:settimeout(5)
+				clients[id].socket:settimeout(8)
 				local s,r,e = clients[id].socket:send(data)
 				clients[id].socket:settimeout(0)
 			end
@@ -250,7 +250,7 @@ local succ,err=pcall(function()
 							if not onChat(client,21,nick.." "..reason) then
 								clients[uid].socket:send("\22You were kicked by "..clients[id].nick..": "..reason.."\0"..string.char(255)..string.char(50)..string.char(50))
 								print(client.nick.." kicked "..nick.." from "..client.room.." ("..reason..")")
-								disconnect(uid, reason)
+								disconnect(uid, "kicked by "..client.nick..": "..reason)
 							end
 							found = true
 						end
@@ -365,7 +365,7 @@ local succ,err=pcall(function()
 				print(client.nick.." provided sync for "..clients[i].nick..", it was "..sz.." bytes")
 				local s,stm = bytes(client.socket,sz)
 				if s then
-					clients[i].socket:settimeout(5)
+					clients[i].socket:settimeout(8)
 					clients[i].socket:send("\129"..string.char(b1,b2,b3)..stm)
 					clients[i].socket:settimeout(0)
 				else
