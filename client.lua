@@ -22,7 +22,13 @@ if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("
 TPTMP = {["version"] = 2} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not tpt.selectedreplace then error"Tpt version not supported" end
-if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
+local using_manager = false
+local _print = print
+if MANAGER ~= nil then
+	using_manager = true
+else
+	_print = print
+end
 local hooks_enabled = false --hooks only enabled once you maximize the button
 
 local PORT = 34403 --Change 34403 to your desired port
@@ -623,6 +629,10 @@ new=function(x,y,w,h)
 			end
 			chatwindow = ui_chatbox.new(100,100,w,h)
 			chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
+			if using_manager then
+				MANAGER.savesetting("tptmp", "width", w)
+				MANAGER.savesetting("tptmp", "height", h)
+			end
 		end
 	end
 	}
@@ -672,7 +682,12 @@ if jacobsmod and tpt.oldmenu()~=0 then
 end
 local flashCount=0
 showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
-chatwindow = ui_chatbox.new(100,100,225,150)
+if using_manager then
+	local loadsettings = function() chatwindow = ui_chatbox.new(100, 100, tonumber(MANAGER.getsetting("tptmp", "width")), tonumber(MANAGER.getsetting("tptmp", "height"))) end
+	if not pcall(loadsettings) then chatwindow = ui_chatbox.new(100, 100, 225, 150) end
+else
+	chatwindow = ui_chatbox.new(100, 100, 225, 150)
+end
 chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
 
 local eleNameTable = {
@@ -819,7 +834,7 @@ local function playerMouseClick(id,btn,ev)
 	local user = con.members[id]
 	local createE, checkBut
 
-	--MANAGER_PRINT(tostring(btn)..tostring(ev))
+	--_print(tostring(btn)..tostring(ev))
 	if ev==0 then return end
 	if btn==1 then
 		user.rbtn,user.abtn = false,false
@@ -1209,8 +1224,8 @@ local function connectThink()
 		local s,r = con.socket:receive(1)
 		if s then
 			local cmd = string.byte(s)
-			--MANAGER_PRINT("GOT "..tostring(cmd))
-			if dataCmds[cmd] then dataCmds[cmd]() else MANAGER_PRINT("TPTMP: Unknown protocol "..tostring(cmd),255,20,20) end
+			--_print("GOT "..tostring(cmd))
+			if dataCmds[cmd] then dataCmds[cmd]() else _print("TPTMP: Unknown protocol "..tostring(cmd),255,20,20) end
 		else
 			if r ~= "timeout" then disconnected() end
 			break
@@ -1692,7 +1707,7 @@ local function keyclicky(key,nkey,modifier,event)
 	end
 	local check = chatwindow:textprocess(key,nkey,modifier,event)
 	if type(check)=="boolean" then return not check end
-	--MANAGER_PRINT(nkey)
+	--_print(nkey)
 	local ret
 	if event==1 then
 		if keypressfuncs[nkey] then
