@@ -18,7 +18,7 @@ local versionstring = "0.82"
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 --Support replace mode
 
-if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
+if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
 TPTMP = {["version"] = 2} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not tpt.selectedreplace then error"Tpt version not supported" end
@@ -34,8 +34,8 @@ shift=false, alt=false, ctrl=false, tabs = false, z=false, downInside=nil, skipC
 local tptversion = tpt.version.build
 local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
-local username = tpt.get_name()
-if username=="" then
+local username = get_name()
+if username == "" then
 	username = "Guest"..math.random(10000,99999)
 end
 local chatwindow
@@ -488,7 +488,7 @@ new=function(x,y,w,h)
 	chat.lines = {}
 	chat.scrollbar = ui_scrollbar.new(chat.x2-2,chat.y+11,chat.h-22,0,chat.shown_lines)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
-	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true end,">>")
+	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true TPTMP.chatHidden=true end,">>")
 	chat:drawadd(function(self)
 		if self.w > 175 and jacobsmod then
 			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer, by cracker64")/2,self.y+2,"TPT Multiplayer, by cracker64")
@@ -557,7 +557,7 @@ new=function(x,y,w,h)
 	chatcommands = {
 	connect = function(self,msg,args)
 		if not issocket then self:addline("No luasockets found") return end
-		local newname = tpt.get_name()
+		local newname = pcall(string.dump, get_name) and "Gue".."st"..math["random"](1111,9888) or get_name()
 		local s,r = connectToServer(args[1],tonumber(args[2]), newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
 		pressedKeys = nil
@@ -666,7 +666,7 @@ end
 local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false L.flashChat=false end,"<<")
+local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false TPTMP.chatHidden=false L.flashChat=false end,"<<")
 if jacobsmod and tpt.oldmenu()~=0 then
 	showbutton:onmove(0, 256)
 end
@@ -1565,7 +1565,7 @@ local keypressfuncs = {
 	[9] = function() conSend(35) end,
 
 	--ESC
-	[27] = function() if not L.chatHidden then L.chatHidden = true return false end end,
+	[27] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
 
 	--space, pause toggle
 	[32] = function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
@@ -1723,6 +1723,8 @@ function TPTMP.enableMultiplayer()
 		gfx.toolTip("", 0, 0, 0, 4)
 	end
 end
+TPTMP.con = con
+TPTMP.chatHidden = true
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
 tpt.register_keypress(keyclicky)
