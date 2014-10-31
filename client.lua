@@ -44,7 +44,6 @@ local username = get_name()
 if username == "" then
 	username = "Guest"..math.random(10000,99999)
 end
-local timeout = socket.gettime()-2 --cancel keypresses so you don't accidentally press things
 local chatwindow
 local con = {connected = false,
 		 socket = nil,
@@ -362,8 +361,8 @@ new=function(x,y,w,h)
 			if nkey==13 then self:setfocus(true) return true end
 			return
 		end
-		if nkey==27 then self:setfocus(false) timeout = socket.gettime()+1 return true end
-		if nkey==13 then local text=self.t.text if text == "" then self:setfocus(false) timeout = socket.gettime()+2 return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 self.currentline = "" return text end end --enter
+		if nkey==27 then self:setfocus(false) return true end
+		if nkey==13 then local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 self.currentline = "" return text end end --enter
 		if nkey==273 then self:moveline(-1) return true end --up
 		if nkey==274 then self:moveline(1) return true end --down
 		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
@@ -495,7 +494,7 @@ new=function(x,y,w,h)
 	chat.lines = {}
 	chat.scrollbar = ui_scrollbar.new(chat.x2-2,chat.y+11,chat.h-22,0,chat.shown_lines)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
-	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) timeout = socket.gettime()+1 L.chatHidden=true TPTMP.chatHidden=true end,">>")
+	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true TPTMP.chatHidden=true end,">>")
 	chat:drawadd(function(self)
 		if self.w > 175 and jacobsmod then
 			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer, by cracker64")/2,self.y+2,"TPT Multiplayer, by cracker64")
@@ -553,7 +552,7 @@ new=function(x,y,w,h)
 		end
 		local which = math.floor((my-self.y)/10)
 		if self.moving and event==2 then self.moving=false return true end
-		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then self.inputbox:setfocus(false) timeout = socket.gettime()+2 return false elseif event==1 and which ~= 0 and not self.inputbox.focus then self.inputbox:setfocus(true) end
+		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then self.inputbox:setfocus(false) return false elseif event==1 and which ~= 0 and not self.inputbox.focus then self.inputbox:setfocus(true) end
 		self.scrollbar:process(mx,my,button,event,wheel)
 		if event==1 and which==0 then self.moving=true self.lastx=mx self.lasty=my self.relx=mx-self.x self.rely=my-self.y return true end
 		if event==1 and which==self.shown_lines+1 then self.inputbox:setfocus(true) return true elseif self.inputbox.focus then return true end --trigger input_box
@@ -568,7 +567,6 @@ new=function(x,y,w,h)
 		local s,r = connectToServer(args[1],tonumber(args[2]), newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
 		pressedKeys = nil
-		timeout = socket.gettime()+2
 	end,
 	send = function(self,msg,args)
 		if tonumber(args[1]) and args[2] then
@@ -591,7 +589,7 @@ new=function(x,y,w,h)
 		end
 	end,
 	sync = function(self,msg,args)
-		if con.connected then L.sendScreen=true timeout = socket.gettime()+2 end --need to send 67 clear screen
+		if con.connected then L.sendScreen=true end --need to send 67 clear screen
 		self:addline("Synced screen to server",255,255,50)
 	end,
 	help = function(self,msg,args)
@@ -1703,7 +1701,6 @@ local function keyclicky(key,nkey,modifier,event)
 		if jacobsmod and not L.ctrl and key == 'o' and event == 1 then if tpt.oldmenu()==0 then showbutton:onmove(0, 256) else showbutton:onmove(0, -256) end end
 		return
 	end
-	if timeout > socket.gettime() then return false end
 	if chatwindow.inputbox.focus then
 		if event == 1 and nkey~=13 and nkey~=27 then
 			pressedKeys = {["repeat"] = socket.gettime()+.6, ["key"] = key, ["nkey"] = nkey, ["modifier"] = modifier, ["event"] = event}
