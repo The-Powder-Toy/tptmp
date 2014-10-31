@@ -1,14 +1,11 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
---VER 0.81 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
 
-local versionstring = "0.82"
+local versionstring = "0.83"
 
 --TODO's
 --FIGH,STKM,STK2,LIGH need a few more creation adjustments
 --Some more server functions
---Force the russian to remake the ui
---A few more helpful api functions (save ID get and load it)
 -------------------------------------------------------
 
 --CHANGES:
@@ -552,7 +549,7 @@ new=function(x,y,w,h)
 		end
 		local which = math.floor((my-self.y)/10)
 		if self.moving and event==2 then self.moving=false return true end
-		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then self.inputbox:setfocus(false) return false elseif event==1 and which ~= 0 and not self.inputbox.focus then self.inputbox:setfocus(true) end
+		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then if button == 0 then return false end self.inputbox:setfocus(false) return false elseif event==1 and which ~= 0 and not self.inputbox.focus then self.inputbox:setfocus(true) end
 		self.scrollbar:process(mx,my,button,event,wheel)
 		if event==1 and which==0 then self.moving=true self.lastx=mx self.lasty=my self.relx=mx-self.x self.rely=my-self.y return true end
 		if event==1 and which==self.shown_lines+1 then self.inputbox:setfocus(true) return true elseif self.inputbox.focus then return true end --trigger input_box
