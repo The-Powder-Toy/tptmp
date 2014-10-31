@@ -1459,15 +1459,13 @@ if jacobsmod then
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
-	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end
-	elseif chatwindow:process(mousex,mousey,button,event,wheel) then return false end
-	if L.skipClick then L.skipClick=false return true end
-	if mousex<sim.XRES and mousey<sim.YRES then mousex,mousey = sim.adjustCoords(mousex,mousey) end
+	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end end
 	if L.stamp and button>0 and button~=2 then
-		if event==1 and button==1 then
+		if event==1 and button==1 and L.stampx == -1 then
 			--initial stamp coords
 			L.stampx,L.stampy = mousex,mousey
 		elseif event==2 then
+			if L.skipClick then L.skipClick=false return true end
 			--stamp has been saved, make our own copy
 			if button==1 then
 				--save stamp ourself for data, delete it
@@ -1494,6 +1492,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		return true
 	elseif L.placeStamp and button>0 and button~=2 then
 		if event==2 then
+			if L.skipClick then L.skipClick=false return true end
 			if button==1 then
 				local stm
 				if L.copying then stm=L.lastCopy else stm=L.lastStamp end
@@ -1525,6 +1524,10 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		end
 		return true
 	end
+
+	if button > 0 and L.skipClick then L.skipClick=false return true end
+	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
+	if mousex<sim.XRES and mousey<sim.YRES then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 
 	local obut,oevnt = L.mButt,L.mEvent
 	if button~=obut or event~=oevnt then
@@ -1614,7 +1617,7 @@ local keypressfuncs = {
 	[98] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
 
 	--c , copy
-	[99] = function() if L.ctrl then L.stamp=true L.copying=true end end,
+	[99] = function() if L.ctrl then L.stamp=true L.copying=true L.stampx = -1 L.stampy = -1 end end,
 
 	--d key, debug, api broken right now
 	--[100] = function() conSend(55) end,
@@ -1644,7 +1647,7 @@ local keypressfuncs = {
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then conSend(70) end end,
 
 	--S, stamp
-	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true end,
+	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true L.stampx = -1 L.stampy = -1 end,
 
 	--T, tabs
 	[116] = function() if jacobsmod then L.tabs = not L.tabs end end,
@@ -1656,7 +1659,7 @@ local keypressfuncs = {
 	[118] = function() if L.ctrl and L.lastCopy then L.placeStamp=true L.copying=true end end,
 
 	--X, cut a copystamp and clear
-	[120] = function() if L.ctrl then L.stamp=true L.copying=1 end end,
+	[120] = function() if L.ctrl then L.stamp=true L.copying=1 L.stampx = -1 L.stampy = -1 end end,
 
 	--W,Y (grav mode, air mode)
 	[119] = function() if L.lastStick2 and not L.ctrl then return end conSend(58,string.char((sim.gravityMode()+1)%3)) return true end,
