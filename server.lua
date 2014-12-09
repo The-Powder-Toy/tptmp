@@ -148,6 +148,10 @@ local succ,err=pcall(function()
 		onChat(client,1,room)
 	end
 
+	function serverMsg(client, message, r, g, b)
+		client.socket:send("\22"..message.."\0"..string.char(r or 127)..string.char(g or 255)..string.char(b or 255))
+	end
+
 	-- coroutine that handles the client
 	function handler(id,client)
 		for k,v in pairs(bans) do
@@ -206,36 +210,56 @@ local succ,err=pcall(function()
 
 			-- JOIN
 			if cmd==16 then
-				leave(client.room,id)
 				local room=nullstr():lower()
-				if not onChat(client,16,room) then
-					join(room,id)
+				if not room:match("^[%w%-%_]+$") or #room > 32 then
+					serverMsg(client, "Invalid room name")
+				else
+					leave(client.room,id)
+					if not onChat(client,16,room) then
+						join(room,id)
+					end
 				end
 			-- MSG
 			elseif cmd==19 then
 				local msg=nullstr()
-				print("<"..client.nick.."> "..msg)
-				if not onChat(client,19,msg) then
-					sendroomexcept(client.room,id,"\19"..string.char(id)..msg.."\0")
+				if not msg:match("^[ -~]+$") then
+					serverMsg(client, "Invalid characters detected in message, not sent")
+				elseif #msg > 200 then
+					serverMsg(client, "Message too long, not sent")
+				else
+					print("<"..client.nick.."> "..msg)
+					if not onChat(client,19,msg) then
+						sendroomexcept(client.room,id,"\19"..string.char(id)..msg.."\0")
+					end
 				end
 			elseif cmd==20 then
 				local msg=nullstr()
-				print("* "..client.nick.." "..msg)
-				if not onChat(client,20,msg) then
-					sendroomexcept(client.room,id,"\20"..string.char(id)..msg.."\0")
+				if not msg:match("^[ -~]+$") then
+					serverMsg(client, "Invalid characters detected in message, not sent")
+				elseif #msg > 200 then
+					serverMsg(client, "Message too long, not sent")
+				else
+					print("* "..client.nick.." "..msg)
+					if not onChat(client,20,msg) then
+						sendroomexcept(client.room,id,"\20"..string.char(id)..msg.."\0")
+					end
 				end
 			elseif cmd==21 then
 				local nick,reason = nullstr(), nullstr()
-				if client.room == "null" then
-					client.socket:send("\22You can't kick people from the lobby\0"..string.char(127)..string.char(255)..string.char(255))
+				if not reason:match("^[ -~]+$") then
+					serverMsg(client, "Invalid characters detected in kick reason")
+				elseif #reason > 200 then
+					serverMsg(client, "Kick reason too long, not sent")
+				elseif client.room == "null" then
+					serverMsg(client, "You can't kick people from the lobby")
 				elseif rooms[client.room][1] ~= id then
-					client.socket:send("\22You can't kick people from here\0"..string.char(127)..string.char(255)..string.char(255))
+					serverMsg(client, "You can't kick people from here")
 				else
 					local found=false
 					for _,uid in ipairs(rooms[client.room]) do
 						if clients[uid].nick == nick then
 							if not onChat(client,21,nick.." "..reason) then
-								clients[uid].socket:send("\22You were kicked by "..clients[id].nick..": "..reason.."\0"..string.char(255)..string.char(50)..string.char(50))
+								serverMsg(clients[uid], "You were kicked by "..clients[id].nick..": "..reason, 255, 50, 50)
 								print(client.nick.." kicked "..nick.." from "..client.room.." ("..reason..")")
 								disconnect(uid, "kicked by "..client.nick..": "..reason)
 							end
@@ -243,7 +267,7 @@ local succ,err=pcall(function()
 						end
 					end
 					if not found then
-						client.socket:send("\22User \""..nick.."\" not found\0"..string.char(127)..string.char(255)..string.char(255))
+						serverMsg(client, "User \""..nick.."\" not found")
 					end
 				end
 			elseif cmd==2 then

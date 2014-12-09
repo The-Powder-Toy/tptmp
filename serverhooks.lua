@@ -49,7 +49,7 @@ local function callHook(hook, ...)
 		if crackbot then
 			crackbot:send("Hook error: "..err.."\n")
 		else
-			print("Hook error: "..err."\n")
+			print("Hook error: "..err)
 		end
 	elseif err then
 		return true
