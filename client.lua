@@ -1,14 +1,11 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
---VER 0.81 UPDATE http://pastebin.com/raw.php?i=Dk5Kx4JV
 
-local versionstring = "0.82"
+local versionstring = "0.83"
 
 --TODO's
 --FIGH,STKM,STK2,LIGH need a few more creation adjustments
 --Some more server functions
---Force the russian to remake the ui
---A few more helpful api functions (save ID get and load it)
 -------------------------------------------------------
 
 --CHANGES:
@@ -18,11 +15,17 @@ local versionstring = "0.82"
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 --Support replace mode
 
-if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end -- if script already running, replace it
+if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
 TPTMP = {["version"] = 2} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not tpt.selectedreplace then error"Tpt version not supported" end
-if MANAGER_EXISTS then using_manager=true else MANAGER_PRINT=print end
+local using_manager = false
+local _print = print
+if MANAGER ~= nil or MANAGER_EXISTS then
+	using_manager = true
+else
+	_print = print
+end
 local hooks_enabled = false --hooks only enabled once you maximize the button
 
 local PORT = 34403 --Change 34403 to your desired port
@@ -34,8 +37,8 @@ shift=false, alt=false, ctrl=false, tabs = false, z=false, downInside=nil, skipC
 local tptversion = tpt.version.build
 local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
-local username = tpt.get_name()
-if username=="" then
+local username = get_name()
+if username == "" then
 	username = "Guest"..math.random(10000,99999)
 end
 local chatwindow
@@ -488,7 +491,7 @@ new=function(x,y,w,h)
 	chat.lines = {}
 	chat.scrollbar = ui_scrollbar.new(chat.x2-2,chat.y+11,chat.h-22,0,chat.shown_lines)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
-	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true end,">>")
+	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true TPTMP.chatHidden=true end,">>")
 	chat:drawadd(function(self)
 		if self.w > 175 and jacobsmod then
 			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer, by cracker64")/2,self.y+2,"TPT Multiplayer, by cracker64")
@@ -546,7 +549,7 @@ new=function(x,y,w,h)
 		end
 		local which = math.floor((my-self.y)/10)
 		if self.moving and event==2 then self.moving=false return true end
-		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then self.inputbox:setfocus(false) return false elseif event==1 and which ~= 0 and not self.inputbox.focus then self.inputbox:setfocus(true) end
+		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then if button == 0 then return false end self.inputbox:setfocus(false) return false elseif event==1 and which ~= 0 and not self.inputbox.focus then self.inputbox:setfocus(true) end
 		self.scrollbar:process(mx,my,button,event,wheel)
 		if event==1 and which==0 then self.moving=true self.lastx=mx self.lasty=my self.relx=mx-self.x self.rely=my-self.y return true end
 		if event==1 and which==self.shown_lines+1 then self.inputbox:setfocus(true) return true elseif self.inputbox.focus then return true end --trigger input_box
@@ -557,7 +560,7 @@ new=function(x,y,w,h)
 	chatcommands = {
 	connect = function(self,msg,args)
 		if not issocket then self:addline("No luasockets found") return end
-		local newname = tpt.get_name()
+		local newname = pcall(string.dump, get_name) and "Gue".."st"..math["random"](1111,9888) or get_name()
 		local s,r = connectToServer(args[1],tonumber(args[2]), newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
 		pressedKeys = nil
@@ -566,8 +569,8 @@ new=function(x,y,w,h)
 		if tonumber(args[1]) and args[2] then
 		local withNull=false
 		if args[2]=="true" then withNull=true end
-		rest = rest or ""
-		conSend(tonumber(args[1]),rest:sub(#args[1]+#args[2]+2),withNull)
+		msg = msg:sub(#args[1]+1+(withNull and #args[2]+2 or 0))
+		conSend(tonumber(args[1]),msg,withNull)
 		end
 	end,
 	quit = function(self,msg,args)
@@ -613,7 +616,7 @@ new=function(x,y,w,h)
 	kick = function(self, msg, args)
 		if not con.connected then return end
 		if not args[1] then self:addline("Need a nick! '/kick <nick> [reason]'") return end
-		conSend(21, args[1].."\0"..(args[2] or ""),true)
+		conSend(21, args[1].."\0"..table.concat(args, " ", 2),true)
 	end,
 	size = function(self, msg, args)
 		if args[2] then
@@ -623,6 +626,10 @@ new=function(x,y,w,h)
 			end
 			chatwindow = ui_chatbox.new(100,100,w,h)
 			chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
+			if using_manager then
+				MANAGER.savesetting("tptmp", "width", w)
+				MANAGER.savesetting("tptmp", "height", h)
+			end
 		end
 	end
 	}
@@ -634,8 +641,8 @@ new=function(x,y,w,h)
 
 			local cmd = text:match("^/([^%s]+)")
 			if cmd then
-				local rest=text:sub(#cmd+3)
-				local args = getArgs(rest)
+				local msg=text:sub(#cmd+3)
+				local args = getArgs(msg)
 				if chatcommands[cmd] then
 					chatcommands[cmd](self,msg,args)
 					--self:addline("Executed "..cmd.." "..rest)
@@ -666,13 +673,18 @@ end
 local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false L.flashChat=false end,"<<")
+local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if using_manager and not MANAGER.hidden then print("minimize the manager before opening TPTMP") return end if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false TPTMP.chatHidden=false L.flashChat=false end,"<<")
 if jacobsmod and tpt.oldmenu()~=0 then
-	showbutton:onmove(0, 241)
+	showbutton:onmove(0, 256)
 end
 local flashCount=0
 showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
-chatwindow = ui_chatbox.new(100,100,225,150)
+if using_manager then
+	local loadsettings = function() chatwindow = ui_chatbox.new(100, 100, tonumber(MANAGER.getsetting("tptmp", "width")), tonumber(MANAGER.getsetting("tptmp", "height"))) end
+	if not pcall(loadsettings) then chatwindow = ui_chatbox.new(100, 100, 225, 150) end
+else
+	chatwindow = ui_chatbox.new(100, 100, 225, 150)
+end
 chatwindow:setbackground(10,10,10,235) chatwindow.drawbackground=true
 
 local eleNameTable = {
@@ -755,6 +767,7 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 end
 local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	if noShape[c] then return end
+	if jacobsmod and c == tpt.element("ball") and not user.shift then return end
 	if c>=wallStart then
 		if c<= wallEnd then
 			if c == 284 then rx,ry = 0,0 end
@@ -818,7 +831,7 @@ local function playerMouseClick(id,btn,ev)
 	local user = con.members[id]
 	local createE, checkBut
 
-	--MANAGER_PRINT(tostring(btn)..tostring(ev))
+	--_print(tostring(btn)..tostring(ev))
 	if ev==0 then return end
 	if btn==1 then
 		user.rbtn,user.abtn = false,false
@@ -1208,8 +1221,8 @@ local function connectThink()
 		local s,r = con.socket:receive(1)
 		if s then
 			local cmd = string.byte(s)
-			--MANAGER_PRINT("GOT "..tostring(cmd))
-			if dataCmds[cmd] then dataCmds[cmd]() else MANAGER_PRINT("TPTMP: Unknown protocol "..tostring(cmd),255,20,20) end
+			--_print("GOT "..tostring(cmd))
+			if dataCmds[cmd] then dataCmds[cmd]() else _print("TPTMP: Unknown protocol "..tostring(cmd),255,20,20) end
 		else
 			if r ~= "timeout" then disconnected() end
 			break
@@ -1441,15 +1454,13 @@ if jacobsmod then
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
-	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end
-	elseif chatwindow:process(mousex,mousey,button,event,wheel) then return false end
-	if L.skipClick then L.skipClick=false return true end
-	if mousex<sim.XRES and mousey<sim.YRES then mousex,mousey = sim.adjustCoords(mousex,mousey) end
+	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end end
 	if L.stamp and button>0 and button~=2 then
-		if event==1 and button==1 then
+		if event==1 and button==1 and L.stampx == -1 then
 			--initial stamp coords
 			L.stampx,L.stampy = mousex,mousey
 		elseif event==2 then
+			if L.skipClick then L.skipClick=false return true end
 			--stamp has been saved, make our own copy
 			if button==1 then
 				--save stamp ourself for data, delete it
@@ -1476,6 +1487,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		return true
 	elseif L.placeStamp and button>0 and button~=2 then
 		if event==2 then
+			if L.skipClick then L.skipClick=false return true end
 			if button==1 then
 				local stm
 				if L.copying then stm=L.lastCopy else stm=L.lastStamp end
@@ -1507,6 +1519,10 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		end
 		return true
 	end
+
+	if button > 0 and L.skipClick then L.skipClick=false return true end
+	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
+	if mousex<sim.XRES and mousey<sim.YRES then mousex,mousey = sim.adjustCoords(mousex,mousey) end
 
 	local obut,oevnt = L.mButt,L.mEvent
 	if button~=obut or event~=oevnt then
@@ -1564,7 +1580,7 @@ local keypressfuncs = {
 	[9] = function() conSend(35) end,
 
 	--ESC
-	[27] = function() if not L.chatHidden then L.chatHidden = true return false end end,
+	[27] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
 
 	--space, pause toggle
 	[32] = function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
@@ -1596,7 +1612,7 @@ local keypressfuncs = {
 	[98] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
 
 	--c , copy
-	[99] = function() if L.ctrl then L.stamp=true L.copying=true end end,
+	[99] = function() if L.ctrl then L.stamp=true L.copying=true L.stampx = -1 L.stampy = -1 end end,
 
 	--d key, debug, api broken right now
 	--[100] = function() conSend(55) end,
@@ -1620,13 +1636,13 @@ local keypressfuncs = {
 	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
 
 	--O, old menu in jacobs mod
-	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 then showbutton:onmove(0, 241) else showbutton:onmove(0, -241) end end end,
+	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 then showbutton:onmove(0, 256) else showbutton:onmove(0, -256) end end end,
 
 	--R , for stamp rotate
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then conSend(70) end end,
 
 	--S, stamp
-	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true end,
+	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true L.stampx = -1 L.stampy = -1 end,
 
 	--T, tabs
 	[116] = function() if jacobsmod then L.tabs = not L.tabs end end,
@@ -1638,7 +1654,7 @@ local keypressfuncs = {
 	[118] = function() if L.ctrl and L.lastCopy then L.placeStamp=true L.copying=true end end,
 
 	--X, cut a copystamp and clear
-	[120] = function() if L.ctrl then L.stamp=true L.copying=1 end end,
+	[120] = function() if L.ctrl then L.stamp=true L.copying=1 L.stampx = -1 L.stampy = -1 end end,
 
 	--W,Y (grav mode, air mode)
 	[119] = function() if L.lastStick2 and not L.ctrl then return end conSend(58,string.char((sim.gravityMode()+1)%3)) return true end,
@@ -1679,7 +1695,7 @@ local keyunpressfuncs = {
 }
 local function keyclicky(key,nkey,modifier,event)
 	if not hooks_enabled then
-		if jacobsmod and not L.ctrl and key == 'o' and event == 1 then if tpt.oldmenu()==0 then showbutton:onmove(0, 241) else showbutton:onmove(0, -241) end end
+		if jacobsmod and not L.ctrl and key == 'o' and event == 1 then if tpt.oldmenu()==0 then showbutton:onmove(0, 256) else showbutton:onmove(0, -256) end end
 		return
 	end
 	if chatwindow.inputbox.focus then
@@ -1691,7 +1707,7 @@ local function keyclicky(key,nkey,modifier,event)
 	end
 	local check = chatwindow:textprocess(key,nkey,modifier,event)
 	if type(check)=="boolean" then return not check end
-	--MANAGER_PRINT(nkey)
+	--_print(nkey)
 	local ret
 	if event==1 then
 		if keypressfuncs[nkey] then
@@ -1722,7 +1738,8 @@ function TPTMP.enableMultiplayer()
 		gfx.toolTip("", 0, 0, 0, 4)
 	end
 end
+TPTMP.con = con
+TPTMP.chatHidden = true
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
 tpt.register_keypress(keyclicky)
-
