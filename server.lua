@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 local server
-local WINDOWS = package.config:sub(1,1) == "\\"
+WINDOWS = package.config:sub(1,1) == "\\"
 local succ,err=pcall(function()
 	if not WINDOWS then
 		local f=io.open".tptmp.pid"
@@ -37,20 +37,7 @@ local succ,err=pcall(function()
 	clients={}
 	rooms={}
 	
-	chatHooks = {}
-	function onChat(client,cmd,msg)
-		if not crackbot then return end
-		for k,v in pairs(chatHooks) do
-			if type(v)=="function" then
-				local succ,err = pcall(v,client,cmd,msg)
-				if not succ then
-					crackbot:send("Hook error: "..err)
-				elseif err then
-					return true
-				end
-			end
-		end
-	end
+	dofile("serverhooks.lua")
 	
 	-- nonblockingly read a null-terminated string
 	function nullstr()
