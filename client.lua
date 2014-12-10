@@ -520,11 +520,17 @@ new=function(x,y,w,h)
 	end)
 	function chat:addline(line,r,g,b,noflash)
 		if not line or line=="" then return end --No blank lines
-		local linebreak=0
+		local linebreak,lastspace = 0,nil
 		for i=0,#line do
-			if tpt.textwidth(line:sub(linebreak,i+1))>self.max_width or i==#line then
-				table.insert(self.lines,ui_text.new(line:sub(linebreak,i),self.x,0,r,g,b))
-				linebreak=i+1
+			local width = tpt.textwidth(line:sub(linebreak,i+1))
+			if width > self.max_width/2 and line:sub(i,i):match("[%s,_%.%-?!]") then
+				lastspace = i
+			end
+			if width > self.max_width or i==#line then
+				local pos = (i==#line or not lastspace) and i or lastspace
+				table.insert(self.lines,ui_text.new(line:sub(linebreak,pos),self.x,0,r,g,b))
+				linebreak = pos+1
+				lastspace = nil
 			end
 		end
 		while #self.lines>self.max_lines do table.remove(self.lines,1) end
