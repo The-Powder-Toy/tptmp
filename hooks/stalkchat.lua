@@ -5,10 +5,10 @@ local function writeStatFile()
 end
 
 function serverHooks.stalkchat(client, cmd, msg)
-	if crackbot then
+	if crackbot and client.nick and client.room then
 		local output = nil
-		local room = client.room or "NONE"
-		local nick = client.nick or "NONE"
+		local room = client.room
+		local nick = client.nick
 		if cmd == 19 then
 			output = "08["..room.."] <"..nick.."> "..msg
 		elseif cmd == 20 then

@@ -152,6 +152,20 @@ local succ,err=pcall(function()
 		client.socket:send("\22"..message.."\0"..string.char(r or 127)..string.char(g or 255)..string.char(b or 255))
 	end
 
+	function kick(client, who, reason)
+		for uid, v in pairs(clients) do
+			if v == client then
+				local message = "You were kicked by "..who
+				if #reason > 0 then
+					message = message..": "..reason
+				end
+				serverMsg(client, message, 255, 50, 50)
+				print(who.." kicked "..client.nick.." from "..client.room.." ("..reason..")")
+				disconnect(uid, "kicked by "..who..": "..reason)
+			end
+		end
+	end
+
 	-- coroutine that handles the client
 	function handler(id,client)
 		for k,v in pairs(bans) do
@@ -222,7 +236,7 @@ local succ,err=pcall(function()
 			-- MSG
 			elseif cmd==19 then
 				local msg=nullstr()
-				if not msg:match("^[ -~]+$") then
+				if not msg:match("^[ -~]*$") then
 					serverMsg(client, "Invalid characters detected in message, not sent")
 				elseif #msg > 200 then
 					serverMsg(client, "Message too long, not sent")
@@ -234,7 +248,7 @@ local succ,err=pcall(function()
 				end
 			elseif cmd==20 then
 				local msg=nullstr()
-				if not msg:match("^[ -~]+$") then
+				if not msg:match("^[ -~]*$") then
 					serverMsg(client, "Invalid characters detected in message, not sent")
 				elseif #msg > 200 then
 					serverMsg(client, "Message too long, not sent")
@@ -246,7 +260,7 @@ local succ,err=pcall(function()
 				end
 			elseif cmd==21 then
 				local nick,reason = nullstr(), nullstr()
-				if not reason:match("^[ -~]+$") then
+				if not reason:match("^[ -~]*$") then
 					serverMsg(client, "Invalid characters detected in kick reason")
 				elseif #reason > 200 then
 					serverMsg(client, "Kick reason too long, not sent")
@@ -258,10 +272,8 @@ local succ,err=pcall(function()
 					local found=false
 					for _,uid in ipairs(rooms[client.room]) do
 						if clients[uid].nick == nick then
-							if not onChat(client,21,nick.." "..reason) then
-								serverMsg(clients[uid], "You were kicked by "..clients[id].nick..": "..reason, 255, 50, 50)
-								print(client.nick.." kicked "..nick.." from "..client.room.." ("..reason..")")
-								disconnect(uid, "kicked by "..client.nick..": "..reason)
+							if not onChat(client, 21, nick.." "..reason) then
+								kick(clients[uid], client.nick, reason)
 							end
 							found = true
 						end

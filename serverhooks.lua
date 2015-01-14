@@ -4,16 +4,21 @@ commandHooks = {}
 --Load all hooks in hooks/ here (copied from Crackbot)
 function loadhook(name)
 	local succ,err = pcall(dofile, "hooks/"..name)
+	local ret = ""
 	if not succ then
-		print("Error loading hooks/"..name..": "..err)
+		ret = "Error loading hooks/"..name..": "..err
 	else
-		print("Loaded hooks/"..name)
+		ret = "Loaded hooks/"..name
 	end
+	print(ret)
+	return ret
 end
 
 function loadallhooks()
 	local listcmd = WINDOWS and "dir /b" or "ls"
 	local pluginList = io.popen(listcmd.." \"hooks\"")
+	serverHooks = {}
+	commandHooks = {}
 	for file in pluginList:lines() do
 		if file:sub(#file-3,#file) == ".lua" then
 			loadhook(file)
