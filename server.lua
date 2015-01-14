@@ -126,6 +126,17 @@ local succ,err=pcall(function()
 			print("Created room '"..room.."'")
 		end
 		client.room=room
+
+		--hook system (check if user is allowed)
+		if onChat(client, 1, room) then
+			if room ~= "null" then
+				join('null', id)
+			else
+				disconnect(id, 'Banned from lobby')
+			end
+			return
+		end
+
 		-- send who's in room
 		client.socket:send("\16"..string.char(#rooms[room]))
 		for _,uid in ipairs(rooms[room]) do
@@ -145,7 +156,6 @@ local succ,err=pcall(function()
 			print("asking "..rooms[room][1].." to provide sync")
 			clients[rooms[room][1]].socket:send("\128"..string.char(id))
 		end
-		onChat(client,1,room)
 	end
 
 	function serverMsg(client, message, r, g, b)
