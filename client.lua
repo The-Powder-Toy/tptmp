@@ -438,6 +438,11 @@ new = function(x,y,h,t,m)
 					return wheel
 				end
 			end
+		elseif not hidden_mode thenif event == 1 then
+			self.clickx = tpt.mousex
+			self.clicky = tpt.mousey
+		else
+			self:move(tpt.mousey - tpt.pmousey)
 		end
 		--possibly click the bar and drag?
 		return false
