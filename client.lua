@@ -18,6 +18,14 @@
 --ESC key will unfocus, then minimize chat
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 
+local pmousex, pmousey
+
+function _SETPMOUSE()
+    tpt.pmousex, tpt.pmousey = pmousex, pmousey
+    pmousex, pmousey = tpt.mousex, tpt.mousey
+end
+tpt.register_step(_SETPMOUSE)
+
 local scriptversion = 1 -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not sim.loadStamp then error"Tpt version not supported" end
@@ -388,11 +396,13 @@ new = function(x,y,h,t,m)
 					return wheel
 				end
 			end
-		elseif not hidden_mode thenif event == 1 then
-			self.clickx = tpt.mousex
-			self.clicky = tpt.mousey
-		else
-			self:move(tpt.mousey - tpt.pmousey)
+		elseif not hidden_mode then 
+			if event == 1 then
+				self.clickx = tpt.mousex
+				self.clicky = tpt.mousey
+			else
+				self:move(tpt.mousey - tpt.pmousey)
+			end
 		end
 		--possibly click the bar and drag?
 		return false
