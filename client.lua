@@ -188,7 +188,7 @@ new = function()
 	function b:draw(...)
 		for _,f in ipairs(self.drawlist) do
 			if type(f)=="function" then
-				f(self,unpack(arg))
+				f(self,...)
 			end
 		end
 	end
