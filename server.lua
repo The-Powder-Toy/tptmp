@@ -115,6 +115,7 @@ local succ,err=pcall(function()
 			rooms[room]=nil
 			print("Deleted room '"..room.."'")
 		end
+		onChat(clients[uid],-2,room)
 	end
 
 	-- join a room
@@ -178,14 +179,14 @@ local succ,err=pcall(function()
 
 	-- coroutine that handles the client
 	function handler(id,client)
+		local major,minor,scriptver=byte(),byte(),byte()
+		client.nick=nullstr()
 		for k,v in pairs(bans) do
 			if client.host:match(v) then
 				client.socket:send("\0You are banned\0")
 				disconnect(id,"Banned user")
 			end
 		end
-		local major,minor,scriptver=byte(),byte(),byte()
-		client.nick=nullstr()
 		if minor~=config.versionminor or major~=config.versionmajor then
 			client.socket:send("\0Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")\0")
 			disconnect(id,"Bad version "..major.."."..minor)
