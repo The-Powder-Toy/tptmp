@@ -8,9 +8,9 @@ function serverHooks.private(client, cmd, msg)
 			return true
 		end
 	end
-	if cmd == -1 and client.nick then
+	--[[if cmd == -1 and client.nick then
 		invites[client.nick] = nil
-	end
+	end]]
 	if cmd == -2 then
 		if not rooms[msg] then
 			privaterooms[msg] = nil
