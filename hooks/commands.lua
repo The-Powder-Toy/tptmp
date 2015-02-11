@@ -12,6 +12,7 @@ local helptext = {
 ["shelp"] = "(shelp [<command>]): Prints help for a command.",
 ["online"] = "(online): Prints how many players are online and how many rooms there are.",
 ["msg"] = "(msg <user> <message>): Sends a private message to a user.",
+["seen"] = "(seen <user>): Tells you the amount of time since a user was last online.",
 ["motd"] = "(motd <motd>): Sets the motd for a channel, if you were the first to join.",
 ["invite"] = "(invite <user>): Invites a user to a channel and sends a message asking them to join.",
 ["private"] = "(private): Toggles a channel's private status. Use /invite to invite users."
@@ -50,4 +51,58 @@ function commandHooks.msg(client, msg, msgsplit)
 		serverMsg(client, "User not online.")
 	end
 	return true
+end
+
+function timestr(t)
+	local seconds, minutes, hours, days
+	local str = {}
+	days = math.floor(t/86400)
+	hours = math.floor((t%86400)/3600)
+	minutes = math.floor((t%3600)/60)
+	seconds = t%60
+	if days > 0 then
+		table.insert(str, days.." day"..(days == 1 and "" or "s"))
+	end
+	if hours > 0 then
+		table.insert(str, hours.." hour"..(hours == 1 and "" or "s"))
+	end
+	if minutes > 0 then
+		table.insert(str, minutes.." minute"..(minutes == 1 and "" or "s"))
+	end
+	if seconds > 0 then
+		table.insert(str, seconds.." second"..(seconds == 1 and "" or "s"))
+	end
+	if #str > 1 then
+		str[#str] = "and "..str[#str]
+	elseif #str == 0 then
+		return "0 seconds"
+	end
+	return table.concat(str, ", ")
+end
+
+local lastseen = {}
+function commandHooks.seen(client, msg, msgsplit)
+	user = msgsplit[1]
+	if not user then
+		commandHooks.shelp(client, "seen", {"seen"})
+		return true
+	end
+	for k,v in pairs(clients) do
+		if v.nick == user then
+			serverMsg(client, user.." is online right now!")
+			return true
+		end
+	end
+	if not lastseen[user] then
+		serverMsg(client, "That user hasn't been online recently.")
+		return true
+	end
+	serverMsg(client, user.." was last seen "..timestr(os.difftime(os.time(), lastseen[user])).." ago.")
+	return true
+end
+
+function serverHooks.commands(client, cmd, msg)
+	if cmd == -1 and client.room == "null" then
+		lastseen[client.nick] = os.time()
+	end
 end
