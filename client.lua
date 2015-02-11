@@ -23,6 +23,7 @@ local using_manager = false
 local _print = print
 if MANAGER ~= nil or MANAGER_EXISTS then
 	using_manager = true
+	_print = MANAGER and MANAGER.print or MANAGER_PRINT
 else
 	_print = print
 end
@@ -391,6 +392,7 @@ new=function(x,y,w,h)
 		end
 		if newstr then
 			self.t:update(newstr,self.cursor)
+			return true
 		end
 		--some actual text processing, lol
 	end
@@ -527,7 +529,7 @@ new=function(x,y,w,h)
 				lastspace = i
 			end
 			if width > self.max_width or i==#line then
-				local pos = (i==#line or not lastspace) and i or lastspace
+			local pos = (i==#line or not lastspace) and i or lastspace
 				table.insert(self.lines,ui_text.new(line:sub(linebreak,pos),self.x,0,r,g,b))
 				linebreak = pos+1
 				lastspace = nil
@@ -679,7 +681,7 @@ end
 local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if using_manager and not MANAGER.hidden then print("minimize the manager before opening TPTMP") return end if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false TPTMP.chatHidden=false L.flashChat=false end,"<<")
+local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if using_manager and not MANAGER.hidden then _print("minimize the manager before opening TPTMP") return end if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false TPTMP.chatHidden=false L.flashChat=false end,"<<")
 if jacobsmod and tpt.oldmenu()~=0 then
 	showbutton:onmove(0, 256)
 end
@@ -704,7 +706,8 @@ local eleNameTable = {
 ["DEFAULT_WL_11"] = 291,["DEFAULT_WL_12"] = 292,["DEFAULT_WL_13"] = 293,["DEFAULT_WL_14"] = 294,["DEFAULT_WL_15"] = 295,
 ["DEFAULT_UI_SAMPLE"] = 296,["DEFAULT_UI_SIGN"] = 297,["DEFAULT_UI_PROPERTY"] = 298,["DEFAULT_UI_WIND"] = 299,
 ["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_VAC"] = 302,["DEFAULT_TOOL_AIR"] = 303,["DEFAULT_TOOL_PGRV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,
-["DEFAULT_DECOR_SET"] = 306,["DEFAULT_DECOR_ADD"] = 307,["DEFAULT_DECOR_SUB"] = 308,["DEFAULT_DECOR_MUL"] = 309,["DEFAULT_DECOR_DIV"] = 310,["DEFAULT_DECOR_SMDG"] = 311,["DEFAULT_DECOR_CLR"] = 312,["DEFAULT_DECOR_LIGH"] = 313, ["DEFAULT_DECOR_DARK"] = 314
+["DEFAULT_DECOR_SET"] = 306,["DEFAULT_DECOR_ADD"] = 307,["DEFAULT_DECOR_SUB"] = 308,["DEFAULT_DECOR_MUL"] = 309,["DEFAULT_DECOR_DIV"] = 310,["DEFAULT_DECOR_SMDG"] = 311,["DEFAULT_DECOR_CLR"] = 312,["DEFAULT_DECOR_LIGH"] = 313, ["DEFAULT_DECOR_DARK"] = 314,
+["DEFAULT_WL_16"] = 315
 }
 local function convertDecoTool(c)
 	return c
@@ -721,7 +724,8 @@ if jacobsmod then
 	local modNameTable = {
 	["DEFAULT_WL_ERASE"] = 280,["DEFAULT_WL_CNDTW"] = 281,["DEFAULT_WL_EWALL"] = 282,["DEFAULT_WL_DTECT"] = 283,["DEFAULT_WL_STRM"] = 284,
 	["DEFAULT_WL_FAN"] = 285,["DEFAULT_WL_LIQD"] = 286,["DEFAULT_WL_ABSRB"] = 287,["DEFAULT_WL_WALL"] = 288,["DEFAULT_WL_AIR"] = 289,["DEFAULT_WL_POWDR"] = 290,
-	["DEFAULT_WL_CNDTR"] = 291,["DEFAULT_WL_EHOLE"] = 292,["DEFAULT_WL_GAS"] = 293,["DEFAULT_WL_GRVTY"] = 294,["DEFAULT_WL_ENRGY"] = 295,["DEFAULT_WL_ERASEA"] = 280
+	["DEFAULT_WL_CNDTR"] = 291,["DEFAULT_WL_EHOLE"] = 292,["DEFAULT_WL_GAS"] = 293,["DEFAULT_WL_GRVTY"] = 294,["DEFAULT_WL_ENRGY"] = 295,["DEFAULT_WL_ERASEA"] = 280,
+	["DEFAULT_WL_NOAIR"] = 315
 	}
 	for k,v in pairs(modNameTable) do
 		eleNameTable[k] = v
@@ -1583,7 +1587,7 @@ end
 
 local keypressfuncs = {
 	--TAB
-	[9] = function() conSend(35) end,
+	[9] = function() if not jacobsmod or not L.ctrl then conSend(35) end end,
 
 	--ESC
 	[27] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
@@ -1624,7 +1628,7 @@ local keypressfuncs = {
 	--[100] = function() conSend(55) end,
 
 	--F , frame step
-	[102] = function() if not jacobsmod or (not L.ctrl and not L.shift) then conSend(50) end end,
+	[102] = function() if not jacobsmod or not L.ctrl then conSend(50) end end,
 
 	--H , HUD and intro text
 	[104] = function() if L.ctrl and jacobsmod then return false end end,
@@ -1642,7 +1646,7 @@ local keypressfuncs = {
 	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
 
 	--O, old menu in jacobs mod
-	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 then showbutton:onmove(0, 256) else showbutton:onmove(0, -256) end end end,
+	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 and showbutton.y < 150 then showbutton:onmove(0, 256) elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end end,
 
 	--R , for stamp rotate
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then conSend(70) end end,
@@ -1701,7 +1705,7 @@ local keyunpressfuncs = {
 }
 local function keyclicky(key,nkey,modifier,event)
 	if not hooks_enabled then
-		if jacobsmod and not L.ctrl and key == 'o' and event == 1 then if tpt.oldmenu()==0 then showbutton:onmove(0, 256) else showbutton:onmove(0, -256) end end
+		if jacobsmod and bit.band(modifier, 0xC0) == 0 and key == 'o' and event == 1 then if tpt.oldmenu()==0 and showbutton.y < 150 then showbutton:onmove(0, 256) elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end
 		return
 	end
 	if chatwindow.inputbox.focus then
