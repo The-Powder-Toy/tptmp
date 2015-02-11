@@ -16,7 +16,7 @@ Create a .lua file in hooks/
 Add server side commands using `function commandHooks.<name>(client, msg, msgsplit)`
 msg is the full message after the command, and msgsplit is a table of all the space separated words.
 
-Add event hooks using `function serverHooks.badwords(client, cmd, msg)`
+Add event hooks using `function serverHooks.<uniquefunctionname>(client, cmd, msg)`
 cmd is the event number, and msg is a special message that may be attached to it. Events are the same as the numbers handled in server.lua, with the special event -1 for quitting, and -2 for leaving a room.
 
 ####Default hooks
