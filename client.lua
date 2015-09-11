@@ -530,7 +530,7 @@ new=function(x,y,w,h)
 				lastspace = i
 			end
 			if width > self.max_width or i==#line then
-			local pos = (i==#line or not lastspace) and i or lastspace
+				local pos = (i==#line or not lastspace) and i or lastspace
 				table.insert(self.lines,ui_text.new(line:sub(linebreak,pos),self.x,0,r,g,b))
 				linebreak = pos+1
 				lastspace = nil
@@ -736,29 +736,18 @@ local gravList= {[0]="Vertical",[1]="Off",[2]="Radial"}
 local airList= {[0]="On",[1]="Pressure Off",[2]="Velocity Off",[3]="Off",[4]="No Update"}
 local noFlood = {[15]=true,[55]=true,[87]=true,[128]=true,[158]=true}
 local noShape = {[55]=true,[87]=true,[128]=true,[158]=true}
-local createOverride = {[55]=function(x,y,rx,ry,c,brush) sim.createParts(x,y,0,0,c,brush) end ,[87]=function(x,y,rx,ry,c,brush) sim.createParts(x,y,0,0,c,brush) end,[128]=function(x,y,rx,ry,c,brush) sim.createParts(x,y,0,0,c,brush) end,[158]=function(x,y,rx,ry,c,brush) sim.createParts(x,y,0,0,c,brush) end}
+local createOverride = {
+	[55] = function(rx,ry,c) return 0,0,c end,
+	[87] = function(rx,ry,c) local tmp=rx+ry if tmp>55 then tmp=55 end return 0,0,c+bit.lshift(tmp,8) end,
+	[88] = function(rx,ry,c) local tmp=rx*4+ry*4+7 if tmp>300 then tmp=300 end return rx,ry,c+bit.lshift(tmp,8) end,
+	[128] = function(rx,ry,c) return 0,0,c end,
+	[158] = function(rx,ry,c) return 0,0,c end}
 local golStart,golEnd=256,279
 local wallStart,wallEnd=280,295
 local toolStart,toolEnd=300,305
 local decoStart,decoEnd=306,314
 
 --Functions that do stuff in powdertoy
-local function createBoxAny(x1,y1,x2,y2,c,user)
-	if noShape[c] then return end
-	if c>=wallStart then
-		if c<= wallEnd then
-			sim.createWallBox(x1,y1,x2,y2,c-wallStart)
-		elseif c<=toolEnd then
-			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
-		elseif c<= decoEnd then
-			sim.decoBox(x1,y1,x2,y2,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart)
-		end
-		return
-	elseif c>=golStart then
-		c = 78+(c-golStart)*256
-	end
-	sim.createBox(x1,y1,x2,y2,c,user and user.replacemode)
-end
 local function createPartsAny(x,y,rx,ry,c,brush,user)
 	if c>=wallStart then
 		if c<= wallEnd then
@@ -773,7 +762,9 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
-	if createOverride[c] then createOverride[c](x,y,rx,ry,c,brush) return end
+	if createOverride[c] then
+		rx,ry,c = createOverride[c](rx,ry,c)
+	end
 	sim.createParts(x,y,rx,ry,c,brush,user.replacemode)
 end
 local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
@@ -792,7 +783,29 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
+	if createOverride[c] then
+		rx,ry,c = createOverride[c](rx,ry,c)
+	end
 	sim.createLine(x1,y1,x2,y2,rx,ry,c,brush,user.replacemode)
+end
+local function createBoxAny(x1,y1,x2,y2,c,user)
+	if noShape[c] then return end
+	if c>=wallStart then
+		if c<= wallEnd then
+			sim.createWallBox(x1,y1,x2,y2,c-wallStart)
+		elseif c<=toolEnd then
+			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
+		elseif c<= decoEnd then
+			sim.decoBox(x1,y1,x2,y2,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart)
+		end
+		return
+	elseif c>=golStart then
+		c = 78+(c-golStart)*256
+	end
+	if createOverride[c] then
+		_,_,c = createOverride[c](user.brushx,user.brushy,c)
+	end
+	sim.createBox(x1,y1,x2,y2,c,user and user.replacemode)
 end
 local function floodAny(x,y,c,cm,bm,user)
 	if noFlood[c] then return end
@@ -804,6 +817,9 @@ local function floodAny(x,y,c,cm,bm,user)
 		return
 	elseif c>=golStart then --GoL adjust
 		c = 78+(c-golStart)*256
+	end
+	if createOverride[c] then
+		_,_,c = createOverride[c](user.brushx,user.brushy,c)
 	end
 	sim.floodParts(x,y,c,cm,user.replacemode)
 end
