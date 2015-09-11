@@ -320,6 +320,8 @@ local succ,err=pcall(function()
 				local data=char()
 				client.replacemode = data
 				sendroomexcept(client.room,id,"\38"..string.char(id)..data)
+			elseif cmd==39 then
+				sendroomexcept(client.room,id,"\39"..string.char(id))
 			elseif cmd==48 then
 				local data=char()
 				sendroomexcept(client.room,id,"\48"..string.char(id)..data)

@@ -18,7 +18,7 @@ local versionstring = "0.83"
 if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
 TPTMP = {["version"] = 2} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
-if not tpt.selectedreplace then error"Tpt version not supported" end
+if not sim.clearRect then error"Tpt version not supported" end
 local using_manager = false
 local _print = print
 if MANAGER ~= nil or MANAGER_EXISTS then
@@ -33,7 +33,8 @@ local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, selrep=0, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
-shift=false, alt=false, ctrl=false, tabs = false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false}
+shift=false, alt=false, ctrl=false, tabs = false, z=false, downInside=nil, skipClick=false, pauseNextFrame=false,
+copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false, mouseInZoom=false}
 
 local tptversion = tpt.version.build
 local jacobsmod = tpt.version.jacob1s_mod~=nil
@@ -1047,6 +1048,14 @@ local dataCmds = {
 		local mod = cByte()
 		con.members[id].replacemode = mod
 	end,
+	--mouse moved in or out of zoom window (cancel drawing unless it is a line/box/flood fill)
+	[39] = function()
+		local id = cByte()
+		if con.members[id].drawtype == 4 then
+			con.members[id].drawType = false
+			con.members[id].lbtn, con.members[id].rbtn, con.members[id].abtn = false, false, false
+		end
+	end,
 	--cmode defaults (1 byte mode)
 	[48] = function()
 		local id = cByte()
@@ -1187,8 +1196,7 @@ local dataCmds = {
 		local x1,y1 =((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
 		local x2,y2 =((b4*16)+math.floor(b5/16)),((b5%16)*256)+b6
 		--clear walls and parts
-		createBoxAny(x1,y1,x2,y2,280)
-		createBoxAny(x1,y1,x2,y2,0)
+		sim.clearRect(x1, y1, x2-x1+1, y2-y1+1)
 	end,
 	--Edge mode (1 byte state)
 	[68] = function()
@@ -1481,6 +1489,15 @@ end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
 	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end end
+	local oldx, oldy = mousex, mousey
+	if mousex<sim.XRES and mousey<sim.YRES then
+		local lastMouseInZoom = L.mouseInZoom
+		mousex,mousey = sim.adjustCoords(mousex,mousey)
+		L.mouseInZoom = oldx ~= mousex or oldy ~= mousey
+		if L.mouseInZoom ~= lastMouseInZoom then
+			conSend(39)
+		end
+	end
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 and L.stampx == -1 then
 			--initial stamp coords
@@ -1547,8 +1564,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	end
 
 	if button > 0 and L.skipClick then L.skipClick=false return true end
-	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
-	if mousex<sim.XRES and mousey<sim.YRES then mousex,mousey = sim.adjustCoords(mousex,mousey) end
+	if chatwindow:process(oldx,oldy,button,event,wheel) then return false end
 
 	local obut,oevnt = L.mButt,L.mEvent
 	if button~=obut or event~=oevnt then
