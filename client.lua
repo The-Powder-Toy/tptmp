@@ -1579,10 +1579,6 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		conSend(32,string.char(b1,b2,b3))
 		L.mousex,L.mousey = mousex,mousey
 	end
-	--Temporary SPRK floodfill crash block
-	if L.shift and L.ctrl and event == 1 and ((button == 1 and L.sell==15) or (button == 4 and L.selr==15) or (button == 2 and L.sela==15)) then
-		return false
-	end
 
 	--Click inside button first
 	if button==1 then
