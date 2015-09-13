@@ -33,6 +33,8 @@ local succ,err=pcall(function()
 	server:settimeout(0)
 	
 	bans={}
+	stabbed={}
+	muted={}
 
 	clients={}
 	rooms={}
@@ -163,17 +165,51 @@ local succ,err=pcall(function()
 		client.socket:send("\22"..message.."\0"..string.char(r or 127)..string.char(g or 255)..string.char(b or 255))
 	end
 
-	function kick(client, who, reason)
-		for uid, v in pairs(clients) do
-			if v == client then
-				local message = "You were kicked by "..who
-				if #reason > 0 then
-					message = message..": "..reason
-				end
-				serverMsg(client, message, 255, 50, 50)
-				print(who.." kicked "..client.nick.." from "..client.room.." ("..reason..")")
-				disconnect(uid, "kicked by "..who..": "..reason)
+	function serverMsgExcept(room, except, message, r, g, b)
+		for _,uid in ipairs(rooms[room]) do
+			if clients[uid].nick ~= except then
+				serverMsg(clients[uid], message, r, g, b)
 			end
+		end
+	end
+
+	function kick(victim, moderator, reason)
+		local message = "You were kicked by "..moderator
+		if #reason > 0 then
+			message = message..": "..reason
+		end
+		serverMsg(clients[victim], message, 255, 50, 50)
+		print(moderator.." has kicked "..clients[victim].nick.." from "..clients[victim].room.." ("..reason..")")
+		serverMsgExcept(clients[victim].room, clients[victim].nick, moderator.." has kicked "..clients[victim].nick.." from "..clients[victim].room.." ("..reason..")")
+		disconnect(victim, "kicked by "..moderator..": "..reason)
+	end
+
+	function stab(victim, perpetrator, dostab)
+		stabbed[clients[victim].nick] = dostab
+		clients[victim].socket:send("\23"..(dostab and '\1' or '\0'))
+		print(perpetrator.." has "..(dostab and "" or "un").."stabbed "..clients[victim].nick)
+		serverMsgExcept(clients[victim].room, clients[victim].nick, clients[victim].nick.." has been "..(dostab and "" or "un").."stabbed by "..perpetrator)
+	end
+
+	function mute(victim, moderator, domute)
+		muted[clients[victim].nick] = domute
+		clients[victim].socket:send("\24"..(domute and '\1' or '\0'))
+		print(moderator.." has "..(domute and "" or "un").."muted "..clients[victim].nick)
+		serverMsgExcept(clients[victim].room, clients[victim].nick, clients[victim].nick.." has been "..(domute and "" or "un").."muted by "..moderator)
+	end
+
+	function modaction(moderator, id, room, nick, f, ...)
+		local found = false
+		for _,uid in ipairs(rooms[room]) do
+			if clients[uid].nick == nick then
+				if not onChat(moderator, id, nick) then
+					f(uid, ...)
+					found = true
+				end
+			end
+		end
+		if not found then
+			serverMsg(moderator, "User \""..nick.."\" not found")
 		end
 	end
 
@@ -214,11 +250,18 @@ local succ,err=pcall(function()
 				return
 			end
 		end
+		if stabbed[client.nick] then
+			clients[uid].socket:send("\23\1") -- tell client they are stabbed
+		end
+		if muted[client.nick] then
+			clients[uid].socket:send("\24\1") -- tell client they are muted
+		end
 		client.brush=0
 		client.size="\4\4"
 		client.selection={"\0\1","\64\0","\128\0"}
 		client.replacemode="0"
 		client.deco="\0\0\0\0"
+		client.op=false
 		print(client.nick.." done identifying")
 		client.socket:send"\1"
 		join("null",id)
@@ -227,10 +270,27 @@ local succ,err=pcall(function()
 			--if cmd~=32 and cmd~=33 and cmd~=34 then
 			--	print("Got ["..cmd.."] from "..client.nick)
 			--end
-			if cmd~=16 and cmd~=19 and cmd~=20 and cmd~=21 then --handled separately with more info
+			if cmd~=16 and cmd~=19 and cmd~=20 and cmd~=21 and cmd~=23 then --handled separately with more info
 				if onChat(client,cmd) then --allow any events to be canceled with hooks
 					cmd=0 --hack
 				end 
+			end
+			if stabbed[client.nick] then -- client isn't allowed to modify simulation
+				if cmd == 33 or cmd == 38 or cmd == 48 or cmd == 49 or (cmd >= 51 and cmd <= 59) or cmd == 68 then
+					char()
+					cmd = 0
+				elseif cmd == 39 or cmd == 50 or (cmd >= 60 and cmd <= 63) or cmd == 70 then
+					cmd = 0
+				elseif cmd == 64 or cmd == 69 then
+					char() char() char()
+					cmd = 0
+				elseif cmd == 65 then
+					char() char() char()
+					cmd = 0
+				elseif cmd == 67 then
+					char() char() char() char() char() char()
+					cmd = 0
+				end
 			end
 
 			-- JOIN
@@ -247,7 +307,9 @@ local succ,err=pcall(function()
 			-- MSG
 			elseif cmd==19 then
 				local msg=nullstr()
-				if not msg:match("^[ -~]*$") then
+				if muted[client.nick] then
+					serverMsg(client, "You have been muted and cannot chat")
+				elseif not msg:match("^[ -~]*$") then
 					serverMsg(client, "Invalid characters detected in message, not sent")
 				elseif #msg > 200 then
 					serverMsg(client, "Message too long, not sent")
@@ -259,7 +321,9 @@ local succ,err=pcall(function()
 				end
 			elseif cmd==20 then
 				local msg=nullstr()
-				if not msg:match("^[ -~]*$") then
+				if muted[client.nick] then
+					serverMsg(client, "You have been muted and cannot chat")
+				elseif not msg:match("^[ -~]*$") then
 					serverMsg(client, "Invalid characters detected in message, not sent")
 				elseif #msg > 200 then
 					serverMsg(client, "Message too long, not sent")
@@ -275,23 +339,40 @@ local succ,err=pcall(function()
 					serverMsg(client, "Invalid characters detected in kick reason")
 				elseif #reason > 200 then
 					serverMsg(client, "Kick reason too long, not sent")
-				elseif client.room == "null" then
+				elseif not client.op and client.room == "null" then
 					serverMsg(client, "You can't kick people from the lobby")
-				elseif rooms[client.room][1] ~= id then
+				elseif not client.op and rooms[client.room][1] ~= id then
 					serverMsg(client, "You can't kick people from here")
 				else
-					local found=false
-					for _,uid in ipairs(rooms[client.room]) do
-						if clients[uid].nick == nick then
-							if not onChat(client, 21, nick.." "..reason) then
-								kick(clients[uid], client.nick, reason)
-							end
-							found = true
-						end
-					end
-					if not found then
-						serverMsg(client, "User \""..nick.."\" not found")
-					end
+					modaction(client.nick, 21, client.room, nick, kick, client.nick, reason)
+				end
+			elseif cmd==23 then
+				local dostab = (char() == '\1' and true or nil)
+				local nick = nullstr()
+				if not client.op then
+					serverMsg(client, "You aren't an op!")
+				elseif nick == client.nick then
+					serverMsg(client, "You can't stab yourself!")
+				elseif dostab and stabbed[nick] then
+					serverMsg(client, "That person is already stabbed!")
+				elseif not dostab and not stabbed[nick] then
+					serverMsg(client, "That person isn't stabbed!")
+				else
+					modaction(client.nick, 23, client.room, nick, stab, client.nick, dostab)
+				end
+			elseif cmd==24 then
+				local domute = (char() == '\1' and true or nil)
+				local nick = nullstr()
+				if not client.op then
+					serverMsg(client, "You aren't an op!")
+				elseif nick == client.nick then
+					serverMsg(client, "You can't mute yourself!")
+				elseif domute and muted[nick] then
+					serverMsg(client, "That person is already muted!")
+				elseif not domute and not muted[nick] then
+					serverMsg(client, "That person isn't muted!")
+				else
+					modaction(client.nick, 24, client.room, nick, mute, client.nick, domute)
 				end
 			elseif cmd==2 then
 				client.lastping=os.time()
@@ -378,7 +459,9 @@ local succ,err=pcall(function()
 				local sz=b1*65536+b2*256+b3
 				print("STAMP! Loading From "..client.nick.." size "..sz )
 				local s,stm = bytes(client.socket,sz)
-				if s then
+				if client.ignore then
+					serverMsg(client, "You aren't allowed to place stamps")
+				elseif s then
 					sendroomexceptLarge(client.room,id,"\66"..string.char(id)..loc..string.char(b1,b2,b3)..stm)
 				else
 					disconnect(id,stm)
@@ -481,7 +564,11 @@ local succ,err=pcall(function()
 			for i=0,255 do
 				if not clients[i] then
 					clients[i]={socket=conn,host=host,port=port,lastping=os.time(),coro=coroutine.create(handler)}
-					coroutine.resume(clients[i].coro,i,clients[i])
+					ret, err = coroutine.resume(clients[i].coro,i,clients[i])
+					if not ret then
+						print(err)
+						conn:close()
+					end
 					hasid=i
 					break
 				end
@@ -504,7 +591,11 @@ local succ,err=pcall(function()
 				local c,err=client.socket:receive(1)
 				while c do
 					anything=true
-					coroutine.resume(client.coro,c)
+					ret, err = coroutine.resume(client.coro,c)
+					if not ret then
+						print(err)
+						disconnect(id,"server error")
+					end
 					if not clients[id] then
 						err=nil
 						break

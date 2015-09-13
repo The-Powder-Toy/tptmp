@@ -34,7 +34,8 @@ local KEYBOARD = 1 --only change if you have issues. Only other option right now
 --Local player vars we need to keep
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, selrep=0, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
 shift=false, alt=false, ctrl=false, tabs = false, z=false, skipClick=false, pauseNextFrame=false,
-copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false, mouseInZoom=false}
+copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false,
+mouseInZoom=false, stabbed=false, muted=false}
 
 local tptversion = tpt.version.build
 local jacobsmod = tpt.version.jacob1s_mod~=nil
@@ -59,6 +60,7 @@ local function disconnected(reason)
 	end
 	con.connected = false
 	con.members = {}
+	L.stabbed, L.muted = false, false
 end
 local function conSend(cmd,msg,endNull)
 	if not con.connected then return false,"Not connected" end
@@ -596,6 +598,7 @@ new=function(x,y,w,h)
 		end
 	end,
 	sync = function(self,msg,args)
+		if L.stabbed then return end
 		if con.connected then L.sendScreen=true end --need to send 67 clear screen
 		self:addline("Synced screen to server",255,255,50)
 	end,
@@ -609,6 +612,10 @@ new=function(x,y,w,h)
 		elseif args[1] == "me" then self:addline("(/me <message>) -- say something in 3rd person") -- send a raw command
 		elseif args[1] == "kick" then self:addline("(/kick <nick> <reason>) -- kick a user, only works if you have been in a channel the longest")
 		elseif args[1] == "size" then self:addline("(/size <width> <height>) -- sets the size of the chat window")
+		elseif args[1] == "stab" then self:addline("(/stab <nick>) -- stabs a user, preventing them from drawing or modifying the simulation at all")
+		elseif args[1] == "unstab" then self:addline("(/unstab <nick>) -- unstabs a user, allowing them to draw on or modify the simulation again")
+		elseif args[1] == "mute" then self:addline("(/mute <nick>) -- mutes a user, preventing them chatting")
+		elseif args[1] == "unmute" then self:addline("(/unmute <nick>) -- mutes a user, allowing them to speak again")
 		end
 	end,
 	list = function(self,msg,args)
@@ -641,7 +648,27 @@ new=function(x,y,w,h)
 				MANAGER.savesetting("tptmp", "height", h)
 			end
 		end
-	end
+	end,
+	stab = function(self, msg, args)
+		if not con.connected then return end
+		if not args[1] then self:addline("Need a nick! '/stab <nick>") return end
+		conSend(23, string.char(1)..args[1],true)
+	end,
+	unstab = function(self, msg, args)
+		if not con.connected then return end
+		if not args[1] then self:addline("Need a nick! '/unstab <nick>") return end
+		conSend(23, string.char(0)..args[1],true)
+	end,
+	mute = function(self, msg, args)
+		if not con.connected then return end
+		if not args[1] then self:addline("Need a nick! '/mute <nick>") return end
+		conSend(24, string.char(1)..args[1],true)
+	end,
+	unmute = function(self, msg, args)
+		if not con.connected then return end
+		if not args[1] then self:addline("Need a nick! '/unmute <nick>") return end
+		conSend(24, string.char(0)..args[1],true)
+	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
 		if L.chatHidden then return nil end
@@ -981,6 +1008,16 @@ local dataCmds = {
 	end,
 	[22] = function()
 		chatwindow:addline("[SERVER] "..conGetNull(), cByte(), cByte(), cByte())
+	end,
+	[23] = function()
+		local stabbed = cByte()
+		L.stabbed = stabbed == 1 and true or false
+		chatwindow:addline("You have been "..(stabbed == 1 and "stabbed, and can't modify the simulation" or "unstabbed"), 255, 50, 50)
+	end,
+	[24] = function()
+		local muted = cByte()
+		L.muted = muted == 1 and true or false
+		chatwindow:addline("You have been "..(muted == 1 and "muted, and can't talk" or "unmuted"), 255, 50, 50)
 	end,
 	--Mouse Position
 	[32] = function()
@@ -1332,7 +1369,7 @@ local function sendStuff()
 	if tpt.brushx > 255 then tpt.brushx = 255 end
 	if tpt.brushy > 255 then tpt.brushy = 255 end
 	local nbx,nby = tpt.brushx,tpt.brushy
-	if L.brushx~=nbx or L.brushy~=nby then
+	if L.brushx~=nbx or L.brushy~=nby and not L.stabbed then
 		L.brushx,L.brushy = nbx,nby
 		conSend(34,string.char(L.brushx,L.brushy))
 	end
@@ -1356,6 +1393,8 @@ local function sendStuff()
 		L.dcolour=ncol
 		conSend(65,string.char(math.floor(ncol/16777216),math.floor(ncol/65536)%256,math.floor(ncol/256)%256,ncol%256))
 	end
+
+	if L.stabbed then return end -- stabbed players can't modify anything
 
 	--Tell others to open this save ID, or send screen if opened local browser
 	if jacobsmod and L.browseMode and L.browseMode > 3 then
@@ -1490,7 +1529,10 @@ if jacobsmod then
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
+	if button > 4 then return end -- in case mouse wheel ever sends 8 or 16 event
 	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end end
+	if L.stabbed and mousex < sim.XRES and mousey < sim.YRES and not L.stamp and not L.placeStamp then if chatwindow:process(mousex,mousey,button,event,wheel) then return false end return false end
+
 	local oldx, oldy = mousex, mousey
 	if mousex<sim.XRES and mousey<sim.YRES then
 		local lastMouseInZoom = L.mouseInZoom
@@ -1583,7 +1625,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	end
 
 	--Click inside button first
-	if button==1 then
+	if button==1 or jacobsmod then
 		if event==1 then
 			for k,v in pairs(tpt_buttons) do
 				if mousex>=v.x1 and mousex<=v.x2 and mousey>=v.y1 and mousey<=v.y2 then
@@ -1595,6 +1637,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 			local ret = true
 			for k,v in pairs(tpt_buttons) do
 				if v.downInside and (mousex>=v.x1 and mousex<=v.x2 and mousey>=v.y1 and mousey<=v.y2) then
+					if L.stabbed then chatwindow:addline("You are stabbed and can't modify the simulation",255,50,50) return false end
 					if v.f() == false then ret = false end
 				end
 				v.downInside = nil
@@ -1619,60 +1662,60 @@ local keypressfuncs = {
 	[27] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
 
 	--space, pause toggle
-	[32] = function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
+	[32] = function() if L.stabbed then return false end conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
 
 	--View modes 0-9
-	[48] = function() conSend(48,"\10") end,
-	[49] = function() if L.shift then conSend(48,"\9") tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end conSend(48,"\0") end,
-	[50] = function() conSend(48,"\1") end,
-	[51] = function() conSend(48,"\2") end,
-	[52] = function() conSend(48,"\3") end,
-	[53] = function() conSend(48,"\4") end,
-	[54] = function() conSend(48,"\5") end,
-	[55] = function() conSend(48,"\6") end,
-	[56] = function() conSend(48,"\7") end,
-	[57] = function() conSend(48,"\8") end,
+	[48] = function() if L.stabbed then return false end conSend(48,"\10") end,
+	[49] = function() if L.stabbed then return false end if L.shift then conSend(48,"\9") tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end conSend(48,"\0") end,
+	[50] = function() if L.stabbed then return false end conSend(48,"\1") end,
+	[51] = function() if L.stabbed then return false end conSend(48,"\2") end,
+	[52] = function() if L.stabbed then return false end conSend(48,"\3") end,
+	[53] = function() if L.stabbed then return false end conSend(48,"\4") end,
+	[54] = function() if L.stabbed then return false end conSend(48,"\5") end,
+	[55] = function() if L.stabbed then return false end conSend(48,"\6") end,
+	[56] = function() if L.stabbed then return false end conSend(48,"\7") end,
+	[57] = function() if L.stabbed then return false end conSend(48,"\8") end,
 
 	--semicolon / ins / del for replace mode
-	[59] = function() if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end conSend(38, L.replacemode) end,
-	[277] = function() L.replacemode = bit.bxor(L.replacemode, 1) conSend(38, L.replacemode) end,
-	[127] = function() L.replacemode = bit.bxor(L.replacemode, 2) conSend(38, L.replacemode) end,
+	[59] = function() if L.stabbed then return false end if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end conSend(38, L.replacemode) end,
+	[277] = function() if L.stabbed then return false end L.replacemode = bit.bxor(L.replacemode, 1) conSend(38, L.replacemode) end,
+	[127] = function() if L.stabbed then return false end L.replacemode = bit.bxor(L.replacemode, 2) conSend(38, L.replacemode) end,
 
 	--= key, pressure/spark reset
-	[61] = function() if L.ctrl then conSend(60) else conSend(61) end end,
+	[61] = function() if L.stabbed then return false end if L.ctrl then conSend(60) else conSend(61) end end,
 
 	--`, console
-	[96] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false end end,
+	[96] = function() if L.stabbed then return false end if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false end end,
 
 	--b , deco, pauses sim
-	[98] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
+	[98] = function() if L.stabbed then return false end if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
 
 	--c , copy
 	[99] = function() if L.ctrl then L.stamp=true L.copying=true L.stampx = -1 L.stampy = -1 end end,
 
 	--d key, debug, api broken right now
-	--[100] = function() conSend(55) end,
+	--[100] = function() if L.stabbed then return false end  conSend(55) end,
 
 	--F , frame step
-	[102] = function() if not jacobsmod or not L.ctrl then conSend(50) end end,
+	[102] = function() if L.stabbed then return false end if not jacobsmod or not L.ctrl then conSend(50) end end,
 
 	--H , HUD and intro text
-	[104] = function() if L.ctrl and jacobsmod then return false end end,
+	[104] = function() if L.stabbed then return false end if L.ctrl and jacobsmod then return false end end,
 
 	--I , invert pressure
-	[105] = function() conSend(62) end,
+	[105] = function() if L.stabbed then return false end  conSend(62) end,
 
 	--K , stamp menu, abort our known stamp, who knows what they picked, send full screen?
-	[107] = function() L.lastStamp={data=nil,w=0,h=0} L.placeStamp=true end,
+	[107] = function() L.lastStamp={data=nil,w=0,h=0}  if L.stabbed then return false end L.placeStamp=true end,
 
 	--L , last Stamp
-	[108] = function() if L.lastStamp then L.placeStamp=true end end,
+	[108] = function() if L.stabbed then return false end if L.lastStamp then L.placeStamp=true end end,
 
 	--N , newtonian gravity or new save
-	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
+	[110] = function() if L.stabbed then return false end if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
 
 	--O, old menu in jacobs mod
-	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 and showbutton.y < 150 then showbutton:onmove(0, 256) elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end end,
+	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 and showbutton.y < 150 then return false elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end end,
 
 	--R , for stamp rotate
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then conSend(70) end end,
@@ -1687,14 +1730,14 @@ local keypressfuncs = {
 	[117] = function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end,
 
 	--V, paste the copystamp
-	[118] = function() if L.ctrl and L.lastCopy then L.placeStamp=true L.copying=true end end,
+	[118] = function() if L.stabbed then return false end if L.ctrl and L.lastCopy then L.placeStamp=true L.copying=true end end,
 
 	--X, cut a copystamp and clear
-	[120] = function() if L.ctrl then L.stamp=true L.copying=1 L.stampx = -1 L.stampy = -1 end end,
+	[120] = function() if L.stabbed then return false end if L.ctrl then L.stamp=true L.copying=1 L.stampx = -1 L.stampy = -1 end end,
 
 	--W,Y (grav mode, air mode)
-	[119] = function() if L.lastStick2 and not L.ctrl then return end conSend(58,string.char((sim.gravityMode()+1)%3)) return true end,
-	[121] = function() conSend(59,string.char((sim.airMode()+1)%5)) return true end,
+	[119] = function() if L.stabbed then return false end if L.lastStick2 and not L.ctrl then return end conSend(58,string.char((sim.gravityMode()+1)%3)) return true end,
+	[121] = function() if L.stabbed then return false end conSend(59,string.char((sim.airMode()+1)%5)) return true end,
 	--Z
 	[122] = function() myZ=true L.skipClick=true end,
 
@@ -1708,7 +1751,7 @@ local keypressfuncs = {
 	[282] = function() if jacobsmod then return false end end,
 
 	--F5 , save reload
-	[286] = function() conSend(70) end,
+	[286] = function() if L.stabbed then return false end conSend(70) end,
 
 	--SHIFT,CTRL,ALT
 	[303] = function() L.shift=true conSend(36,string.char(17)) end,
