@@ -198,11 +198,11 @@ local succ,err=pcall(function()
 		serverMsgExcept(clients[victim].room, clients[victim].nick, clients[victim].nick.." has been "..(domute and "" or "un").."muted by "..moderator)
 	end
 
-	function modaction(moderator, id, room, nick, f, ...)
+	function modaction(moderator, id, nick, f, ...)
 		local found = false
-		for _,uid in ipairs(rooms[room]) do
+		for _,uid in ipairs(rooms[moderator.room]) do
 			if clients[uid].nick == nick then
-				if not onChat(moderator, id, nick) then
+				if not onChat(clients[moderator], id, nick) then
 					f(uid, ...)
 					found = true
 				end
@@ -270,7 +270,7 @@ local succ,err=pcall(function()
 			--if cmd~=32 and cmd~=33 and cmd~=34 then
 			--	print("Got ["..cmd.."] from "..client.nick)
 			--end
-			if cmd~=16 and cmd~=19 and cmd~=20 and cmd~=21 and cmd~=23 then --handled separately with more info
+			if cmd~=16 and cmd~=19 and cmd~=20 and cmd~=21 and cmd~=23 and cmd~=24 then --handled separately with more info
 				if onChat(client,cmd) then --allow any events to be canceled with hooks
 					cmd=0 --hack
 				end 
@@ -344,7 +344,7 @@ local succ,err=pcall(function()
 				elseif not client.op and rooms[client.room][1] ~= id then
 					serverMsg(client, "You can't kick people from here")
 				else
-					modaction(client.nick, 21, client.room, nick, kick, client.nick, reason)
+					modaction(client, 21, nick, kick, client.nick, reason)
 				end
 			elseif cmd==23 then
 				local dostab = (char() == '\1' and true or nil)
@@ -358,7 +358,7 @@ local succ,err=pcall(function()
 				elseif not dostab and not stabbed[nick] then
 					serverMsg(client, "That person isn't stabbed!")
 				else
-					modaction(client.nick, 23, client.room, nick, stab, client.nick, dostab)
+					modaction(client, 23, nick, stab, client.nick, dostab)
 				end
 			elseif cmd==24 then
 				local domute = (char() == '\1' and true or nil)
@@ -372,7 +372,7 @@ local succ,err=pcall(function()
 				elseif not domute and not muted[nick] then
 					serverMsg(client, "That person isn't muted!")
 				else
-					modaction(client.nick, 24, client.room, nick, mute, client.nick, domute)
+					modaction(client, 24, nick, mute, client.nick, domute)
 				end
 			elseif cmd==2 then
 				client.lastping=os.time()
