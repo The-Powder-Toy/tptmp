@@ -21,6 +21,7 @@ local succ,err=pcall(function()
 	-- init server socket
 	local socket=require"socket"
 	local config=dofile"config.lua"
+	dofile"protocol.lua"
 	local succ,err=socket.bind(config.bindhost,config.bindport,10)
 	local crackbotServer=socket.bind("localhost",34404,1)--socket.tcp()
 	crackbot = nil
@@ -61,14 +62,14 @@ local succ,err=pcall(function()
 	end
 	
 	-- nonblock read amt bytes from socket
-	function bytes(socket,amt)
+	function bytes(sock,amt)
 		local final = ""
-		local timeout,rec = os.time(),0
+		local timeout,rec = socket.gettime(),0
 		while rec<amt do
-			local s,r,e = socket:receive(amt-rec)
+			local s,r,e = sock:receive(amt-rec)
 			if not s then 
 				if r~="timeout" then
-					return false,"Error while getting stamp"
+					return false,"Error while getting bytes"
 				end
 				rec = rec + #e
 				if rec < amt then
@@ -80,16 +81,23 @@ local succ,err=pcall(function()
 				final = final..s
 				break
 			end
-			if os.time()-timeout>15 then return false,"Stamp took too long" end
+			if socket.gettime()-timeout>15 then return false,"Byte send took too long" end
 		end
+		--print("Received "..amt.." bytes in "..(socket.gettime()-timeout))
 		return true,final
 	end
 	
+	function sendProtocol(socket,proto,id)
+		local prot = proto.protoID
+		local head = string.char(prot)..(no_ID_protocols[prot] and "" or string.char(id))
+		socket:send(head..proto:writeData())
+	end
 	-- send to all users on room except given one (usually self)
 	function sendroomexcept(room,uid,data)
 		for _,id in ipairs(rooms[room]) do
 			if id~=uid then
-				clients[id].socket:send(data)
+				sendProtocol(clients[id].socket,data,uid)
+				--clients[id].socket:send(data)
 			end
 		end
 	end
@@ -97,7 +105,8 @@ local succ,err=pcall(function()
 		for _,id in ipairs(rooms[room]) do
 			if id~=uid then
 				clients[id].socket:settimeout(8)
-				local s,r,e = clients[id].socket:send(data)
+				sendProtocol(clients[id].socket,data,uid)
+				--local s,r,e = clients[id].socket:send(data)
 				clients[id].socket:settimeout(0)
 			end
 		end
@@ -105,7 +114,7 @@ local succ,err=pcall(function()
 
 	-- leave a room
 	function leave(room,uid)
-		print(clients[uid].nick.." left "..room)
+		--print(clients[uid].nick.." left "..room)
 		sendroomexcept(room,uid,"\18"..string.char(uid))
 		for i,id in ipairs(rooms[room]) do
 			if id==uid then
@@ -115,7 +124,7 @@ local succ,err=pcall(function()
 		end
 		if #rooms[room]==0 then
 			rooms[room]=nil
-			print("Deleted room '"..room.."'")
+			--print("Deleted room '"..room.."'")
 		end
 		onChat(clients[uid],-2,room)
 	end
@@ -123,10 +132,10 @@ local succ,err=pcall(function()
 	-- join a room
 	function join(room,id)
 		local client=clients[id]
-		print(client.nick.." joined "..room)
+		--print(client.nick.." joined "..room)
 		if not rooms[room] then
 			rooms[room]={}
-			print("Created room '"..room.."'")
+			--print("Created room '"..room.."'")
 		end
 		client.room=room
 
@@ -215,61 +224,67 @@ local succ,err=pcall(function()
 
 	-- coroutine that handles the client
 	function handler(id,client)
-		local major,minor,scriptver=byte(),byte(),byte()
-		client.nick=nullstr()
+		--local major,minor,scriptver=byte(),byte(),byte()
+		--client.nick=nullstr()
+		local initial = protocolArray(protoNames["Init_Connect"]):readData(client.socket)
+		client.nick = initial.nick
 		for k,v in pairs(bans) do
 			if client.host:match(v) then
 				client.socket:send("\0You are banned\0")
 				disconnect(id,"Banned user")
 			end
 		end
-		if minor~=config.versionminor or major~=config.versionmajor then
-			client.socket:send("\0Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")\0")
-			disconnect(id,"Bad version "..major.."."..minor)
+		if initial.minor~=config.versionminor or initial.major~=config.versionmajor then
+			sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")"))
+			disconnect(id,"Bad version "..initial.major.."."..initial.minor)
 			return
 		end
-		if scriptver~=config.scriptversion then
-			client.socket:send("\0Your script version mismatched, try updating it\0")
-			disconnect(id,"Bad script version "..scriptver)
+		if initial.script~=config.scriptversion then
+			sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Your script version mismatched, try updating it"))
+			disconnect(id,"Bad script version "..initial.script)
 			return
 		end
 		if not client.nick:match("^[%w%-%_]+$") then
-			client.socket:send("\0Bad Nickname!\0")
+			sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Bad Nickname!"))
 			disconnect(id,"Bad nickname")
 			return
 		end
 		if #client.nick > 32 then
-			client.socket:send("\0Nick too long!\0")
+			sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Nick too long!"))
 			disconnect(id,"Nick too long")
 			return
 		end
 		for k,v in pairs(clients) do
 			if k~=id and v.nick == client.nick then
-				client.socket:send("\0This nick is already on the server\0")
+				sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("This nick is already on the server"))
 				disconnect(id,"Duplicate nick")
 				return
 			end
 		end
-		if stabbed[client.nick] then
-			clients[uid].socket:send("\23\1") -- tell client they are stabbed
-		end
-		if muted[client.nick] then
-			clients[uid].socket:send("\24\1") -- tell client they are muted
-		end
+		local modes = protocolArray(protoNames["User_Mode"]).userID(id).stab(stabbed[client.nick] and 1 or 0)
+		modes.mute(muted[client.nick] and 1 or 0)
+		sendProtocol(socket.client,modes) -- tell client their modes
+		
 		client.brush=0
 		client.size="\4\4"
 		client.selection={"\0\1","\64\0","\128\0"}
 		client.replacemode="0"
 		client.deco="\0\0\0\0"
 		client.op=false
+		
 		print(client.nick.." done identifying")
-		client.socket:send"\1"
+		sendProtocol(client.socket,protocolArray(protoNames["Connect_Succ"]))
 		join("null",id)
 		while 1 do
 			local cmd=byte()
-			--if cmd~=32 and cmd~=33 and cmd~=34 then
-			--	print("Got ["..cmd.."] from "..client.nick)
-			--end
+			
+			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Bad protocol sent")) disconnect("Bad Protocol")  break end
+			local prot = protocolArray(cmd):readData(client.socket)
+			
+			print("Got "..protoNames[cmd].." from "..client.nick.." "..prot:tostring())
+			--We should, uhm, try calling protocol hooks here, maybe
+			
+			--[=[
 			if cmd~=16 and cmd~=19 and cmd~=20 and cmd~=21 and cmd~=23 and cmd~=24 then --handled separately with more info
 				if onChat(client,cmd) then --allow any events to be canceled with hooks
 					cmd=0 --hack
@@ -295,9 +310,17 @@ local succ,err=pcall(function()
 
 			-- JOIN
 			if cmd==16 then
-				local room=nullstr():lower()
+				--[[local len = byte()
+				print(len)
+				local s,room=bytes(client.socket,len)
+				room = room:lower()
+				]]
+				local room = nullstr():lower()
+				print(room)
+				if room=="moo0" then tempTimer=socket.gettime() end
+				if room=="moo40000" then print("Room receive took "..(socket.gettime()-tempTimer)) end
 				if not room:match("^[%w%-%_]+$") or #room > 32 then
-					serverMsg(client, "Invalid room name")
+					serverMsg(client, "Invalid room name "..room)
 				else
 					leave(client.room,id)
 					if not onChat(client,16,room) then
@@ -347,7 +370,7 @@ local succ,err=pcall(function()
 					modaction(client, 21, nick, kick, client.nick, reason)
 				end
 			elseif cmd==23 then
-				local dostab = (char() == '\1' and true or nil)
+				local dostab = (char() == '\1')
 				local nick = nullstr()
 				if not client.op then
 					serverMsg(client, "You aren't an op!")
@@ -497,6 +520,7 @@ local succ,err=pcall(function()
 					clients[i].socket:send(char()..string.char(id)..char())
 				end
 			end
+			--]=]
 		end
 	end
 
@@ -515,21 +539,21 @@ local succ,err=pcall(function()
 		onChat(client,-1,err)
 	end
 	local function runLua(msg)
-	local e,err = loadstring(msg)
-	if e then
-		--debug.sethook(infhook,"l")
-		local s,r = pcall(e)
-		--debug.sethook()
-		--stepcount=0
-		if s then
-			local str = tostring(r):gsub("[\r\n]"," ")
-			return str
-		else
-			return "ERROR: " .. r
+		local e,err = loadstring(msg)
+		if e then
+			--debug.sethook(infhook,"l")
+			local s,r = pcall(e)
+			--debug.sethook()
+			--stepcount=0
+			if s then
+				local str = tostring(r):gsub("[\r\n]"," ")
+				return str
+			else
+				return "ERROR: " .. r
+			end
+			return
 		end
-		return
-	end
-	return "ERROR: " .. err
+		return "ERROR: " .. err
 	end
 	function readCrackbot()
 		local s,r = crackbot:receive("*l")
