@@ -1,5 +1,4 @@
 require 'bit'
-no_ID_protocols = {[2]=true,[3]=true,[4]=true,[13]=true,[14]=true,[15]=true,[22]=true,[23]=true,[24]=true,[25]=true,[128]=true,[129]=true,}
 protocol = {
 	--Init_Connect
 	[2] = {
@@ -271,12 +270,14 @@ local function setValue(self,data)
 		self[i] = bit.band(data,0xff)
 		data = bit.rshift(data,8)
 	end
+	self.p._writeCache = nil
 	return self.p --Main Protocol
 end
 local function setValueStr(self,data)
 	self.strsize = #data
 	self[self.max+1] = data:sub(1,self.strsize)
 	setValue(self,self.strsize)
+	self.p._writeCache = nil
 	return self.p
 end
 local function setValueBit(self,data,offset,bits)
@@ -285,6 +286,7 @@ local function setValueBit(self,data,offset,bits)
 	val = bit.ror(val,rot)
 	val = bit.lshift(bit.rshift(val,bits),bits)
 	self.p(bit.rol(val+data,rot))
+	self.p.p._writeCache = nil
 	return self.p.p --Main Protocol is one farther on bits
 end
 local function makeMeta(typ,offset,bits)
@@ -356,16 +358,20 @@ function protocolArray(proto)
 			return tsize
 		end
 		t["writeData"] = function(self)
-			local res = {}
-			for i,v in ipairs(self) do
-				table.insert(res,self:write())
+			if not self._writeCache then
+				local res = {}
+				for i,v in ipairs(self) do
+					table.insert(res,self:write())
+				end
+				self._writeCache = table.concat(res,"")
 			end
-			return table.concat(res,"")
+			return self._writeCache
 		end
 		t["readData"] = function(self,socket)
 			for i,v in ipairs(self) do
 				self:read(str)
 			end
+			self._writeCache = nil
 		end
 		t["tostring"] = function(self)
 			local temp = {}

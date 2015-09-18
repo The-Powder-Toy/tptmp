@@ -33,6 +33,11 @@ local succ,err=pcall(function()
 	server = succ
 	server:settimeout(0)
 	
+	--Protocols that edit the simulation in some way.
+	local _editSim, editSim = {33,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,66,67,68,69,70}, {}
+	--Protocols that don't send an ID to client
+	local _noIDProt, noIDProt = {2,3,4,13,14,15,22,23,24,25,128,129}, {}
+	for i,v in ipairs(_editSim) do editSim[v]=true end for i,v in ipairs(_noIDProt) do noIDProt[v]=true end
 	local dataHooks={}
 	function addHook(cmd,f,front)
 		cmd = type(cmd)=="string" and protoNames[cmd] or cmd
@@ -43,7 +48,6 @@ local succ,err=pcall(function()
 	bans={}
 	stabbed={}
 	muted={}
-
 	clients={}
 	rooms={}
 	
@@ -98,7 +102,7 @@ local succ,err=pcall(function()
 	end
 	function sendProtocol(socket,proto,id)
 		local prot = proto.protoID
-		local head = string.char(prot)..(no_ID_protocols[prot] and "" or string.char(id))
+		local head = string.char(prot)..(noIDProt[prot] and "" or string.char(id))
 		socket:send(head..proto:writeData())
 	end
 	-- send to all users on room except given one (usually self)
@@ -106,7 +110,6 @@ local succ,err=pcall(function()
 		for _,id in ipairs(rooms[room]) do
 			if id~=uid then
 				sendProtocol(clients[id].socket,data,uid)
-				--clients[id].socket:send(data)
 			end
 		end
 	end
@@ -115,7 +118,6 @@ local succ,err=pcall(function()
 			if id~=uid then
 				clients[id].socket:settimeout(8)
 				sendProtocol(clients[id].socket,data,uid)
-				--local s,r,e = clients[id].socket:send(data)
 				clients[id].socket:settimeout(0)
 			end
 		end
@@ -159,28 +161,29 @@ local succ,err=pcall(function()
 		end
 
 		-- send who's in room
-		client.socket:send("\16"..string.char(#rooms[room]))
 		for _,uid in ipairs(rooms[room]) do
-			client.socket:send(string.char(uid)..clients[uid].nick.."\0")
+			sendProtocol(client.socket,P.Chan_Member.name(clients[uid].nick),uid)
 		end
 		for _,uid in ipairs(rooms[room]) do
-			client.socket:send(("\35"..string.char(uid)):rep(clients[uid].brush).."\34"..string.char(uid)..clients[uid].size)
+			sendProtocol(client.socket,P.Brush_Shape.shape(clients[uid].brush),uid)
+			sendProtocol(client.socket,P.Brush_Size.x(clients[uid].brushX).y(clients[uid].brushY),uid)
 			for i=1,4 do
-				client.socket:send("\37"..string.char(uid)..clients[uid].selection[i])
+				sendProtocol(client.socket,P.Selected_Elem.selected.button(i).selected.elem(clients[uid].selected[i]),uid)
 			end
-			client.socket:send("\38"..string.char(uid)..clients[uid].replacemode)
-			client.socket:send("\65"..string.char(uid)..clients[uid].deco)
+			sendProtocol(client.socket,P.Replace_Mode.replacemode(clients[uid].replacemode),uid)
+			sendProtocol(client.socket,P.Selected_Deco.RGBA(clients[uid].deco),uid)
 		end
 		table.insert(rooms[room],id)
-		sendroomexcept(room,id,"\17"..string.char(id)..client.nick.."\0")
+		sendroomexcept(room,id,P.User_Join.name(client.nick))
 		if #rooms[room]>1 then
 			print("asking "..rooms[room][1].." to provide sync")
-			clients[rooms[room][1]].socket:send("\128"..string.char(id))
+			sendProtocol(clients[rooms[room][1]],P.Req_Player_Sync.userID(id))
+			clients[rooms[room][1]].synced = {[id]={}}
 		end
 	end
 
 	function serverMsg(client, message, r, g, b)
-		client.socket:send("\22"..message.."\0"..string.char(r or 127)..string.char(g or 255)..string.char(b or 255))
+		sendProtocol(client.socket,P.Server_Broadcast.msg(message).R(r or 127).G(g or 255).B(b or 255))
 	end
 
 	function serverMsgExcept(room, except, message, r, g, b)
@@ -204,30 +207,31 @@ local succ,err=pcall(function()
 
 	function stab(victim, perpetrator, dostab)
 		stabbed[clients[victim].nick] = dostab
-		clients[victim].socket:send("\23"..(dostab and '\1' or '\0'))
 		print(perpetrator.." has "..(dostab and "" or "un").."stabbed "..clients[victim].nick)
 		serverMsgExcept(clients[victim].room, clients[victim].nick, clients[victim].nick.." has been "..(dostab and "" or "un").."stabbed by "..perpetrator)
 	end
 
 	function mute(victim, moderator, domute)
 		muted[clients[victim].nick] = domute
-		clients[victim].socket:send("\24"..(domute and '\1' or '\0'))
 		print(moderator.." has "..(domute and "" or "un").."muted "..clients[victim].nick)
 		serverMsgExcept(clients[victim].room, clients[victim].nick, clients[victim].nick.." has been "..(domute and "" or "un").."muted by "..moderator)
 	end
 
 	function modaction(moderator, id, nick, f, ...)
-		local found = false
+		local found, fid = false, 0
 		for _,uid in ipairs(rooms[moderator.room]) do
 			if clients[uid].nick == nick then
 				if not onChat(clients[moderator], id, nick) then
 					f(uid, ...)
-					found = true
+					found, fid = true, uid
+					
 				end
 			end
 		end
 		if not found then
 			serverMsg(moderator, "User \""..nick.."\" not found")
+		else
+			return fid
 		end
 	end
 
@@ -275,10 +279,11 @@ local succ,err=pcall(function()
 		
 		client.brush=0
 		client.brushX, client.brushY = 4,4
-		client.selection={"\0\1","\64\0","\128\0"}
+		client.selection={1,0,296,0}
 		client.replacemode=0
 		client.deco=0
 		client.op=false
+		client.synced = {}
 		
 		print(client.nick.." done identifying")
 		sendProtocol(client.socket,P.Connect_Succ)
@@ -427,14 +432,21 @@ local succ,err=pcall(function()
 	end)
 	addHook("Set_User_Mode",function(client, id, data)
 		local nick = data.nick()
-		modaction(client, 23, nick, stab, client.nick, data.modes.stab()==1)
-		modaction(client, 24, nick, mute, client.nick, data.modes.mute()==1)
-		client.op = data.modes.op()==1
+		--Fix these weird modaction functions, should be using ID, need register system first?
+		local uid = modaction(client, 23, nick, stab, client.nick, data.modes.stab()==1)
+		if uid then
+			modaction(client, 24, nick, mute, client.nick, data.modes.mute()==1)
+			clients[uid].op = data.modes.op()==1
+			local packet = data.nick(), P.User_Mode
+			packet.modes.stab(stabbed[nick] and 1 or 0).modes.mute(muted[nick] and 1 or 0).modes.op(client.op and 1 or 0)
+			--Let everyone know
+			sendroomexcept(client.room,-1,packet)
+		end
 	end)
 	addHook("Get_User_Mode",function(client, id, data)
 		local nick,packet = data.nick(), P.User_Mode
 		packet.modes.stab(stabbed[nick] and 1 or 0).modes.mute(muted[nick] and 1 or 0).modes.op(client.op and 1 or 0)
-		sendProtocol(client,nil,packet)
+		sendProtocol(client,packet)
 	end)
 	addHook("Mouse_Pos",genericRelay)
 	addHook("Mouse_Click",genericRelay)
@@ -494,14 +506,19 @@ local succ,err=pcall(function()
 	addHook("Load_Save",genericRelay)
 	addHook("Reload_Sim",genericRelay)
 	addHook("Player_Sync",function(client, id, data)
-		--Need to confirm that userID is actually expecting specific packets
-		sendRawString(clients[data.userID()].socket,string.char(data.proto()..string.char(id)..data.data()))
+		local prot, user = data.proto(), clients[data.userID()]
+		--Confirm packet is even allowed
+		if not editSim[prot] then return end
+		--Confirm userID only gets 1 of each and from proper user, user.synced[id] will only exist if requested
+		if not user.synced[id] or user.synced[id][prot] then return end
+		user.synced[id][prot]=true
+		sendRawString(user.socket,string.char(prot)..string.char(id)..data.data())
 		sendroomexcept(client.room,id,data)
 	end)
+	
 	--Add these hooks into first slot, runs before others
-	local stabBlock = {33,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,66,67,68,69,70}
-	for k,v in pairs(stabBlock) do
-		addHook(stabBlock,function(client, id, data)
+	for k,v in pairs(editSim) do
+		addHook(v,function(client, id, data)
 			if stabbed[client.nick] then
 				return true
 			end
@@ -542,7 +559,7 @@ local succ,err=pcall(function()
 			if hasid then
 				print("Assigned ID is "..hasid)
 			else
-				conn:send"\0Server has too many users\0"
+				sendProtocol(conn,P.Disconnect.reason("Server has too many users"))
 				print"No user IDs left"
 				conn:close()
 			end
