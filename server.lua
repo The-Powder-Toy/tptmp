@@ -37,7 +37,8 @@ local succ,err=pcall(function()
 	function addHook(cmd,f,front)
 		cmd = type(cmd)=="string" and protoNames[cmd] or cmd
 		dataHooks[cmd] = dataHooks[cmd] or {}
-		table.insert(dataHooks,f,front)
+		if front then table.insert(dataHooks,front,f)
+		else table.insert(dataHooks,f) end
 	end
 	bans={}
 	stabbed={}
@@ -425,7 +426,7 @@ local succ,err=pcall(function()
 		else return end
 		return true
 	end)
-	addHook("Set_User_Mode",function(client, id, data
+	addHook("Set_User_Mode",function(client, id, data)
 		local nick = data.nick()
 		modaction(client, 23, nick, stab, client.nick, data.modes.stab()==1)
 		modaction(client, 24, nick, mute, client.nick, data.modes.mute()==1)
@@ -486,7 +487,7 @@ local succ,err=pcall(function()
 	addHook("Stamp_Data",function(client, id, data)
 		if data.data() then
 			print("STAMP! Loaded From "..client.nick.." size "..data.totalSize())
-			sendroomexcept(client.room,id,data)'
+			sendroomexcept(client.room,id,data)
 		else disconnect(id, "Failed stamp data")
 		end
 	end)
@@ -496,7 +497,7 @@ local succ,err=pcall(function()
 	addHook("Reload_Sim",genericRelay)
 	addHook("Player_Sync",function(client, id, data)
 		--Need to confirm that userID is actually expecting specific packets
-		sendRawString(clients[data.userID()].socket,string.char(data.proto()..string.char(id)..data.data())
+		sendRawString(clients[data.userID()].socket,string.char(data.proto()..string.char(id)..data.data()))
 		sendroomexcept(client.room,id,data)
 	end)
 	--Add these hooks into first slot, runs before others
