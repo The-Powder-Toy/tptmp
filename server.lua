@@ -513,7 +513,6 @@ local succ,err=pcall(function()
 		if not user.synced[id] or user.synced[id][prot] then return end
 		user.synced[id][prot]=true
 		sendRawString(user.socket,string.char(prot)..string.char(id)..data.data())
-		sendroomexcept(client.room,id,data)
 	end)
 	
 	--Add these hooks into first slot, runs before others
