@@ -34,16 +34,17 @@ local succ,err=pcall(function()
 	server:settimeout(0)
 	
 	--Protocols that edit the simulation in some way.
-	local _editSim, editSim = {33,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,66,67,68,69,70}, {}
+	local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67,68,69,70}, {}
 	--Protocols that don't send an ID to client
-	local _noIDProt, noIDProt = {2,3,4,13,14,15,22,23,24,25,128,129}, {}
+	local _noIDProt, noIDProt = {2,3,4,8,9,13,14,15,22,23,24,25,128,129}, {}
 	for i,v in ipairs(_editSim) do editSim[v]=true end for i,v in ipairs(_noIDProt) do noIDProt[v]=true end
 	local dataHooks={}
 	function addHook(cmd,f,front)
+		if not protoNames[cmd] then error("Invalid protocol "..cmd) end
 		cmd = type(cmd)=="string" and protoNames[cmd] or cmd
 		dataHooks[cmd] = dataHooks[cmd] or {}
-		if front then table.insert(dataHooks,front,f)
-		else table.insert(dataHooks,f) end
+		if front then table.insert(dataHooks[cmd],front,f)
+		else table.insert(dataHooks[cmd],f) end
 	end
 	bans={}
 	stabbed={}
@@ -102,6 +103,7 @@ local succ,err=pcall(function()
 	end
 	function sendProtocol(socket,proto,id)
 		local prot = proto.protoID
+		print("sending "..protoNames[prot])
 		local head = string.char(prot)..(noIDProt[prot] and "" or string.char(id))
 		socket:send(head..proto:writeData())
 	end
@@ -159,22 +161,30 @@ local succ,err=pcall(function()
 			end
 			return
 		end
-
-		-- send who's in room
+		-- Confirm the changed channel back to new user
+		sendProtocol(client.socket,P.Chan_Name.chan(room))
+		-- Existing users -> New user
 		for _,uid in ipairs(rooms[room]) do
 			sendProtocol(client.socket,P.Chan_Member.name(clients[uid].nick),uid)
-		end
-		for _,uid in ipairs(rooms[room]) do
 			sendProtocol(client.socket,P.Brush_Shape.shape(clients[uid].brush),uid)
 			sendProtocol(client.socket,P.Brush_Size.x(clients[uid].brushX).y(clients[uid].brushY),uid)
 			for i=1,4 do
-				sendProtocol(client.socket,P.Selected_Elem.selected.button(i).selected.elem(clients[uid].selected[i]),uid)
+				sendProtocol(client.socket,P.Selected_Elem.selected.button(i).selected.elem(clients[uid].selection[i]),uid)
 			end
 			sendProtocol(client.socket,P.Replace_Mode.replacemode(clients[uid].replacemode),uid)
 			sendProtocol(client.socket,P.Selected_Deco.RGBA(clients[uid].deco),uid)
 		end
 		table.insert(rooms[room],id)
+		-- New user -> Existing users
 		sendroomexcept(room,id,P.User_Join.name(client.nick))
+		sendroomexcept(room,id,P.Brush_Shape.shape(client.brush))
+		sendroomexcept(room,id,P.Brush_Size.x(client.brushX).y(client.brushY))
+		for i=1,4 do
+			sendroomexcept(room,id,P.Selected_Elem.selected.button(i).selected.elem(clients[id].selection[i]))
+		end
+		sendroomexcept(room,id,P.Replace_Mode.replacemode(client.replacemode))
+		sendroomexcept(room,id,P.Selected_Deco.RGBA(client.deco))
+		-- Ask for a sync from oldest user
 		if #rooms[room]>1 then
 			print("asking "..rooms[room][1].." to provide sync")
 			sendProtocol(clients[rooms[room][1]],P.Req_Player_Sync.userID(id))
@@ -239,22 +249,27 @@ local succ,err=pcall(function()
 	function handler(id,client)
 		--local major,minor,scriptver=byte(),byte(),byte()
 		--client.nick=nullstr()
+		local init = byte()
+		if init~=protoNames["Init_Connect"] then
+			disconnect(id,"Invalid Connect")
+		end
 		local initial = P.Init_Connect:readData(client.socket)
-		client.nick = initial.nick
+		client.nick = initial.nick()
+		print("Got connect from "..client.nick.." "..initial:tostring())
 		for k,v in pairs(bans) do
 			if client.host:match(v) then
-				client.socket:send("\0You are banned\0")
+				sendProtocol(client.socket,P.Disconnect.reason("You are banned"))
 				disconnect(id,"Banned user")
 			end
 		end
-		if initial.minor~=config.versionminor or initial.major~=config.versionmajor then
+		if initial.minor()~=config.versionminor or initial.major()~=config.versionmajor then
 			sendProtocol(client.socket,P.Disconnect.reason("Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")"))
-			disconnect(id,"Bad version "..initial.major.."."..initial.minor)
+			disconnect(id,"Bad version "..initial.major().."."..initial.minor())
 			return
 		end
-		if initial.script~=config.scriptversion then
+		if initial.script()~=config.scriptversion then
 			sendProtocol(client.socket,P.Disconnect.reason("Your script version mismatched, try updating it"))
-			disconnect(id,"Bad script version "..initial.script)
+			disconnect(id,"Bad script version "..initial.script())
 			return
 		end
 		if not client.nick:match("^[%w%-%_]+$") then
@@ -274,19 +289,21 @@ local succ,err=pcall(function()
 				return
 			end
 		end
-		local modes = P.User_Mode.userID(id).modes.stab(stabbed[client.nick] and 1 or 0).modes.mute(muted[client.nick] and 1 or 0)
-		sendProtocol(socket.client,modes) -- tell client their modes
+		-- Success connect!
+		sendProtocol(client.socket,P.Connect_Succ)
+		-- Tell client their modes
+		local modes = P.User_Mode.nick(client.nick).modes.stab(stabbed[client.nick] and 1 or 0).modes.mute(muted[client.nick] and 1 or 0)
+		sendProtocol(client.socket,modes) 
 		
 		client.brush=0
 		client.brushX, client.brushY = 4,4
-		client.selection={1,0,296,0}
+		client.selection={1,296,0,0}
 		client.replacemode=0
 		client.deco=0
 		client.op=false
 		client.synced = {}
 		
 		print(client.nick.." done identifying")
-		sendProtocol(client.socket,P.Connect_Succ)
 		join("null",id)
 		while 1 do
 			local cmd=byte()
@@ -297,9 +314,10 @@ local succ,err=pcall(function()
 			print("Got "..protoNames[cmd].." from "..client.nick.." "..prot:tostring())
 			--We should, uhm, try calling protocol hooks here, maybe
 			if dataHooks[cmd] then
-				for i,v in ipairs(dataHooks) do
+				for i,v in ipairs(dataHooks[cmd]) do
 					--Hooks can return true to stop future hooks
-					if v() then break end
+					print("hook called on "..cmd)
+					if v(client,id,prot) then break end
 				end
 			else
 				print("No hooks for "..protoNames[cmd])
@@ -361,19 +379,19 @@ local succ,err=pcall(function()
 	end
 	addHook("Ping",function(client) 
 		client.lastping=os.time() 
-		sendProtocol(client,P.Pong)
+		sendProtocol(client.socket,P.Pong)
 	end)
 	addHook("Pong",function(client) end) --Who should ping? Server or client
-	addHook("Join_Channel",function(client, id, data)
-		local room = data.channel()
+	addHook("Join_Chan",function(client, id, data)
+		local room = data.chan()
 		if not room:match("^[%w%-%_]+$") or #room > 32 then
 			serverMsg(client, "Invalid room name "..room)
 			return true
 		end
 	end)
-	addHook("Join_Channel",function(client, id, data)
+	addHook("Join_Chan",function(client, id, data)
 		leave(client.room,id)
-		join(data.channel(),id)
+		join(data.chan(),id)
 	end)
 	addHook("User_Chat",function(client, id, data)
 		local msg=data.msg()
@@ -446,7 +464,7 @@ local succ,err=pcall(function()
 	addHook("Get_User_Mode",function(client, id, data)
 		local nick,packet = data.nick(), P.User_Mode
 		packet.modes.stab(stabbed[nick] and 1 or 0).modes.mute(muted[nick] and 1 or 0).modes.op(client.op and 1 or 0)
-		sendProtocol(client,packet)
+		sendProtocol(client.socket,packet)
 	end)
 	addHook("Mouse_Pos",genericRelay)
 	addHook("Mouse_Click",genericRelay)
@@ -517,7 +535,7 @@ local succ,err=pcall(function()
 	
 	--Add these hooks into first slot, runs before others
 	for k,v in pairs(editSim) do
-		addHook(v,function(client, id, data)
+		addHook(k,function(client, id, data)
 			if stabbed[client.nick] then
 				return true
 			end

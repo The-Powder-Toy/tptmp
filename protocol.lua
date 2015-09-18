@@ -170,7 +170,7 @@ protocol = {
 	--["Clear_Area"] = 67,
 	[67] = {
 		{name="start",size=3,bit=true,fields={"x","y"},sizes={12,12}},
-		{name="end",size=3,bit=true,fields={"x","y"},sizes={12,12}},
+		{name="stop",size=3,bit=true,fields={"x","y"},sizes={12,12}},
 	},
 	--["Edge_Mode"] = 68,
 	[68] = {
@@ -199,8 +199,9 @@ local protoName = {
 	["Disconnect"] = 4,
 	["Ping"] = 8,
 	["Pong"] = 9,
-	["New_Nick"] = 14,
-	["Join_Chan"] = 15,
+	["New_Nick"] = 13,
+	["Join_Chan"] = 14,
+	["Chan_Name"] = 15,
 	["Chan_Member"] = 16,
 	["User_Join"] = 17,
 	["User_Leave"] = 18,
@@ -227,7 +228,7 @@ local protoName = {
 	["NGrav_State"] = 54,
 	["Heat_State"] = 56,
 	["Equal_State"] = 57,
-	["Grave_Mode"] = 58,
+	["Grav_Mode"] = 58,
 	["Air_Mode"] = 59,
 	["Clear_Spark"] = 60,
 	["Clear_Press"] = 61,
@@ -309,14 +310,14 @@ local function dataType()
 			self[i] = byte()
 		end
 		if self.str then
-			self.strsize = self()
-			if self.strsize>0 then self[self.max+1] = bytes(socket,self.strsize) end
+			self.strsize = compValue(self)
+			if self.strsize>0 then _,self[self.max+1] = bytes(socket,self.strsize) end
 		end
 	end,
 	["write"] = function(self)
 		local t={}
 		for i,v in ipairs(self) do
-			table.insert(res,schar(v))
+			table.insert(t,schar(v))
 		end
 		return table.concat(t,"")
 	end,
@@ -361,7 +362,7 @@ function protocolArray(proto)
 			if not self._writeCache then
 				local res = {}
 				for i,v in ipairs(self) do
-					table.insert(res,self:write())
+					table.insert(res,v:write())
 				end
 				self._writeCache = table.concat(res,"")
 			end
@@ -369,9 +370,10 @@ function protocolArray(proto)
 		end
 		t["readData"] = function(self,socket)
 			for i,v in ipairs(self) do
-				self:read(str)
+				v:read(socket)
 			end
 			self._writeCache = nil
+			return self
 		end
 		t["tostring"] = function(self)
 			local temp = {}
@@ -381,9 +383,9 @@ function protocolArray(proto)
 			return "{"..table.concat(temp,",").."}"
 		end
 	else
-		error("Bad protocol "..proto)
+		error("Bad protocol "..(proto or "??"))
 	end
 	return t
 end
 P = {}
-setmetatable(P,{__index = function(t,cmd) return protocolArray(protoNames[cmd]) end})
+setmetatable(P,{__index = function(t,cmd) if not protoNames[cmd] then error(cmd.." is invalid") end return protocolArray(protoNames[cmd]) end})
