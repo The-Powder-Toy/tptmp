@@ -235,7 +235,7 @@ local succ,err=pcall(function()
 	function handler(id,client)
 		--local major,minor,scriptver=byte(),byte(),byte()
 		--client.nick=nullstr()
-		local initial = protocolArray(protoNames["Init_Connect"]):readData(client.socket)
+		local initial = P.Init_Connect:readData(client.socket)
 		client.nick = initial.nick
 		for k,v in pairs(bans) do
 			if client.host:match(v) then
@@ -244,34 +244,33 @@ local succ,err=pcall(function()
 			end
 		end
 		if initial.minor~=config.versionminor or initial.major~=config.versionmajor then
-			sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")"))
+			sendProtocol(client.socket,P.Disconnect.reason("Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")"))
 			disconnect(id,"Bad version "..initial.major.."."..initial.minor)
 			return
 		end
 		if initial.script~=config.scriptversion then
-			sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Your script version mismatched, try updating it"))
+			sendProtocol(client.socket,P.Disconnect.reason("Your script version mismatched, try updating it"))
 			disconnect(id,"Bad script version "..initial.script)
 			return
 		end
 		if not client.nick:match("^[%w%-%_]+$") then
-			sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Bad Nickname!"))
+			sendProtocol(client.socket,P.Disconnect.reason("Bad Nickname!"))
 			disconnect(id,"Bad nickname")
 			return
 		end
 		if #client.nick > 32 then
-			sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Nick too long!"))
+			sendProtocol(client.socket,P.Disconnect.reason("Nick too long!"))
 			disconnect(id,"Nick too long")
 			return
 		end
 		for k,v in pairs(clients) do
 			if k~=id and v.nick == client.nick then
-				sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("This nick is already on the server"))
+				sendProtocol(client.socket,P.Disconnect.reason("This nick is already on the server"))
 				disconnect(id,"Duplicate nick")
 				return
 			end
 		end
-		local modes = protocolArray(protoNames["User_Mode"]).userID(id).stab(stabbed[client.nick] and 1 or 0)
-		modes.mute(muted[client.nick] and 1 or 0)
+		local modes = P.User_Mode.userID(id).modes.stab(stabbed[client.nick] and 1 or 0).modes.mute(muted[client.nick] and 1 or 0)
 		sendProtocol(socket.client,modes) -- tell client their modes
 		
 		client.brush=0
@@ -282,12 +281,12 @@ local succ,err=pcall(function()
 		client.op=false
 		
 		print(client.nick.." done identifying")
-		sendProtocol(client.socket,protocolArray(protoNames["Connect_Succ"]))
+		sendProtocol(client.socket,P.Connect_Succ)
 		join("null",id)
 		while 1 do
 			local cmd=byte()
 			
-			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,protocolArray(protoNames["Disconnect"]).reason("Bad protocol sent")) disconnect("Bad Protocol")  break end
+			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,P.Disconnect.reason("Bad protocol sent")) disconnect("Bad Protocol")  break end
 			local prot = protocolArray(cmd):readData(client.socket)
 			
 			print("Got "..protoNames[cmd].." from "..client.nick.." "..prot:tostring())
@@ -357,7 +356,7 @@ local succ,err=pcall(function()
 	end
 	addHook("Ping",function(client) 
 		client.lastping=os.time() 
-		sendProtocol(client,protocolArray(protoNames["Pong"]))
+		sendProtocol(client,P.Pong)
 	end)
 	addHook("Pong",function(client) end) --Who should ping? Server or client
 	addHook("Join_Channel",function(client, id, data)
@@ -433,10 +432,9 @@ local succ,err=pcall(function()
 		client.op = data.modes.op()==1
 	end)
 	addHook("Get_User_Mode",function(client, id, data)
-		local nick,packet = data.nick(), protocolArray(protoNames["User_Mode"])
-		packet.modes.stab(stabbed[nick] and 1 or 0)
-		packet.modes.mute(muted[nick] and 1 or 0)
-		packet.modes.op(client.op and 1 or 0)
+		local nick,packet = data.nick(), P.User_Mode
+		packet.modes.stab(stabbed[nick] and 1 or 0).modes.mute(muted[nick] and 1 or 0).modes.op(client.op and 1 or 0)
+		sendProtocol(client,nil,packet)
 	end)
 	addHook("Mouse_Pos",genericRelay)
 	addHook("Mouse_Click",genericRelay)

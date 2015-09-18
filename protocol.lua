@@ -271,11 +271,13 @@ local function setValue(self,data)
 		self[i] = bit.band(data,0xff)
 		data = bit.rshift(data,8)
 	end
+	return self.p --Main Protocol
 end
 local function setValueStr(self,data)
 	self.strsize = #data
 	self[self.max+1] = data:sub(1,self.strsize)
 	setValue(self,self.strsize)
+	return self.p
 end
 local function setValueBit(self,data,offset,bits)
 	local val,size = self.p(),self.p.max*8
@@ -283,6 +285,7 @@ local function setValueBit(self,data,offset,bits)
 	val = bit.ror(val,rot)
 	val = bit.lshift(bit.rshift(val,bits),bits)
 	self.p(bit.rol(val+data,rot))
+	return self.p.p --Main Protocol is one farther on bits
 end
 local function makeMeta(typ,offset,bits)
 	local Value, sValue = compValue, setValue
@@ -293,8 +296,7 @@ local function makeMeta(typ,offset,bits)
 		if not data then --A call on a value will GET the value, byteArrays return a table
 			return Value(t,offset,bits)
 		else -- A call with data will SET the value, byteArrays use a table
-			sValue(t,data,offset,bits)
-			return t.p
+			return sValue(t,data,offset,bits)
 		end
 	end,}
 end
@@ -377,3 +379,5 @@ function protocolArray(proto)
 	end
 	return t
 end
+P = {}
+setmetatable(P,{__index = function(t,cmd) return protocolArray(protoNames[cmd]) end})
