@@ -15,9 +15,10 @@ local versionstring = "0.83"
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 --Support replace mode
 
-if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
-TPTMP = {["version"] = 2} -- script version sent on connect to ensure server protocol is the same
+if TPTMP then if TPTMP.version <= 3 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
+TPTMP = {["version"] = 3} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
+dofile "scripts/tptmp.protocol" -- Need to ensure this exists for the client.
 if not sim.clearRect then error"Tpt version not supported" end
 local using_manager = false
 local _print = print
@@ -45,7 +46,7 @@ if username == "" then
 	username = "Guest"..math.random(10000,99999)
 end
 local chatwindow
-local con = {connected = false,
+con = {connected = false,
 		 socket = nil,
 		 members = nil,
 		 pingTime = os.time()+60}
@@ -62,72 +63,72 @@ local function disconnected(reason)
 	con.members = {}
 	L.stabbed, L.muted = false, false
 end
-local function conSend(cmd,msg,endNull)
+local function sendProtocol(proto)
 	if not con.connected then return false,"Not connected" end
-	msg = msg or ""
-	if endNull then msg = msg.."\0" end
-	if cmd then msg = string.char(cmd)..msg end
-	--print("sent "..msg)
-	con.socket:settimeout(10)
-	con.socket:send(msg)
+	local prot = proto.protoID
+	--con.socket:settimeout(10)
+	_print("Sending "..proto:tostring())
+	con.socket:send(string.char(prot)..proto:writeData())
 	con.socket:settimeout(0)
 end
 local function joinChannel(chan)
-	conSend(16,chan,true)
-	--send some things to new channel
-	conSend(34,string.char(L.brushx,L.brushy))
-	conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
-	conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
-	conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
-	conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
-	conSend(38,L.replacemode)
-	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
+	sendProtocol(P.Join_Chan.chan(chan))
 end
-local function connectToServer(ip,port,nick)
+function connectToServer(ip,port,nick)
+	_print("Please print something")
 	if con.connected then return false,"Already connected" end
 	ip = ip or "starcatcher.us"
 	port = port or PORT
 	local sock = socket.tcp()
 	sock:settimeout(10)
+	_print("Connecting to server")
 	local s,r = sock:connect(ip,port)
 	if not s then return false,r end
 	sock:settimeout(0)
 	sock:setoption("keepalive",true)
-	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..string.char(TPTMP.version)..nick.."\0")
+	_print("Did connect, sending init_connect")
+	con.connected = true
+	con.socket = sock
+	sendProtocol(P.Init_Connect.major(tpt.version.major).minor(tpt.version.minor).script(TPTMP.version).nick(nick))
+	_print("Init_connect did send")
 	local c,r
 	while not c do
-	c,r = sock:receive(1)
-	if not c and r~="timeout" then break end
+		c,r = sock:receive(1)
+		if not c and r~="timeout" then break end
 	end
-	if not c and r~="timeout" then return false,r end
-
-	if c~= "\1" then
-	if c=="\0" then
-		local err=""
-		c,r = sock:receive(1)
-		while c~="\0" do
-		err = err..c
-		c,r = sock:receive(1)
-		end
-		if err=="This nick is already on the server" then
+	if not c and r~="timeout" then con.connected = false return false,r end
+	local prot = string.byte(c)
+	--Only a few packets are allowed during connection
+	if prot == protoNames["Disconnect"] then
+		print("Disconnected")
+		local data = P.Disconnect:readData(sock)
+		local reason = data.reason()
+		if reason=="This nick is already on the server" then
 			nick = nick:gsub("(.)$",function(s) local n=tonumber(s) if n and n+1 <= 9 then return n+1 else return nick:sub(-1)..'0' end end)
 			return connectToServer(ip,port,nick)
 		end
-		return false,err
+		con.connected = false
+		return false,reason
 	end
-	return false,"Bad Connect"
+	--Possibly receive changed username here? or later
+	if prot ~= protoNames["Connect_Succ"] then
+		con.connected = false
+		return false,"Server Error, got proto "..prot
 	end
+	_print("Connection passed, sending data")
+	--Connection was good, continue
 
-	con.socket = sock
-	con.connected = true
+	
 	username = nick
-	conSend(34,string.char(L.brushx,L.brushy))
-	conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
-	conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
-	conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
-	conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
-	conSend(38,L.replacemode)
-	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
+	sendProtocol(P.Brush_Shape.shape(tpt.brushID))
+	sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
+	sendProtocol(P.Selected_Elem.selected.button(0).selected.elem(L.sell))
+	sendProtocol(P.Selected_Elem.selected.button(1).selected.elem(L.sela))
+	sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(L.selr))
+	sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.selrep))
+	sendProtocol(P.Replace_Mode.replacemode(L.replacemode))
+	sendProtocol(P.Selected_Deco.RGBA(L.dcolour))
+	_print("Data sent")
 	return true
 end
 --get up to a null (\0)
@@ -577,14 +578,14 @@ new=function(x,y,w,h)
 		if not s then self:addline(r,255,50,50) end
 		pressedKeys = nil
 	end,
-	send = function(self,msg,args)
-		if tonumber(args[1]) and args[2] then
-		local withNull=false
-		if args[2]=="true" then withNull=true end
-		msg = msg:sub(#args[1]+1+(withNull and #args[2]+2 or 0))
-		conSend(tonumber(args[1]),msg,withNull)
-		end
-	end,
+	--send = function(self,msg,args)
+	--	if tonumber(args[1]) and args[2] then
+	--	local withNull=false
+	--	if args[2]=="true" then withNull=true end
+	--	msg = msg:sub(#args[1]+1+(withNull and #args[2]+2 or 0))
+	--	conSend(tonumber(args[1]),msg,withNull)
+	--	end
+	--end,
 	quit = function(self,msg,args)
 		disconnected("Disconnected")
 	end,
@@ -609,7 +610,7 @@ new=function(x,y,w,h)
 		elseif args[1] == "quit" or args[1] == "disconnect" then self:addline("(/quit, no arguments) -- quit the game")
 		elseif args[1] == "join" then self:addline("(/join <channel> -- joins a room on the server")
 		elseif args[1] == "sync" then self:addline("(/sync, no arguments) -- syncs your screen to everyone else in the room")
-		elseif args[1] == "me" then self:addline("(/me <message>) -- say something in 3rd person") -- send a raw command
+		elseif args[1] == "me" then self:addline("(/me <message>) -- say something in 3rd person")
 		elseif args[1] == "kick" then self:addline("(/kick <nick> <reason>) -- kick a user, only works if you have been in a channel the longest")
 		elseif args[1] == "size" then self:addline("(/size <width> <height>) -- sets the size of the chat window")
 		elseif args[1] == "stab" then self:addline("(/stab <nick>) -- stabs a user, preventing them from drawing or modifying the simulation at all")
@@ -985,8 +986,7 @@ local dataCmds = {
 		for i=1,amount do
 			local id = cByte()
 			con.members[id]={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,replacemode=0,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
-			local name = con.members[id].name
-			table.insert(peeps,name)
+			table.insert(peeps,con.members[id].name)
 		end
 		chatwindow:addline("Online: "..table.concat(peeps," "),255,255,50)
 	end,
@@ -1007,17 +1007,18 @@ local dataCmds = {
 		chatwindow:addline("* "..con.members[cByte()].name .. " " .. conGetNull())
 	end,
 	[22] = function()
+		--TODO: REMOVE [SERVER], add it in places that use this
 		chatwindow:addline("[SERVER] "..conGetNull(), cByte(), cByte(), cByte())
 	end,
 	[23] = function()
 		local stabbed = cByte()
-		L.stabbed = stabbed == 1 and true or false
-		chatwindow:addline("You have been "..(stabbed == 1 and "stabbed, and can't modify the simulation" or "unstabbed"), 255, 50, 50)
+		L.stabbed = (stabbed == 1)
+		chatwindow:addline("You have been "..(stabbed == 1 and "stabbed; You can't modify the simulation." or "unstabbed."), 255, 50, 50)
 	end,
 	[24] = function()
 		local muted = cByte()
-		L.muted = muted == 1 and true or false
-		chatwindow:addline("You have been "..(muted == 1 and "muted, and can't talk" or "unmuted"), 255, 50, 50)
+		L.muted = (muted == 1)
+		chatwindow:addline("You have been "..(muted == 1 and "muted; You can't talk." or "unmuted."), 255, 50, 50)
 	end,
 	--Mouse Position
 	[32] = function()
@@ -1047,7 +1048,7 @@ local dataCmds = {
 		con.members[id].brushx,con.members[id].brushy=cByte(),cByte()
 	end,
 	--Brush Shape change, no args
-	[35] = function()
+	[35] = function() --TODO: Changed to Brush_State, not changes
 		local id = cByte()
 		con.members[id].brush=(con.members[id].brush+1)%3
 	end,
@@ -1363,35 +1364,34 @@ local function sendStuff()
 	if nmx<sim.XRES and nmy<sim.YRES then nmx,nmy = sim.adjustCoords(nmx,nmy) end
 	if L.mousex~= nmx or L.mousey~= nmy then
 		L.mousex,L.mousey = nmx,nmy
-		local b1,b2,b3 = math.floor(L.mousex/16),((L.mousex%16)*16)+math.floor(L.mousey/256),(L.mousey%256)
-		conSend(32,string.char(b1,b2,b3))
+		sendProtocol(P.Mouse_Pos.position.x(L.mousex).position.y(L.mousey))
 	end
 	if tpt.brushx > 255 then tpt.brushx = 255 end
 	if tpt.brushy > 255 then tpt.brushy = 255 end
 	local nbx,nby = tpt.brushx,tpt.brushy
 	if L.brushx~=nbx or L.brushy~=nby and not L.stabbed then
 		L.brushx,L.brushy = nbx,nby
-		conSend(34,string.char(L.brushx,L.brushy))
+		sendProtocol(P.Brush_Size.x(L.brushx,L.brushy))
 	end
 	--check selected elements
 	local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
 	if L.sell~=nsell then
 		L.sell=nsell
-		conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
+		sendProtocol(P.Selected_Elem.selected.elem(L.sell))
 	elseif L.sela~=nsela then
 		L.sela=nsela
-		conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
+		sendProtocol(P.Selected_Elem.selected.button(1).selected.elem(L.sela))
 	elseif L.selr~=nselr then
 		L.selr=nselr
-		conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
+		sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(L.selr))
 	elseif L.selrep~=nselrep then
 		L.selrep=nselrep
-		conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
+		sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.selrep))
 	end
 	local ncol = sim.decoColour()
 	if L.dcolour~=ncol then
 		L.dcolour=ncol
-		conSend(65,string.char(math.floor(ncol/16777216),math.floor(ncol/65536)%256,math.floor(ncol/256)%256,ncol%256))
+		sendProtocol(P.Selected_Deco.RGBA(ncol))
 	end
 
 	if L.stabbed then return end -- stabbed players can't modify anything
@@ -1408,7 +1408,7 @@ local function sendStuff()
 			--save a backup for the reload button
 			local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
 			os.remove("stamps/tmp.stm") os.rename(fullName,"stamps/tmp.stm")
-			conSend(69,string.char(math.floor(id/65536),math.floor(id/256)%256,id%256))
+			sendProtocol(P.Load_Save(id))
 			deleteStamp(stampName)
 		end
 		L.browseMode=nil
@@ -1443,10 +1443,8 @@ local function sendStuff()
 		local s = f:read"*a"
 		f:close()
 		deleteStamp(stampName)
-		local d = #s
-		local b1,b2,b3 = math.floor(x/16),((x%16)*16)+math.floor(y/256),(y%256)
-		conSend(67,string.char(math.floor(x/16),((x%16)*16)+math.floor(y/256),(y%256),math.floor((x+w)/16),(((x+w)%16)*16)+math.floor((y+h)/256),((y+h)%256)))
-		conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
+		sendProtocol(P.Clear_Area.start.x(x).start.y(y).stop.x(x+w).stop.y(y+h))
+		sendProtocol(P.Stamp_Data.position.x(x).position.y(y).data(s))
 	end
 
 	--Check if custom modes were changed
@@ -1460,21 +1458,20 @@ local function sendStuff()
 				send=true break
 			end
 		end
-		if send then conSend(64,string.char(t[1],t[2],t[3])) end
+		if send then sendProtocol(P.View_Mode_Advanced.display(t[1]).render(t[2]).color(t[3])) end
 	end
 
 	--Send option menu settings
 	if L.checkOpt then
 		L.checkOpt=false
-		conSend(56,string.char(tpt.heat()))
-		conSend(53,string.char(tpt.ambient_heat()))
-		conSend(54,string.char(tpt.newtonian_gravity()))
-		conSend(57,string.char(sim.waterEqualisation()))
-		conSend(58,string.char(sim.gravityMode()))
-		conSend(59,string.char(sim.airMode()))
-		conSend(68,string.char(sim.edgeMode()))
+		sendProtocol(P.Ambient_State.state(tpt.ambient_heat()))
+		sendProtocol(P.NGrav_State.state(tpt.newtonian_gravity()))
+		sendProtocol(P.Heat_State.state(tpt.heat()))
+		sendProtocol(P.Equal_State.state(sim.waterEqualisation()))
+		sendProtocol(P.Grav_Mode.state(sim.gravityMode()))
+		sendProtocol(P.Air_Mode.state(sim.airMode()))
+		sendProtocol(P.Edge_Mode.state(sim.edgeMode()))
 	end
-
 end
 local function updatePlayers()
 	if con.members then
