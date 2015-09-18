@@ -33,6 +33,12 @@ local succ,err=pcall(function()
 	server = succ
 	server:settimeout(0)
 	
+	local dataHooks={}
+	function addHook(cmd,f,front)
+		cmd = type(cmd)=="string" and protoNames[cmd] or cmd
+		dataHooks[cmd] = dataHooks[cmd] or {}
+		table.insert(dataHooks,f,front)
+	end
 	bans={}
 	stabbed={}
 	muted={}
@@ -86,7 +92,9 @@ local succ,err=pcall(function()
 		--print("Received "..amt.." bytes in "..(socket.gettime()-timeout))
 		return true,final
 	end
-	
+	function sendRawString(socket,data)
+		socket:send(data)
+	end
 	function sendProtocol(socket,proto,id)
 		local prot = proto.protoID
 		local head = string.char(prot)..(no_ID_protocols[prot] and "" or string.char(id))
@@ -266,10 +274,10 @@ local succ,err=pcall(function()
 		sendProtocol(socket.client,modes) -- tell client their modes
 		
 		client.brush=0
-		client.size="\4\4"
+		client.brushX, client.brushY = 4,4
 		client.selection={"\0\1","\64\0","\128\0"}
-		client.replacemode="0"
-		client.deco="\0\0\0\0"
+		client.replacemode=0
+		client.deco=0
 		client.op=false
 		
 		print(client.nick.." done identifying")
@@ -283,244 +291,14 @@ local succ,err=pcall(function()
 			
 			print("Got "..protoNames[cmd].." from "..client.nick.." "..prot:tostring())
 			--We should, uhm, try calling protocol hooks here, maybe
-			
-			--[=[
-			if cmd~=16 and cmd~=19 and cmd~=20 and cmd~=21 and cmd~=23 and cmd~=24 then --handled separately with more info
-				if onChat(client,cmd) then --allow any events to be canceled with hooks
-					cmd=0 --hack
-				end 
+			if dataHooks[cmd] then
+				for i,v in ipairs(dataHooks) do
+					--Hooks can return true to stop future hooks
+					if v() then break end
+				end
+			else
+				print("No hooks for "..protoNames[cmd])
 			end
-			if stabbed[client.nick] then -- client isn't allowed to modify simulation
-				if cmd == 33 or cmd == 38 or cmd == 48 or cmd == 49 or (cmd >= 51 and cmd <= 59) or cmd == 68 then
-					char()
-					cmd = 0
-				elseif cmd == 39 or cmd == 50 or (cmd >= 60 and cmd <= 63) or cmd == 70 then
-					cmd = 0
-				elseif cmd == 64 or cmd == 69 then
-					char() char() char()
-					cmd = 0
-				elseif cmd == 65 then
-					char() char() char()
-					cmd = 0
-				elseif cmd == 67 then
-					char() char() char() char() char() char()
-					cmd = 0
-				end
-			end
-
-			-- JOIN
-			if cmd==16 then
-				--[[local len = byte()
-				print(len)
-				local s,room=bytes(client.socket,len)
-				room = room:lower()
-				]]
-				local room = nullstr():lower()
-				print(room)
-				if room=="moo0" then tempTimer=socket.gettime() end
-				if room=="moo40000" then print("Room receive took "..(socket.gettime()-tempTimer)) end
-				if not room:match("^[%w%-%_]+$") or #room > 32 then
-					serverMsg(client, "Invalid room name "..room)
-				else
-					leave(client.room,id)
-					if not onChat(client,16,room) then
-						join(room,id)
-					end
-				end
-			-- MSG
-			elseif cmd==19 then
-				local msg=nullstr()
-				if muted[client.nick] then
-					serverMsg(client, "You have been muted and cannot chat")
-				elseif not msg:match("^[ -~]*$") then
-					serverMsg(client, "Invalid characters detected in message, not sent")
-				elseif #msg > 200 then
-					serverMsg(client, "Message too long, not sent")
-				else
-					print("<"..client.nick.."> "..msg)
-					if not onChat(client,19,msg) then
-						sendroomexcept(client.room,id,"\19"..string.char(id)..msg.."\0")
-					end
-				end
-			elseif cmd==20 then
-				local msg=nullstr()
-				if muted[client.nick] then
-					serverMsg(client, "You have been muted and cannot chat")
-				elseif not msg:match("^[ -~]*$") then
-					serverMsg(client, "Invalid characters detected in message, not sent")
-				elseif #msg > 200 then
-					serverMsg(client, "Message too long, not sent")
-				else
-					print("* "..client.nick.." "..msg)
-					if not onChat(client,20,msg) then
-						sendroomexcept(client.room,id,"\20"..string.char(id)..msg.."\0")
-					end
-				end
-			elseif cmd==21 then
-				local nick,reason = nullstr(), nullstr()
-				if not reason:match("^[ -~]*$") then
-					serverMsg(client, "Invalid characters detected in kick reason")
-				elseif #reason > 200 then
-					serverMsg(client, "Kick reason too long, not sent")
-				elseif not client.op and client.room == "null" then
-					serverMsg(client, "You can't kick people from the lobby")
-				elseif not client.op and rooms[client.room][1] ~= id then
-					serverMsg(client, "You can't kick people from here")
-				else
-					modaction(client, 21, nick, kick, client.nick, reason)
-				end
-			elseif cmd==23 then
-				local dostab = (char() == '\1')
-				local nick = nullstr()
-				if not client.op then
-					serverMsg(client, "You aren't an op!")
-				elseif nick == client.nick then
-					serverMsg(client, "You can't stab yourself!")
-				elseif dostab and stabbed[nick] then
-					serverMsg(client, "That person is already stabbed!")
-				elseif not dostab and not stabbed[nick] then
-					serverMsg(client, "That person isn't stabbed!")
-				else
-					modaction(client, 23, nick, stab, client.nick, dostab)
-				end
-			elseif cmd==24 then
-				local domute = (char() == '\1' and true or nil)
-				local nick = nullstr()
-				if not client.op then
-					serverMsg(client, "You aren't an op!")
-				elseif nick == client.nick then
-					serverMsg(client, "You can't mute yourself!")
-				elseif domute and muted[nick] then
-					serverMsg(client, "That person is already muted!")
-				elseif not domute and not muted[nick] then
-					serverMsg(client, "That person isn't muted!")
-				else
-					modaction(client, 24, nick, mute, client.nick, domute)
-				end
-			elseif cmd==2 then
-				client.lastping=os.time()
-			elseif cmd==32 then
-				local data=char()..char()..char()
-				sendroomexcept(client.room,id,"\32"..string.char(id)..data)
-			elseif cmd==33 then
-				local data=char()
-				sendroomexcept(client.room,id,"\33"..string.char(id)..data)
-			elseif cmd==34 then
-				local data=char()..char()
-				client.size=data
-				sendroomexcept(client.room,id,"\34"..string.char(id)..data)
-			elseif cmd==35 then
-				client.brush=client.brush%3+1
-				sendroomexcept(client.room,id,"\35"..string.char(id))
-			elseif cmd==36 then
-				local data=char()
-				sendroomexcept(client.room,id,"\36"..string.char(id)..data)
-			elseif cmd==37 then
-				local data=char()..char()
-				local btn=math.floor(data:byte(1)/64)
-				client.selection[btn+1]=data
-				sendroomexcept(client.room,id,"\37"..string.char(id)..data)
-			elseif cmd==38 then
-				local data=char()
-				client.replacemode = data
-				sendroomexcept(client.room,id,"\38"..string.char(id)..data)
-			elseif cmd==39 then
-				sendroomexcept(client.room,id,"\39"..string.char(id))
-			elseif cmd==48 then
-				local data=char()
-				sendroomexcept(client.room,id,"\48"..string.char(id)..data)
-			elseif cmd==49 then
-				local data=char()
-				sendroomexcept(client.room,id,"\49"..string.char(id)..data)
-			elseif cmd==50 then
-				sendroomexcept(client.room,id,"\50"..string.char(id))
-			elseif cmd==51 then
-				local data=char()
-				sendroomexcept(client.room,id,"\51"..string.char(id)..data)
-			elseif cmd==52 then
-				local data=char()
-				sendroomexcept(client.room,id,"\52"..string.char(id)..data)
-			elseif cmd==53 then
-				local data=char()
-				sendroomexcept(client.room,id,"\53"..string.char(id)..data)
-			elseif cmd==54 then
-				local data=char()
-				sendroomexcept(client.room,id,"\54"..string.char(id)..data)
-			elseif cmd==55 then
-				local data=char()
-				sendroomexcept(client.room,id,"\55"..string.char(id)..data)
-			elseif cmd==56 then
-				local data=char()
-				sendroomexcept(client.room,id,"\56"..string.char(id)..data)
-			elseif cmd==57 then
-				local data=char()
-				sendroomexcept(client.room,id,"\57"..string.char(id)..data)
-			elseif cmd==58 then
-				local data=char()
-				sendroomexcept(client.room,id,"\58"..string.char(id)..data)
-			elseif cmd==59 then
-				local data=char()
-				sendroomexcept(client.room,id,"\59"..string.char(id)..data)
-			elseif cmd==60 then
-				sendroomexcept(client.room,id,"\60"..string.char(id))
-			elseif cmd==61 then
-				sendroomexcept(client.room,id,"\61"..string.char(id))
-			elseif cmd==62 then
-				sendroomexcept(client.room,id,"\62"..string.char(id))
-			elseif cmd==63 then
-				sendroomexcept(client.room,id,"\63"..string.char(id))
-			elseif cmd==64 then
-				local data=char()..char()..char()
-				sendroomexcept(client.room,id,"\64"..string.char(id)..data)
-			elseif cmd==65 then
-				local data=char()..char()..char()..char()
-				client.deco=data
-				sendroomexcept(client.room,id,"\65"..string.char(id)..data)
-			elseif cmd==66 then
-				local loc=char()..char()..char()
-				local b1,b2,b3=byte(),byte(),byte()
-				local sz=b1*65536+b2*256+b3
-				print("STAMP! Loading From "..client.nick.." size "..sz )
-				local s,stm = bytes(client.socket,sz)
-				if client.ignore then
-					serverMsg(client, "You aren't allowed to place stamps")
-				elseif s then
-					sendroomexceptLarge(client.room,id,"\66"..string.char(id)..loc..string.char(b1,b2,b3)..stm)
-				else
-					disconnect(id,stm)
-				end
-			elseif cmd==67 then
-				local data=char()..char()..char()..char()..char()..char()
-				sendroomexcept(client.room,id,"\67"..string.char(id)..data)
-			elseif cmd==68 then
-				local data=char()
-				sendroomexcept(client.room,id,"\68"..string.char(id)..data)
-			elseif cmd==69 then
-				local data=char()..char()..char()
-				sendroomexcept(client.room,id,"\69"..string.char(id)..data)
-			elseif cmd==70 then
-				sendroomexcept(client.room,id,"\70"..string.char(id))
-			elseif cmd==128 then
-				local i=byte()
-				local b1,b2,b3=byte(),byte(),byte()
-				local sz=b1*65536+b2*256+b3
-				print(client.nick.." provided sync for "..clients[i].nick..", it was "..sz.." bytes")
-				local s,stm = bytes(client.socket,sz)
-				if s then
-					clients[i].socket:settimeout(8)
-					clients[i].socket:send("\129"..string.char(b1,b2,b3)..stm)
-					clients[i].socket:settimeout(0)
-				else
-					disconnect(id,stm)
-				end				
-			--special mode sync sent to specific user (called from 128)
-			elseif cmd==130 then
-				local i=byte()
-				if clients[i] then
-					clients[i].socket:send(char()..string.char(id)..char())
-				end
-			end
-			--]=]
 		end
 	end
 
@@ -564,6 +342,171 @@ local succ,err=pcall(function()
 			return
 		end
 		crackbot:send(runLua(s).."\n")
+	end
+	--[=[
+			What were these for? can these checks use the new hooks?
+			if cmd~=16 and cmd~=19 and cmd~=20 and cmd~=21 and cmd~=23 and cmd~=24 then --handled separately with more info
+				if onChat(client,cmd) then --allow any events to be canceled with hooks
+					cmd=0 --hack
+				end 
+			end
+	--]=]
+	local function genericRelay(client, id, data)
+		sendroomexcept(client.room,id,data)
+	end
+	addHook("Ping",function(client) 
+		client.lastping=os.time() 
+		sendProtocol(client,protocolArray(protoNames["Pong"]))
+	end)
+	addHook("Pong",function(client) end) --Who should ping? Server or client
+	addHook("Join_Channel",function(client, id, data)
+		local room = data.channel()
+		if not room:match("^[%w%-%_]+$") or #room > 32 then
+			serverMsg(client, "Invalid room name "..room)
+			return true
+		end
+	end)
+	addHook("Join_Channel",function(client, id, data)
+		leave(client.room,id)
+		join(data.channel(),id)
+	end)
+	addHook("User_Chat",function(client, id, data)
+		local msg=data.msg()
+		if muted[client.nick] then
+			serverMsg(client, "You have been muted and cannot chat")
+		elseif not msg:match("^[ -~]*$") then
+			serverMsg(client, "Invalid characters detected in message, not sent")
+		elseif #msg > 200 then
+			serverMsg(client, "Message too long, not sent")
+		else return end
+		return true
+	end)
+	addHook("User_Chat",function(client, id, data)
+		print("<"..client.nick.."> "..data.msg())
+		sendroomexcept(client.room,id,data)
+	end)
+	addHook("User_Me",function(client, id, data)
+		local msg=data.msg()
+		if muted[client.nick] then
+			serverMsg(client, "You have been muted and cannot chat")
+		elseif not msg:match("^[ -~]*$") then
+			serverMsg(client, "Invalid characters detected in message, not sent")
+		elseif #msg > 200 then
+			serverMsg(client, "Message too long, not sent")
+		else return end
+		return true
+	end)
+	addHook("User_Me",function(client, id, data)
+		print("* "..client.nick.." "..msg)
+		sendroomexcept(client.room,id,data)
+	end)
+	addHook("User_Kick",function(client, id, data)
+		local reason = data.reason()
+		if not reason:match("^[ -~]*$") then
+			serverMsg(client, "Invalid characters detected in kick reason")
+		elseif #reason > 200 then
+			serverMsg(client, "Kick reason too long, not sent")
+		elseif not client.op and client.room == "null" then
+			serverMsg(client, "You can't kick people from the lobby")
+		elseif not client.op and rooms[client.room][1] ~= id then
+			serverMsg(client, "You can't kick people from here")
+		else return end
+		return true
+	end)
+	addHook("User_Kick",function(client, id, data)
+		modaction(client, 21, data.nick(), kick, client.nick, data.reason())
+	end)
+	addHook("Set_User_Mode",function(client, id, data)
+		local doStab, doMute = data.modes.stab()==1, data.modes.mute()==1
+		if not client.op then
+			serverMsg(client, "You aren't an op!")
+		elseif data.nick() == client.nick then
+			serverMsg(client, "You can't do that to yourself!")
+		else return end
+		return true
+	end)
+	addHook("Set_User_Mode",function(client, id, data
+		local nick = data.nick()
+		modaction(client, 23, nick, stab, client.nick, data.modes.stab()==1)
+		modaction(client, 24, nick, mute, client.nick, data.modes.mute()==1)
+		client.op = data.modes.op()==1
+	end)
+	addHook("Get_User_Mode",function(client, id, data)
+		local nick,packet = data.nick(), protocolArray(protoNames["User_Mode"])
+		packet.modes.stab(stabbed[nick] and 1 or 0)
+		packet.modes.mute(muted[nick] and 1 or 0)
+		packet.modes.op(client.op and 1 or 0)
+	end)
+	addHook("Mouse_Pos",genericRelay)
+	addHook("Mouse_Click",genericRelay)
+	addHook("Brush_Size",function(client, id, data)
+		client.brushX, client.brushY = data.x(), data.y()
+		--This was client.size before, check it
+		sendroomexcept(client.room,id,data)
+	end)
+	addHook("Brush_Shape",function(client, id, data)
+		client.brush = data.shape()
+		sendroomexcept(client.room,id,data)
+	end)
+	addHook("Key_Mods",genericRelay)
+	addHook("Selected_Elem",function(client, id, data)
+		client.selection[data.selected.button()+1] = data.selected.elem()
+		sendroomexcept(client.room,id,data)
+	end)
+	addHook("Replace_Mode",function(client, id, data)
+		client.replacemode = data.replacemode()
+		sendroomexcept(client.room,id,data)
+	end)
+	addHook("Zoom_State",genericRelay)
+	addHook("View_Mode_Simple",genericRelay)
+	addHook("Pause_State",genericRelay)
+	addHook("Frame_Step",genericRelay)
+	addHook("Deco_State",genericRelay)
+	addHook("Ambient_State",genericRelay)
+	addHook("NGrav_State",genericRelay)
+	addHook("Heat_State",genericRelay)
+	addHook("Equal_State",genericRelay)
+	addHook("Grav_Mode",genericRelay)
+	addHook("Air_Mode",genericRelay)
+	addHook("Clear_Spark",genericRelay)
+	addHook("Clear_Press",genericRelay)
+	addHook("Invert_Press",genericRelay)
+	addHook("Clear_Sim",genericRelay)
+	addHook("View_Mode_Advanced",genericRelay)
+	addHook("Selected_Deco",function(client, id, data)
+		client.deco = data.RGBA()
+		sendroomexcept(client.room,id,data)
+	end)
+	addHook("Stamp_Data",function(client, id, data)
+		if client.ignore then
+			serverMsg(client, "You aren't allowed to place stamps!")
+			return true
+		end
+	end)
+	addHook("Stamp_Data",function(client, id, data)
+		if data.data() then
+			print("STAMP! Loaded From "..client.nick.." size "..data.totalSize())
+			sendroomexcept(client.room,id,data)'
+		else disconnect(id, "Failed stamp data")
+		end
+	end)
+	addHook("Clear_Area",genericRelay)
+	addHook("Edge_Mode",genericRelay)
+	addHook("Load_Save",genericRelay)
+	addHook("Reload_Sim",genericRelay)
+	addHook("Player_Sync",function(client, id, data)
+		--Need to confirm that userID is actually expecting specific packets
+		sendRawString(clients[data.userID()].socket,string.char(data.proto()..string.char(id)..data.data())
+		sendroomexcept(client.room,id,data)
+	end)
+	--Add these hooks into first slot, runs before others
+	local stabBlock = {33,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,66,67,68,69,70}
+	for k,v in pairs(stabBlock) do
+		addHook(stabBlock,function(client, id, data)
+			if stabbed[client.nick] then
+				return true
+			end
+		end,1)
 	end
 -------- MAIN LOOP
 	while 1 do

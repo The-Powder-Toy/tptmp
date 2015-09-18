@@ -14,6 +14,10 @@ protocol = {
 	[4] = {
 		{name="reason",size=1,str=true},
 	},
+	-- Ping
+	[8] = {},
+	-- Pong
+	[9] = {},
 	--New_Nick -- Server->Client, The client nick was changed
 	[13] = {
 		{name="nick",size=1,str=true},
@@ -44,6 +48,11 @@ protocol = {
 	[20] = {
 		{name="msg",size=1,str=true},
 	},
+	-- User_Kick, kick a user
+	[21] = {
+		{name="nick",size=1,str=true},
+		{name="reason",size=1,str=true},
+	},
 	--Server_Broadcast, Colored message sent from server
 	[22] = {
 		{name="msg",size=1,str=true},
@@ -53,16 +62,16 @@ protocol = {
 	},
 	--Set_User_Mode, Set some user modes (WIP)
 	[23] = {
-		{name="userID",size=1},
+		{name="nick",size=1,str=true},
 		{name="modes",size=1,bit=true,fields={"stab","mute","op"},sizes={1,1,1}},
 	},
 	--Get_User_Mode, Get some user modes (WIP)
 	[24] = {
-		{name="userID",size=1},
+		{name="nick",size=1,str=true},
 	},
 	--User_Mode, Response from above (WIP)
 	[25] = {
-		{name="userID",size=1},
+		{name="nick",size=1,str=true},
 		{name="modes",size=1,bit=true,fields={"stab","mute","op"},sizes={1,1,1}},
 	},
 	--Mouse_Pos, Client mouse location
@@ -189,6 +198,8 @@ local protoName = {
 	["Init_Connect"] = 2,
 	["Connect_Succ"] = 3,
 	["Disconnect"] = 4,
+	["Ping"] = 8,
+	["Pong"] = 9,
 	["New_Nick"] = 14,
 	["Join_Chan"] = 15,
 	["Chan_Member"] = 16,
@@ -196,6 +207,7 @@ local protoName = {
 	["User_Leave"] = 18,
 	["User_Chat"] = 19,
 	["User_Me"] = 20,
+	["User_Kick"] = 21,
 	["Server_Broadcast"] = 22,
 	["Set_User_Mode"] = 23,
 	["Get_User_Mode"] = 24,
