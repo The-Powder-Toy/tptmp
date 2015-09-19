@@ -66,7 +66,7 @@ local succ,err=pcall(function()
 	end
 
 	-- nonblockingly read a byte
-	function byte()
+	function getByte()
 		return coroutine.yield():byte()
 	end
 	function char()
@@ -74,7 +74,7 @@ local succ,err=pcall(function()
 	end
 	
 	-- nonblock read amt bytes from socket
-	function bytes(sock,amt)
+	function getBytes(sock,amt)
 		local final = ""
 		local timeout,rec = socket.gettime(),0
 		while rec<amt do
@@ -103,7 +103,7 @@ local succ,err=pcall(function()
 	end
 	function sendProtocol(socket,proto,id)
 		local prot = proto.protoID
-		print("sending "..protoNames[prot])
+		--print("sending "..protoNames[prot])
 		local head = string.char(prot)..(noIDProt[prot] and "" or string.char(id))
 		socket:send(head..proto:writeData())
 	end
@@ -249,7 +249,7 @@ local succ,err=pcall(function()
 	function handler(id,client)
 		--local major,minor,scriptver=byte(),byte(),byte()
 		--client.nick=nullstr()
-		local init = byte()
+		local init = getByte()
 		if init~=protoNames["Init_Connect"] then
 			disconnect(id,"Invalid Connect")
 		end
@@ -306,17 +306,16 @@ local succ,err=pcall(function()
 		print(client.nick.." done identifying")
 		join("null",id)
 		while 1 do
-			local cmd=byte()
+			local cmd=getByte()
 			
 			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,P.Disconnect.reason("Bad protocol sent")) disconnect("Bad Protocol")  break end
 			local prot = protocolArray(cmd):readData(client.socket)
 			
-			print("Got "..protoNames[cmd].." from "..client.nick.." "..prot:tostring())
+			--print("Got "..protoNames[cmd].." from "..client.nick.." "..prot:tostring())
 			--We should, uhm, try calling protocol hooks here, maybe
 			if dataHooks[cmd] then
 				for i,v in ipairs(dataHooks[cmd]) do
 					--Hooks can return true to stop future hooks
-					print("hook called on "..cmd)
 					if v(client,id,prot) then break end
 				end
 			else

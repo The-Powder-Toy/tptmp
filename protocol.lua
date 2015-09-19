@@ -137,7 +137,6 @@ protocol = {
 	},
 	--["Grav_Mode"] = 58,
 	[58] = {
-		{name="ID",size=1},
 		{name="state",size=1},
 	},
 	--["Air_Mode"] = 59,
@@ -307,11 +306,11 @@ local function dataType()
 	return {
 	["read"] = function(self,socket)
 		for i,v in ipairs(self) do
-			self[i] = byte()
+			self[i] = getByte()
 		end
 		if self.str then
 			self.strsize = compValue(self)
-			if self.strsize>0 then _,self[self.max+1] = bytes(socket,self.strsize) end
+			if self.strsize>0 then _,self[self.max+1] = getBytes(socket,self.strsize) end
 		end
 	end,
 	["write"] = function(self)

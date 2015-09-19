@@ -21,7 +21,7 @@ local issocket,socket = pcall(require,"socket")
 dofile "scripts/tptmp.protocol" -- Need to ensure this exists for the client.
 if not sim.clearRect then error"Tpt version not supported" end
 local using_manager = false
-local _print = print
+_print = print
 if MANAGER ~= nil or MANAGER_EXISTS then
 	using_manager = true
 	_print = MANAGER and MANAGER.print or MANAGER_PRINT
@@ -37,6 +37,11 @@ local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, sel
 shift=false, alt=false, ctrl=false, tabs = false, z=false, skipClick=false, pauseNextFrame=false,
 copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false,
 mouseInZoom=false, stabbed=false, muted=false}
+--Protocols that edit the simulation in some way.
+local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67,68,69,70}, {}
+--Protocols that don't send an ID to client
+local _noIDProt, noIDProt = {2,3,4,8,9,13,14,15,22,23,24,25,128,129}, {}
+for i,v in ipairs(_editSim) do editSim[v]=true end for i,v in ipairs(_noIDProt) do noIDProt[v]=true end
 
 local tptversion = tpt.version.build
 local jacobsmod = tpt.version.jacob1s_mod~=nil
@@ -46,7 +51,7 @@ if username == "" then
 	username = "Guest"..math.random(10000,99999)
 end
 local chatwindow
-con = {connected = false,
+local con = {connected = false,
 		 socket = nil,
 		 members = nil,
 		 pingTime = os.time()+60}
@@ -66,7 +71,8 @@ end
 local function sendProtocol(proto)
 	if not con.connected then return false,"Not connected" end
 	local prot = proto.protoID
-	--con.socket:settimeout(10)
+	if L.stabbed and editSim[prot] then return false,"No Permission" end
+	con.socket:settimeout(10)
 	_print("Sending "..proto:tostring())
 	con.socket:send(string.char(prot)..proto:writeData())
 	con.socket:settimeout(0)
@@ -75,22 +81,18 @@ local function joinChannel(chan)
 	sendProtocol(P.Join_Chan.chan(chan))
 end
 function connectToServer(ip,port,nick)
-	_print("Please print something")
 	if con.connected then return false,"Already connected" end
 	ip = ip or "starcatcher.us"
 	port = port or PORT
 	local sock = socket.tcp()
 	sock:settimeout(10)
-	_print("Connecting to server")
 	local s,r = sock:connect(ip,port)
 	if not s then return false,r end
 	sock:settimeout(0)
 	sock:setoption("keepalive",true)
-	_print("Did connect, sending init_connect")
 	con.connected = true
 	con.socket = sock
 	sendProtocol(P.Init_Connect.major(tpt.version.major).minor(tpt.version.minor).script(TPTMP.version).nick(nick))
-	_print("Init_connect did send")
 	local c,r
 	while not c do
 		c,r = sock:receive(1)
@@ -100,7 +102,6 @@ function connectToServer(ip,port,nick)
 	local prot = string.byte(c)
 	--Only a few packets are allowed during connection
 	if prot == protoNames["Disconnect"] then
-		print("Disconnected")
 		local data = P.Disconnect:readData(sock)
 		local reason = data.reason()
 		if reason=="This nick is already on the server" then
@@ -115,10 +116,7 @@ function connectToServer(ip,port,nick)
 		con.connected = false
 		return false,"Server Error, got proto "..prot
 	end
-	_print("Connection passed, sending data")
 	--Connection was good, continue
-
-	
 	username = nick
 	sendProtocol(P.Brush_Shape.shape(tpt.brushID))
 	sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
@@ -135,27 +133,48 @@ end
 local function conGetNull()
 	con.socket:settimeout(nil)
 	local c,r = con.socket:receive(1)
-	if not c and r ~= "timeout" then disconnected() return nil end
+	if not c and r ~= "timeout" then disconnected("moo"..r) return nil end
 	local rstring=""
 	while c~="\0" do
 	rstring = rstring..c
 	c,r = con.socket:receive(1)
-	if not c and r ~= "timeout" then disconnected() return nil end
+	if not c and r ~= "timeout" then disconnected("moo2"..r) return nil end
 	end
 	con.socket:settimeout(0)
 	return rstring
 end
 --get next char/byte
 local function cChar()
-	con.socket:settimeout(nil)
+	con.socket:settimeout(0)
 	local c,r = con.socket:receive(1)
 	con.socket:settimeout(0)
-	if not c then disconnected() end
-	return c
+	if not c and r~="timeout" then disconnected("moo3"..r) return nil,r end
+	return c,r
 end
-local function cByte()
-	local byte = cChar()
-	return byte and byte:byte() or nil
+function getByte()
+	local byte, r = cChar()
+	if byte then return byte:byte() end
+	return nil, r
+end
+function getBytes(_,amt)
+	local final, rec = "", 0
+	local timeout = socket.gettime()
+	while rec<amt do
+		local s,r,e = con.socket:receive(amt-rec)
+		if not s then 
+			if r~="timeout" then
+				return false,"Error while getting bytes"
+			end
+			rec = rec + #e
+			final = final..e
+		else
+			final = final..s
+			break
+		end
+		if socket.gettime()-timeout>4 then return false,"Byte send took too long" end
+	end
+	--print("Received "..amt.." bytes in "..(socket.gettime()-timeout))
+	return true,final
 end
 --return table of arguments
 local function getArgs(msg)
@@ -629,12 +648,12 @@ new=function(x,y,w,h)
 	me = function(self, msg, args)
 		if not con.connected then return end
 		self:addline("* " .. username .. " ".. table.concat(args, " "),200,200,200)
-		conSend(20,table.concat(args, " "),true)
+		sendProtocol(P.User_Me.msg(table.concat(args, " ")))
 	end,
 	kick = function(self, msg, args)
 		if not con.connected then return end
 		if not args[1] then self:addline("Need a nick! '/kick <nick> [reason]'") return end
-		conSend(21, args[1].."\0"..table.concat(args, " ", 2),true)
+		sendProtocol(P.User_Kick.nick(args[1]).reason(table.concat(args, " ", 2)))
 	end,
 	size = function(self, msg, args)
 		if args[2] then
@@ -653,22 +672,26 @@ new=function(x,y,w,h)
 	stab = function(self, msg, args)
 		if not con.connected then return end
 		if not args[1] then self:addline("Need a nick! '/stab <nick>") return end
-		conSend(23, string.char(1)..args[1],true)
+		--sendProtocol(members[args[1]].M.modes.stab(1))
+		--Fix me
 	end,
 	unstab = function(self, msg, args)
 		if not con.connected then return end
 		if not args[1] then self:addline("Need a nick! '/unstab <nick>") return end
-		conSend(23, string.char(0)..args[1],true)
+		--sendProtocol(members[args[1]].M.modes.stab(0))
+		--Fix me
 	end,
 	mute = function(self, msg, args)
 		if not con.connected then return end
 		if not args[1] then self:addline("Need a nick! '/mute <nick>") return end
-		conSend(24, string.char(1)..args[1],true)
+		--sendProtocol(members[args[1]].M.modes.mute(1))
+		--Fix me
 	end,
 	unmute = function(self, msg, args)
 		if not con.connected then return end
 		if not args[1] then self:addline("Need a nick! '/unmute <nick>") return end
-		conSend(24, string.char(0)..args[1],true)
+		--sendProtocol(members[args[1]].M.modes.mute(0))
+		--Fix me
 	end,
 	}
 	function chat:textprocess(key,nkey,modifier,event)
@@ -689,7 +712,7 @@ new=function(x,y,w,h)
 			end
 			--normal chat
 			if con.connected then
-				conSend(19,text,true)
+				sendProtocol(P.User_Chat.msg(text))
 				self:addline(username .. ": ".. text,200,200,200)
 			else
 				self:addline("Not connected to server!",255,50,50)
@@ -947,13 +970,10 @@ local function playerMouseMove(id)
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
 end
-local function loadStamp(size,x,y,reset)
-	con.socket:settimeout(10)
-	local s = con.socket:receive(size)
-	con.socket:settimeout(0)
-	if s then
+local function loadStamp(data,x,y,reset)
+	if data then
 		local f = io.open(".tmp.stm","wb")
-		f:write(s)
+		f:write(data)
 		f:close()
 		if reset then sim.clearSim() end
 		if not sim.loadStamp(".tmp.stm",x,y) then
@@ -976,334 +996,255 @@ local function deleteStamp(name)
 		os.remove("stamps/"..name..".stm")
 	end
 end
-
-local dataCmds = {
-	[16] = function()
-	--room members
-		con.members = {}
-		local amount = cByte()
-		local peeps = {}
-		for i=1,amount do
-			local id = cByte()
-			con.members[id]={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,replacemode=0,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
-			table.insert(peeps,con.members[id].name)
+local dataHooks={}
+function addHook(cmd,f,front)
+	if not protoNames[cmd] then error("Invalid protocol "..cmd) end
+	cmd = type(cmd)=="string" and protoNames[cmd] or cmd
+	dataHooks[cmd] = dataHooks[cmd] or {}
+	if front then table.insert(dataHooks[cmd],front,f)
+	else table.insert(dataHooks[cmd],f) end
+end
+addHook("New_Nick",function(data, uid)
+	username = data.nick()
+end)
+addHook("Chan_Name",function(data, uid)
+	con.members = {}
+	chatwindow:addline("Moved to chan "..data.chan(),255,255,50)
+end)
+addHook("Chan_Member",function(data, uid)
+	--Basic user table, will be receiving the full data shortly
+	con.members[uid] = {name=data.name(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,replacemode=0,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
+end)
+addHook("User_Join",function(data, uid)
+	local name = data.name()
+	con.members[uid] = {name=name,mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,replacemode=0,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
+	chatwindow:addline(name.." has joined",255,255,50)
+end)
+addHook("User_Leave",function(data, uid)
+	chatwindow:addline(con.members[uid].name.." has left",255,255,50)
+	con.members[uid] = nil
+end)
+addHook("User_Chat",function(data, uid)
+	chatwindow:addline(con.members[uid].name .. ": " .. data.msg())
+end)
+addHook("User_Me",function(data, uid)
+	chatwindow:addline("* " .. con.members[uid].name .. " " .. data.msg())
+end)
+addHook("Server_Broadcast",function(data, uid)
+	chatwindow:addline(data.msg(),data.R(),data.G(),data.B())
+end)
+addHook("User_Mode",function(data, uid)
+	if username == data.nick() then
+		L.stabbed = data.modes.stab()==1
+		L.muted = data.modes.mute()==1
+		--L.op = data.modes.op()==1
+	else
+		--Save other people data for use with /mute and /stab
+	end
+end)
+addHook("Mouse_Pos",function(data, uid)
+	con.members[uid].mousex, con.members[uid].mousey = data.position.x(), data.position.y()
+	playerMouseMove(uid)
+end)
+addHook("Mouse_Click",function(data, uid)
+	local btn, ev = data.click.button(), data.click.event()
+	playerMouseClick(uid,btn,ev)
+	if ev==0 then return end
+	if btn==1 then
+		con.members[uid].lbtn=ev
+	elseif btn==2 then
+		con.members[uid].abtn=ev
+	elseif btn==4 then
+		con.members[uid].rbtn=ev
+	end
+end)
+addHook("Brush_Size",function(data, uid)
+	con.members[uid].brushx, con.members[uid].brushy = data.x(), data.y()
+end)
+addHook("Brush_Shape",function(data, uid)
+	con.members[uid].brush = data.shape()
+end)
+addHook("Key_Mods",function(data, uid)
+	local mod, state = data.key.char(), data.key.state()
+	if mod==0 then
+		con.members[uid].ctrl=state
+	elseif mod==1 then
+		con.members[uid].shift=state
+	elseif mod==2 then
+		con.members[uid].alt=state
+	end
+end)
+addHook("Selected_Elem",function(data, uid)
+	local btn, el = data.selected.button(), data.selected.elem()
+	if btn==0 then
+		con.members[uid].selectedl=el
+	elseif btn==1 then
+		con.members[uid].selecteda=el
+	elseif btn==2 then
+		con.members[uid].selectedr=el
+	elseif btn==3 then
+		--sync replace mode element between all players since apparently you have to set tpt.selectedreplace to use replace mode ...
+		tpt.selectedreplace = elem.property(el, "Identifier")
+	end
+end)
+addHook("Replace_Mode",function(data, uid)
+	con.members[uid].replacemode = data.replacemode()
+end)
+addHook("Zoom_State",function(data, uid)
+	if con.members[uid].drawtype == 4 then
+		con.members[uid].drawType = false
+		con.members[uid].lbtn, con.members[uid].rbtn, con.members[uid].abtn = false, false, false
+	end
+end)
+addHook("View_Mode_Simple",function(data, uid)
+	tpt.display_mode(data.mode())
+	cmodeText:reset(con.members[uid].name.." set:")
+end)
+addHook("Pause_State",function(data, uid)
+	local p = data.state()
+	tpt.set_pause(p)
+	local str = (p==1) and "Pause" or "Unpause"
+	infoText:reset(str.." from "..con.members[uid].name)
+end)
+addHook("Frame_Step",function(data, uid)
+	tpt.set_pause(0)
+	L.pauseNextFrame=true
+end)
+addHook("Deco_State",function(data, uid)
+	tpt.decorations_enable(data.state())
+	cmodeText:reset(con.members[uid].name.." set:")
+end)
+addHook("Ambient_State",function(data, uid)
+	tpt.ambient_heat(data.state())
+end)
+addHook("NGrav_State",function(data, uid)
+	tpt.newtonian_gravity(data.state())
+end)
+addHook("Heat_State",function(data, uid)
+	tpt.heat(data.state())
+end)
+addHook("Equal_State",function(data, uid)
+	sim.waterEqualisation(data.state())
+end)
+addHook("Grav_Mode",function(data, uid)
+	local mode = data.state()
+	sim.gravityMode(mode)
+	cmodeText:reset(con.members[uid].name.." set: Gravity: "..gravList[mode])
+end)
+addHook("Air_Mode",function(data, uid)
+	local mode = data.state()
+	sim.airMode(mode)
+	cmodeText:reset(con.members[uid].name.." set: Air: "..airList[mode])
+end)
+addHook("Clear_Spark",function(data, uid)
+	tpt.reset_spark()
+end)
+addHook("Clear_Press",function(data, uid)
+	tpt.reset_velocity()
+	tpt.set_pressure()
+end)
+addHook("Invert_Press",function(data, uid)
+	for x=0,152 do
+		for y=0,95 do
+			sim.pressure(x,y,-sim.pressure(x,y))
 		end
-		chatwindow:addline("Online: "..table.concat(peeps," "),255,255,50)
-	end,
-	[17]= function()
-		local id = cByte()
-		con.members[id] ={name=conGetNull(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,replacemode=0,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
-		chatwindow:addline(con.members[id].name.." has joined",100,255,100)
-	end,
-	[18] = function()
-		local id = cByte()
-		chatwindow:addline(con.members[id].name.." has left",255,255,100)
-		con.members[id]=nil
-	end,
-	[19] = function()
-		chatwindow:addline(con.members[cByte()].name .. ": " .. conGetNull())
-	end,
-	[20] = function()
-		chatwindow:addline("* "..con.members[cByte()].name .. " " .. conGetNull())
-	end,
-	[22] = function()
-		--TODO: REMOVE [SERVER], add it in places that use this
-		chatwindow:addline("[SERVER] "..conGetNull(), cByte(), cByte(), cByte())
-	end,
-	[23] = function()
-		local stabbed = cByte()
-		L.stabbed = (stabbed == 1)
-		chatwindow:addline("You have been "..(stabbed == 1 and "stabbed; You can't modify the simulation." or "unstabbed."), 255, 50, 50)
-	end,
-	[24] = function()
-		local muted = cByte()
-		L.muted = (muted == 1)
-		chatwindow:addline("You have been "..(muted == 1 and "muted; You can't talk." or "unmuted."), 255, 50, 50)
-	end,
-	--Mouse Position
-	[32] = function()
-		local id = cByte()
-		local b1,b2,b3=cByte(),cByte(),cByte()
-		con.members[id].mousex,con.members[id].mousey=((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
-		playerMouseMove(id)
-	end,
-	--Mouse Click
-	[33] = function()
-		local id = cByte()
-		local d=cByte()
-		local btn,ev=math.floor(d/16),d%16
-		playerMouseClick(id,btn,ev)
-		if ev==0 then return end
-		if btn==1 then
-			con.members[id].lbtn=ev
-		elseif btn==2 then
-			con.members[id].abtn=ev
-		elseif btn==4 then
-			con.members[id].rbtn=ev
-		end
-	end,
-	--Brush size
-	[34] = function()
-		local id = cByte()
-		con.members[id].brushx,con.members[id].brushy=cByte(),cByte()
-	end,
-	--Brush Shape change, no args
-	[35] = function() --TODO: Changed to Brush_State, not changes
-		local id = cByte()
-		con.members[id].brush=(con.members[id].brush+1)%3
-	end,
-	--Modifier (mod and state)
-	[36] = function()
-		local id = cByte()
-		local d=cByte()
-		local mod,state=math.floor(d/16),d%16~=0
-		if mod==0 then
-			con.members[id].ctrl=state
-		elseif mod==1 then
-			con.members[id].shift=state
-		elseif mod==2 then
-			con.members[id].alt=state
-		end
-	end,
-	--selected elements (2 bits button, 14-element)
-	[37] = function()
-		local id = cByte()
-		local b1,b2=cByte(),cByte()
-		local btn,el=math.floor(b1/64),(b1%64)*256+b2
-		if btn==0 then
-			con.members[id].selectedl=el
-		elseif btn==1 then
-			con.members[id].selecteda=el
-		elseif btn==2 then
-			con.members[id].selectedr=el
-		elseif btn==3 then
-			--sync replace mode element between all players since apparently you have to set tpt.selectedreplace to use replace mode ...
-			tpt.selectedreplace = elem.property(el, "Identifier")
-		end
-	end,
-	--replace mode / specific delete
-	[38] = function()
-		local id = cByte()
-		local mod = cByte()
-		con.members[id].replacemode = mod
-	end,
-	--mouse moved in or out of zoom window (cancel drawing unless it is a line/box/flood fill)
-	[39] = function()
-		local id = cByte()
-		if con.members[id].drawtype == 4 then
-			con.members[id].drawType = false
-			con.members[id].lbtn, con.members[id].rbtn, con.members[id].abtn = false, false, false
-		end
-	end,
-	--cmode defaults (1 byte mode)
-	[48] = function()
-		local id = cByte()
-		tpt.display_mode(cByte())
-		cmodeText:reset(con.members[id].name.." set:")
-	end,
-	--pause set (1 byte state)
-	[49] = function()
-		local id = cByte()
-		local p,str = cByte(),"Pause"
-		tpt.set_pause(p)
-		if p==0 then str="Unpause" end
-		infoText:reset(str.." from "..con.members[id].name)
-	end,
-	--step frame, no args
-	[50] = function()
-		local id = cByte()
-		tpt.set_pause(0)
-		L.pauseNextFrame=true
-	end,
-
-	--deco mode, (1 byte state)
-	[51] = function()
-		local id = cByte()
-		tpt.decorations_enable(cByte())
-		cmodeText:reset(con.members[id].name.." set:")
-	end,
-	--[[HUD mode, (1 byte state), deprecated
-	[52] = function()
-		local id = cByte()
-		local hstate = cByte()
-		tpt.hud(hstate)
-	end,
-	--]]
-	--amb heat mode, (1 byte state)
-	[53] = function()
-		local id = cByte()
-		tpt.ambient_heat(cByte())
-	end,
-	--newt_grav mode, (1 byte state)
-	[54] = function()
-		local id = cByte()
-		tpt.newtonian_gravity(cByte())
-	end,
-
-	--[[
-	--debug mode (1 byte state?) can't implement
-	[55] = function()
-		local id = cByte()
-		--local dstate = cByte()
-		tpt.setdebug()
-	end,
-	--]]
-	--legacy heat mode, (1 byte state)
-	[56] = function()
-		local id = cByte()
-		tpt.heat(cByte())
-	end,
-	--water equal, (1 byte state)
-	[57] = function()
-		local id = cByte()
-		sim.waterEqualisation(cByte())
-	end,
-
-	--grav mode, (1 byte state)
-	[58] = function()
-		local id = cByte()
-		local mode = cByte()
-		sim.gravityMode(mode)
-		cmodeText:reset(con.members[id].name.." set: Gravity: "..gravList[mode])
-	end,
-	--air mode, (1 byte state)
-	[59] = function()
-		local id = cByte()
-		local mode=cByte()
-		sim.airMode(mode)
-		cmodeText:reset(con.members[id].name.." set: Air: "..airList[mode])
-	end,
-
-	--clear sparks (no args)
-	[60] = function()
-		local id = cByte()
-		tpt.reset_spark()
-	end,
-	--clear pressure/vel (no args)
-	[61] = function()
-		local id = cByte()
-		tpt.reset_velocity()
-		tpt.set_pressure()
-	end,
-	--invert pressure (no args)
-	[62] = function()
-		local id = cByte()
-		for x=0,152 do
-			for y=0,95 do
-				sim.pressure(x,y,-sim.pressure(x,y))
-			end
-		end
-	end,
-	--Clearsim button (no args)
-	[63] = function()
-		local id = cByte()
-		sim.clearSim()
-		L.lastSave=nil
-		infoText:reset(con.members[id].name.." cleared the screen")
-	end,
-	--Full graphics view mode (for manual changes in display menu) (3 bytes)
-	[64] = function()
-		local id = cByte()
-		local disM,renM,colM = cByte(),cByte(),cByte()
-		ren.displayModes({disM})
-		local t,i={},1
-		while i<=32 do
-			if bit.band(renM,i)>0 then table.insert(t,renModes[i]) end
-			i=i*2
-		end
-		ren.renderModes(t)
-		ren.colorMode(colM)
-	end,
-	--Selected deco colour (4 bytes)
-	[65] = function()
-		local id = cByte()
-		con.members[id].dcolour = {cByte(),cByte(),cByte(),cByte()}
-	end,
-	--Recieve a stamp, with location (6 bytes location(3),size(3))
-	[66] = function()
-		local id = cByte()
-		local b1,b2,b3=cByte(),cByte(),cByte()
-		local x,y =((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
-		local d = cByte()*65536+cByte()*256+cByte()
-		loadStamp(d,x,y,false)
-		infoText:reset("Stamp from "..con.members[id].name)
-	end,
-	--Clear an area, helper for cut (6 bytes, start(3), end(3))
-	[67] = function()
-		local id = cByte()
-		local b1,b2,b3,b4,b5,b6=cByte(),cByte(),cByte(),cByte(),cByte(),cByte()
-		local x1,y1 =((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
-		local x2,y2 =((b4*16)+math.floor(b5/16)),((b5%16)*256)+b6
-		--clear walls and parts
-		sim.clearRect(x1, y1, x2-x1+1, y2-y1+1)
-	end,
-	--Edge mode (1 byte state)
-	[68] = function()
-		local id = cByte()
-		sim.edgeMode(cByte())
-	end,
-	--Load a save ID (3 bytes ID)
-	[69] = function()
-		local id = cByte()
-		local saveID = cByte()*65536+cByte()*256+cByte()
-		L.lastSave=saveID
-		sim.loadSave(saveID,1)
-		L.browseMode=3
-	end,
-	--Reload sim(from a stamp right now, no args)
-	[70] = function()
-		local id = cByte()
-		sim.clearSim()
-		if not sim.loadStamp("stamps/tmp.stm",0,0) then
-			infoText:reset("Error reloading save from "..con.members[id].name)
-		end
-	end,
-	--A request to sync a player, from server, send screen, and various settings
-	[128] = function()
-		local id = cByte()
-		conSend(130,string.char(id,49,tpt.set_pause()))
-		local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
-		local f = assert(io.open(fullName,"rb"))
-		local s = f:read"*a"
-		f:close()
-		deleteStamp(stampName)
-		local d = #s
-		conSend(128,string.char(id,math.floor(d/65536),math.floor(d/256)%256,d%256)..s)
-		conSend(130,string.char(id,53,tpt.ambient_heat()))
-		conSend(130,string.char(id,54,tpt.newtonian_gravity()))
-		conSend(130,string.char(id,56,tpt.heat()))
-		conSend(130,string.char(id,57,sim.waterEqualisation()))
-		conSend(130,string.char(id,58,sim.gravityMode()))
-		conSend(130,string.char(id,59,sim.airMode()))
-		conSend(130,string.char(id,68,sim.edgeMode()))
-		conSend(64,string.char(unpack(getViewModes())))
-		conSend(34,string.char(tpt.brushx,tpt.brushy))
-	end,
-	--Recieve sync stamp
-	[129] = function()
-		local d = cByte()*65536+cByte()*256+cByte()
-		loadStamp(d,0,0,true)
-	end,
-}
+	end
+end)
+addHook("Clear_Sim",function(data, uid)
+	sim.clearSim()
+	L.lastSave=nil
+	infoText:reset(con.members[uid].name.." cleared the screen")
+end)
+addHook("View_Mode_Advanced",function(data, uid)
+	local disM,renM,colM = data.display(), data.render(), data.color()
+	ren.displayModes({disM})
+	local t,i={},1
+	while i<=32 do
+		if bit.band(renM,i)>0 then table.insert(t,renModes[i]) end
+		i=i*2
+	end
+	ren.renderModes(t)
+	ren.colorMode(colM)
+end)
+addHook("Selected_Deco",function(data, uid)
+	con.members[uid].dcolour = data.RGBA()
+end)
+addHook("Stamp_Data",function(data, uid)
+	local x, y = data.position.x(), data.position.y()
+	loadStamp(data.data(),x,y,false)
+	infoText:reset("Stamp from "..con.members[uid].name)
+end)
+addHook("Clear_Area",function(data, uid)
+	local x1, y1 = data.start.x(), data.start.y()
+	local x2, y2 = data.stop.x(), data.stop.y()
+	sim.clearRect(x1, y1, x2-x1+1, y2-y1+1)
+end)
+addHook("Edge_Mode",function(data, uid)
+	sim.edgeMode(data.state())
+end)
+addHook("Load_Save",function(data, uid)
+	local saveID = data.saveID()
+	L.lastSave=saveID
+	sim.loadSave(saveID,1)
+	L.browseMode=3
+end)
+addHook("Reload_Sim",function(data, uid)
+	sim.clearSim()
+	if not sim.loadStamp("stamps/tmp.stm",0,0) then
+		infoText:reset("Error reloading save from "..con.members[uid].name)
+	end
+end)
+addHook("Req_Player_Sync",function(data, uid)
+	--Create a single sync packet and change it over and over
+	local sync = P.Player_Sync.userID(data.userID())
+	sendProtocol(sync.proto(protoNames["Pause_State"]).state(tpt.set_pause()))
+	local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
+	local f = assert(io.open(fullName,"rb"))
+	local s = f:read"*a"
+	f:close()
+	deleteStamp(stampName)
+	--Should this clear area too?
+	sendProtocol(sync.proto(protoNames["Stamp_Data"]).data(s))
+	sendProtocol(sync.proto(protoNames["Ambient_State"]).state(tpt.ambient_heat()))
+	sendProtocol(sync.proto(protoNames["NGrav_State"]).state(tpt.newtonian_gravity()))
+	sendProtocol(sync.proto(protoNames["Heat_State"]).state(tpt.heat()))
+	sendProtocol(sync.proto(protoNames["Equal_State"]).state(sim.waterEqualisation()))
+	sendProtocol(sync.proto(protoNames["Grav_Mode"]).state(sim.gravityMode()))
+	sendProtocol(sync.proto(protoNames["Air_Mode"]).state(sim.airMode()))
+	sendProtocol(sync.proto(protoNames["Edge_Mode"]).state(sim.edgeMode()))
+	local t = getViewModes()
+	sendProtocol(sync.proto(protoNames["View_Mode_Advanced"]).display(t[1]).render(t[2]).color(t[3]))
+end)
 
 local function connectThink()
 	if not con.connected then return end
-	if not con.socket then disconnected() return end
+	if not con.socket then disconnected("No Socket") return end
 	--read all messages
 	while 1 do
-		local s,r = con.socket:receive(1)
-		if s then
-			local cmd = string.byte(s)
-			--_print("GOT "..tostring(cmd))
-			if dataCmds[cmd] then dataCmds[cmd]() else _print("TPTMP: Unknown protocol "..tostring(cmd),255,20,20) end
+		local cmd,r = getByte()
+		if cmd then
+			if not protoNames[cmd] then _print("Unknown Protocol, Sad") disconnected("Unknown Proto") break end
+			local uid
+			if not noIDProt[cmd] then uid = getByte() end
+			_print("Trying to get protocol "..cmd)
+			local prot = protocolArray(cmd):readData(con.socket)
+			_print("Got "..protoNames[cmd].." from "..(uid and con.members[uid].name or "server").." "..prot:tostring())
+			if dataHooks[cmd] then
+				for i,v in ipairs(dataHooks[cmd]) do
+					--Hooks can return true to stop future hooks
+					if v(prot,uid) then break end
+				end
+			else
+				_print("No hooks for "..protoNames[cmd])
+			end
 		else
-			if r ~= "timeout" then disconnected() end
+			if r ~= "timeout" then disconnected("moo4"..r) end
 			break
 		end
 	end
 
 	--ping every minute
-	if os.time()>con.pingTime then conSend(2) con.pingTime=os.time()+60 end
+	if os.time()>con.pingTime then sendProtocol(P.Ping) con.pingTime=os.time()+60 end
 end
 --Track if we have STKM2 out, for WASD key changes
 elements.property(128,"Update",function() L.stick2=true end)
@@ -1371,7 +1312,7 @@ local function sendStuff()
 	local nbx,nby = tpt.brushx,tpt.brushy
 	if L.brushx~=nbx or L.brushy~=nby and not L.stabbed then
 		L.brushx,L.brushy = nbx,nby
-		sendProtocol(P.Brush_Size.x(L.brushx,L.brushy))
+		sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
 	end
 	--check selected elements
 	local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
@@ -1507,20 +1448,20 @@ end
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
 	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end},
-	["rload"] = {x1=19, y1=408, x2=35, y2=422, f=function() if L.lastSave then if L.ctrl then infoText:reset("If you re-opened the save, please type /sync") else conSend(70) end else infoText:reset("Reloading local saves is not synced currently. Type /sync") end end},
-	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() conSend(63) L.lastSave=nil end},
+	["rload"] = {x1=19, y1=408, x2=35, y2=422, f=function() if L.lastSave then if L.ctrl then infoText:reset("If you re-opened the save, please type /sync") else sendProtocol(P.Reload_Sim) end else infoText:reset("Reloading local saves is not synced currently. Type /sync") end end},
+	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() sendProtocol(P.Clear_Sim) L.lastSave=nil end},
 	["opts"] = {x1=581, y1=408, x2=595, y2=422, f=function() L.checkOpt=true end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
-	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end},
-	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") end},
-	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end},
-	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end},
+	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end},
+	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) end},
+	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.NGrav_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end},
+	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Ambient_State.state(bit.bxor(tpt.ambient_heat(),1))) end},
 }
 if jacobsmod then
 	tpt_buttons["tab"] = {x1=613, y1=1, x2=627, y2=15, f=function() L.tabs = not L.tabs end}
 	tpt_buttons["tabs"] = {x1=613, y1=17, x2=627, y2=147, f=function() if L.tabs or L.ctrl then L.sendScreen = true end end}
 	tpt_buttons["opts"] = {x1=465, y1=408, x2=479, y2=422, f=function() L.checkOpt=true end}
-	tpt_buttons["clear"] = {x1=481, y1=408, x2=497, y2=422, f=function() conSend(63) L.lastSave=nil end}
+	tpt_buttons["clear"] = {x1=481, y1=408, x2=497, y2=422, f=function() sendProtocol(P.Clear_Sim) L.lastSave=nil end}
 	tpt_buttons["disp"] = {x1=595, y1=408, x2=611, y2=422,f=function() L.checkRen=2 L.pModes=getViewModes() end}
 	tpt_buttons["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=4 else L.browseMode=5 end L.lastSave=sim.getSaveID() end}
 end
@@ -1536,7 +1477,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		mousex,mousey = sim.adjustCoords(mousex,mousey)
 		L.mouseInZoom = oldx ~= mousex or oldy ~= mousey
 		if L.mouseInZoom ~= lastMouseInZoom then
-			conSend(39)
+			sendProtocol(P.Zoom_State)
 		end
 	end
 	if L.stamp and button>0 and button~=2 then
@@ -1554,7 +1495,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 				--cheap cut hook to send a clear
 				if L.copying==1 then
 					--maybe this is ctrl+x? 67 is clear area
-					conSend(67,string.char(math.floor(L.stampx/16),((L.stampx%16)*16)+math.floor(L.stampy/256),(L.stampy%256),math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)))
+					sendProtocol(P.Clear_Area.start.x(L.stampx).start.y(L.stampy).stop.x(sx).stop.y(sy))
 				end
 				local w,h = sx-L.stampx,sy-L.stampy
 				local stampName,fullName = saveStamp(L.stampx,L.stampy,w,h)
@@ -1592,9 +1533,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 						if sy<0 then sy=0 end
 						if sx+stm.w>sim.XRES-1 then sx=sim.XRES-stm.w end
 						if sy+stm.h>sim.YRES-1 then sy=sim.YRES-stm.h end
-						local b1,b2,b3 = math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)
-						local d = #stm.data
-						conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..stm.data)
+						sendProtocol(P.Stamp_Data.position.x(sx).position.y(sy).data(stm.data))
 					end
 				end
 			end
@@ -1611,13 +1550,11 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	if button~=obut or event~=oevnt then
 		L.mButt,L.mEvent = button,event
 		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
-		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
-		conSend(32,string.char(b1,b2,b3))
+		sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
 		L.mousex,L.mousey = mousex,mousey
-		conSend(33,string.char(L.mButt*16+L.mEvent))
+		sendProtocol(P.Mouse_Click.click.button(L.mButt).click.event(L.mEvent))
 	elseif L.mEvent==3 and (L.mousex~=mousex or L.mousey~=mousey) then
-		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
-		conSend(32,string.char(b1,b2,b3))
+		sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
 		L.mousex,L.mousey = mousex,mousey
 	end
 
@@ -1652,40 +1589,40 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 end
 
 local keypressfuncs = {
-	--TAB
-	[9] = function() if not jacobsmod or not L.ctrl then conSend(35) end end,
+	--TAB, Override brush changes, disables custom brushes
+	[9] = function() if not jacobsmod or not L.ctrl then tpt.brushID = (tpt.brushID+1)%3 sendProtocol(P.Brush_Shape.shape(tpt.brushID)) return false end end,
 
 	--ESC
 	[27] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
 
 	--space, pause toggle
-	[32] = function() if L.stabbed then return false end conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
+	[32] = function() if L.stabbed then return false end sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end,
 
 	--View modes 0-9
-	[48] = function() if L.stabbed then return false end conSend(48,"\10") end,
-	[49] = function() if L.stabbed then return false end if L.shift then conSend(48,"\9") tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end conSend(48,"\0") end,
-	[50] = function() if L.stabbed then return false end conSend(48,"\1") end,
-	[51] = function() if L.stabbed then return false end conSend(48,"\2") end,
-	[52] = function() if L.stabbed then return false end conSend(48,"\3") end,
-	[53] = function() if L.stabbed then return false end conSend(48,"\4") end,
-	[54] = function() if L.stabbed then return false end conSend(48,"\5") end,
-	[55] = function() if L.stabbed then return false end conSend(48,"\6") end,
-	[56] = function() if L.stabbed then return false end conSend(48,"\7") end,
-	[57] = function() if L.stabbed then return false end conSend(48,"\8") end,
+	[48] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(10)) end,
+	[49] = function() if L.stabbed then return false end if L.shift then sendProtocol(P.View_Mode_Simple.mode(9)) tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end sendProtocol(P.View_Mode_Simple) end,
+	[50] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(1)) end,
+	[51] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(2)) end,
+	[52] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(3)) end,
+	[53] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(4)) end,
+	[54] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(5)) end,
+	[55] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(6)) end,
+	[56] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(7)) end,
+	[57] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(8)) end,
 
 	--semicolon / ins / del for replace mode
-	[59] = function() if L.stabbed then return false end if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end conSend(38, L.replacemode) end,
-	[277] = function() if L.stabbed then return false end L.replacemode = bit.bxor(L.replacemode, 1) conSend(38, L.replacemode) end,
-	[127] = function() if L.stabbed then return false end L.replacemode = bit.bxor(L.replacemode, 2) conSend(38, L.replacemode) end,
+	[59] = function() if L.stabbed then return false end if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end sendProtocol(P.Replace_Mode.replacemode(L.replacemode)) end,
+	[277] = function() if L.stabbed then return false end L.replacemode = bit.bxor(L.replacemode, 1) sendProtocol(P.Replace_Mode.replacemode(L.replacemode)) end,
+	[127] = function() if L.stabbed then return false end L.replacemode = bit.bxor(L.replacemode, 2) sendProtocol(P.Replace_Mode.replacemode(L.replacemode)) end,
 
 	--= key, pressure/spark reset
-	[61] = function() if L.stabbed then return false end if L.ctrl then conSend(60) else conSend(61) end end,
+	[61] = function() if L.stabbed then return false end if L.ctrl then sendProtocol(P.Clear_Spark) else sendProtocol(P.Clear_Press) end end,
 
 	--`, console
 	[96] = function() if L.stabbed then return false end if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false end end,
 
 	--b , deco, pauses sim
-	[98] = function() if L.stabbed then return false end if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
+	[98] = function() if L.stabbed then return false end if L.ctrl then sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) else sendProtocol(P.Pause_State.state(1)) sendProtocol(P.Deco_State.state(1)) end end,
 
 	--c , copy
 	[99] = function() if L.ctrl then L.stamp=true L.copying=true L.stampx = -1 L.stampy = -1 end end,
@@ -1694,13 +1631,13 @@ local keypressfuncs = {
 	--[100] = function() if L.stabbed then return false end  conSend(55) end,
 
 	--F , frame step
-	[102] = function() if L.stabbed then return false end if not jacobsmod or not L.ctrl then conSend(50) end end,
+	[102] = function() if L.stabbed then return false end if not jacobsmod or not L.ctrl then sendProtocol(P.Frame_Step) end end,
 
 	--H , HUD and intro text
 	[104] = function() if L.stabbed then return false end if L.ctrl and jacobsmod then return false end end,
 
 	--I , invert pressure
-	[105] = function() if L.stabbed then return false end  conSend(62) end,
+	[105] = function() if L.stabbed then return false end sendProtocol(P.Invert_Press) end,
 
 	--K , stamp menu, abort our known stamp, who knows what they picked, send full screen?
 	[107] = function() L.lastStamp={data=nil,w=0,h=0}  if L.stabbed then return false end L.placeStamp=true end,
@@ -1709,13 +1646,13 @@ local keypressfuncs = {
 	[108] = function() if L.stabbed then return false end if L.lastStamp then L.placeStamp=true end end,
 
 	--N , newtonian gravity or new save
-	[110] = function() if L.stabbed then return false end if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
+	[110] = function() if L.stabbed then return false end if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else sendProtocol(P.Deco_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end end,
 
 	--O, old menu in jacobs mod
 	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 and showbutton.y < 150 then return false elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end end,
 
-	--R , for stamp rotate
-	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then conSend(70) end end,
+	--R , for stamp rotate, Reload
+	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then if L.stabbed then return false end sendProtocol(P.Reload_Sim) end end,
 
 	--S, stamp
 	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true L.stampx = -1 L.stampy = -1 end,
@@ -1724,7 +1661,7 @@ local keypressfuncs = {
 	[116] = function() if jacobsmod then L.tabs = not L.tabs end end,
 
 	--U, ambient heat toggle
-	[117] = function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end,
+	[117] = function() sendProtocol(P.Ambient_State.state(bit.bxor(tpt.ambient_heat(),1))) end,
 
 	--V, paste the copystamp
 	[118] = function() if L.stabbed then return false end if L.ctrl and L.lastCopy then L.placeStamp=true L.copying=true end end,
@@ -1733,8 +1670,8 @@ local keypressfuncs = {
 	[120] = function() if L.stabbed then return false end if L.ctrl then L.stamp=true L.copying=1 L.stampx = -1 L.stampy = -1 end end,
 
 	--W,Y (grav mode, air mode)
-	[119] = function() if L.stabbed then return false end if L.lastStick2 and not L.ctrl then return end conSend(58,string.char((sim.gravityMode()+1)%3)) return true end,
-	[121] = function() if L.stabbed then return false end conSend(59,string.char((sim.airMode()+1)%5)) return true end,
+	[119] = function() if L.stabbed then return false end if L.lastStick2 and not L.ctrl then return end sendProtocol(P.Grav_Mode.state((sim.gravityMode()+1)%3))  return true end,
+	[121] = function() if L.stabbed then return false end sendProtocol(P.Air_Mode.state((sim.airMode()+1)%5)) return true end,
 	--Z
 	[122] = function() myZ=true L.skipClick=true end,
 
@@ -1748,26 +1685,26 @@ local keypressfuncs = {
 	[282] = function() if jacobsmod then return false end end,
 
 	--F5 , save reload
-	[286] = function() if L.stabbed then return false end conSend(70) end,
+	[286] = function() if L.stabbed then return false end sendProtocol(P.Reload_Sim) end,
 
 	--SHIFT,CTRL,ALT
-	[303] = function() L.shift=true conSend(36,string.char(17)) end,
-	[304] = function() L.shift=true conSend(36,string.char(17)) end,
-	[305] = function() L.ctrl=true conSend(36,string.char(1)) end,
-	[306] = function() L.ctrl=true conSend(36,string.char(1)) end,
-	[307] = function() L.alt=true conSend(36,string.char(33)) end,
-	[308] = function() L.alt=true conSend(36,string.char(33)) end,
+	[303] = function() L.shift=true sendProtocol(P.Key_Mods.key.char(1).key.state(1)) end,
+	[304] = function() L.shift=true sendProtocol(P.Key_Mods.key.char(1).key.state(1)) end,
+	[305] = function() L.ctrl=true sendProtocol(P.Key_Mods.key.char(0).key.state(1)) end,
+	[306] = function() L.ctrl=true sendProtocol(P.Key_Mods.key.char(0).key.state(1)) end,
+	[307] = function() L.alt=true sendProtocol(P.Key_Mods.key.char(2).key.state(1)) end,
+	[308] = function() L.alt=true sendProtocol(P.Key_Mods.key.char(2).key.state(1)) end,
 }
 local keyunpressfuncs = {
 	--Z
 	[122] = function() myZ=false L.skipClick=false if L.alt then L.skipClick=true end end,
 	--SHIFT,CTRL,ALT
-	[303] = function() L.shift=false conSend(36,string.char(16)) end,
-	[304] = function() L.shift=false conSend(36,string.char(16)) end,
-	[305] = function() L.ctrl=false conSend(36,string.char(0)) end,
-	[306] = function() L.ctrl=false conSend(36,string.char(0)) end,
-	[307] = function() L.alt=false conSend(36,string.char(32)) end,
-	[308] = function() L.alt=false conSend(36,string.char(32)) end,
+	[303] = function() L.shift=false sendProtocol(P.Key_Mods.key.char(1).key.state(0)) end,
+	[304] = function() L.shift=false sendProtocol(P.Key_Mods.key.char(1).key.state(0)) end,
+	[305] = function() L.ctrl=false sendProtocol(P.Key_Mods.key.char(0).key.state(0)) end,
+	[306] = function() L.ctrl=false sendProtocol(P.Key_Mods.key.char(0).key.state(0)) end,
+	[307] = function() L.alt=false sendProtocol(P.Key_Mods.key.char(2).key.state(0)) end,
+	[308] = function() L.alt=false sendProtocol(P.Key_Mods.key.char(2).key.state(0)) end,
 }
 local function keyclicky(key,nkey,modifier,event)
 	if not hooks_enabled then
