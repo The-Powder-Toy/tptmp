@@ -103,7 +103,7 @@ local succ,err=pcall(function()
 	end
 	function sendProtocol(socket,proto,id)
 		local prot = proto.protoID
-		--print("sending "..protoNames[prot])
+		--print("sending "..(protoNames[prot] or prot))
 		local head = string.char(prot)..(noIDProt[prot] and "" or string.char(id))
 		socket:send(head..proto:writeData())
 	end
@@ -187,7 +187,7 @@ local succ,err=pcall(function()
 		-- Ask for a sync from oldest user
 		if #rooms[room]>1 then
 			print("asking "..rooms[room][1].." to provide sync")
-			sendProtocol(clients[rooms[room][1]],P.Req_Player_Sync.userID(id))
+			sendProtocol(clients[rooms[room][1]].socket,P.Req_Player_Sync.userID(id))
 			clients[rooms[room][1]].synced = {[id]={}}
 		end
 	end
@@ -419,7 +419,7 @@ local succ,err=pcall(function()
 		return true
 	end)
 	addHook("User_Me",function(client, id, data)
-		print("* "..client.nick.." "..msg)
+		print("* "..client.nick.." "..data.msg())
 		sendroomexcept(client.room,id,data)
 	end)
 	addHook("User_Kick",function(client, id, data)
@@ -513,7 +513,7 @@ local succ,err=pcall(function()
 	end)
 	addHook("Stamp_Data",function(client, id, data)
 		if data.data() then
-			print("STAMP! Loaded From "..client.nick.." size "..data.totalSize())
+			print("STAMP! Loaded From "..client.nick.." size "..data:totalSize())
 			sendroomexcept(client.room,id,data)
 		else disconnect(id, "Failed stamp data")
 		end

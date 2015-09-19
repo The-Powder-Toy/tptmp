@@ -73,7 +73,7 @@ local function sendProtocol(proto)
 	local prot = proto.protoID
 	if L.stabbed and editSim[prot] then return false,"No Permission" end
 	con.socket:settimeout(10)
-	_print("Sending "..proto:tostring())
+	--_print("Sending "..proto:tostring())
 	con.socket:send(string.char(prot)..proto:writeData())
 	con.socket:settimeout(0)
 end
@@ -808,6 +808,7 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
+			--Fix deco
 			sim.decoBrush(x,y,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart,brush)
 		end
 		return
@@ -829,6 +830,7 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 		elseif c<=toolEnd then
 			if c>=toolStart then local str=1.0 if user.drawtype==4 then if user.shift then str=10.0 elseif user.alt then str=0.1 end end sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush,str) end
 		elseif c<= decoEnd then
+			--Fix deco
 			sim.decoLine(x1,y1,x2,y2,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart,brush)
 		end
 		return
@@ -1226,9 +1228,9 @@ local function connectThink()
 			if not protoNames[cmd] then _print("Unknown Protocol, Sad") disconnected("Unknown Proto") break end
 			local uid
 			if not noIDProt[cmd] then uid = getByte() end
-			_print("Trying to get protocol "..cmd)
+			--_print("Trying to get protocol "..cmd)
 			local prot = protocolArray(cmd):readData(con.socket)
-			_print("Got "..protoNames[cmd].." from "..(uid and con.members[uid].name or "server").." "..prot:tostring())
+			--_print("Got "..protoNames[cmd].." from "..(uid or "server").." "..prot:tostring())
 			if dataHooks[cmd] then
 				for i,v in ipairs(dataHooks[cmd]) do
 					--Hooks can return true to stop future hooks
@@ -1349,7 +1351,7 @@ local function sendStuff()
 			--save a backup for the reload button
 			local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
 			os.remove("stamps/tmp.stm") os.rename(fullName,"stamps/tmp.stm")
-			sendProtocol(P.Load_Save(id))
+			sendProtocol(P.Load_Save.saveID(id))
 			deleteStamp(stampName)
 		end
 		L.browseMode=nil
