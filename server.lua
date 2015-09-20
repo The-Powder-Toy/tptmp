@@ -103,7 +103,7 @@ local succ,err=pcall(function()
 	end
 	function sendProtocol(socket,proto,id)
 		local prot = proto.protoID
-		--print("sending "..(protoNames[prot] or prot))
+		if not prot then print("Nil protocol "..proto:tostring()) return end
 		local head = string.char(prot)..(noIDProt[prot] and "" or string.char(id))
 		socket:send(head..proto:writeData())
 	end

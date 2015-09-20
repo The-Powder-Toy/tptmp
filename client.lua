@@ -1067,7 +1067,7 @@ addHook("Brush_Shape",function(data, uid)
 	con.members[uid].brush = data.shape()
 end)
 addHook("Key_Mods",function(data, uid)
-	local mod, state = data.key.char(), data.key.state()
+	local mod, state = data.key.char(), data.key.state()==1
 	if mod==0 then
 		con.members[uid].ctrl=state
 	elseif mod==1 then
