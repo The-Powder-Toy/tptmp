@@ -128,7 +128,7 @@ local succ,err=pcall(function()
 	-- leave a room
 	function leave(room,uid)
 		--print(clients[uid].nick.." left "..room)
-		sendroomexcept(room,uid,"\18"..string.char(uid))
+		sendroomexcept(room,uid,P.User_Leave)
 		for i,id in ipairs(rooms[room]) do
 			if id==uid then
 				table.remove(rooms[room],i)
@@ -168,8 +168,8 @@ local succ,err=pcall(function()
 			sendProtocol(client.socket,P.Chan_Member.name(clients[uid].nick),uid)
 			sendProtocol(client.socket,P.Brush_Shape.shape(clients[uid].brush),uid)
 			sendProtocol(client.socket,P.Brush_Size.x(clients[uid].brushX).y(clients[uid].brushY),uid)
-			for i=1,4 do
-				sendProtocol(client.socket,P.Selected_Elem.selected.button(i).selected.elem(clients[uid].selection[i]),uid)
+			for i=0,3 do
+				sendProtocol(client.socket,P.Selected_Elem.selected.button(i).selected.elem(clients[uid].selection[i+1]),uid)
 			end
 			sendProtocol(client.socket,P.Replace_Mode.replacemode(clients[uid].replacemode),uid)
 			sendProtocol(client.socket,P.Selected_Deco.RGBA(clients[uid].deco),uid)
@@ -179,16 +179,17 @@ local succ,err=pcall(function()
 		sendroomexcept(room,id,P.User_Join.name(client.nick))
 		sendroomexcept(room,id,P.Brush_Shape.shape(client.brush))
 		sendroomexcept(room,id,P.Brush_Size.x(client.brushX).y(client.brushY))
-		for i=1,4 do
-			sendroomexcept(room,id,P.Selected_Elem.selected.button(i).selected.elem(clients[id].selection[i]))
+		for i=0,3 do
+			sendroomexcept(room,id,P.Selected_Elem.selected.button(i).selected.elem(clients[id].selection[i+1]))
 		end
 		sendroomexcept(room,id,P.Replace_Mode.replacemode(client.replacemode))
 		sendroomexcept(room,id,P.Selected_Deco.RGBA(client.deco))
 		-- Ask for a sync from oldest user
 		if #rooms[room]>1 then
-			print("asking "..rooms[room][1].." to provide sync")
-			sendProtocol(clients[rooms[room][1]].socket,P.Req_Player_Sync.userID(id))
-			clients[rooms[room][1]].synced = {[id]={}}
+			local first = rooms[room][1]
+			print("asking "..first.." to provide sync for "..id)
+			sendProtocol(clients[first].socket,P.Req_Player_Sync.userID(id))
+			clients[first].synced = {[id]={}}
 		end
 	end
 
@@ -523,13 +524,13 @@ local succ,err=pcall(function()
 	addHook("Load_Save",genericRelay)
 	addHook("Reload_Sim",genericRelay)
 	addHook("Player_Sync",function(client, id, data)
-		local prot, user = data.proto(), clients[data.userID()]
+		local prot, uid = data.proto(), data.userID()
 		--Confirm packet is even allowed
 		if not editSim[prot] then return end
-		--Confirm userID only gets 1 of each and from proper user, user.synced[id] will only exist if requested
-		if not user.synced[id] or user.synced[id][prot] then return end
-		user.synced[id][prot]=true
-		sendRawString(user.socket,string.char(prot)..string.char(id)..data.data())
+		--Confirm userID only gets 1 of each and from proper user, client.synced[id] will only exist if requested
+		if not client.synced[uid] or client.synced[uid][prot] then return end
+		client.synced[uid][prot]=true
+		sendRawString(clients[uid].socket,string.char(prot)..string.char(id)..data.data())
 	end)
 	
 	--Add these hooks into first slot, runs before others

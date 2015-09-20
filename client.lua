@@ -77,6 +77,9 @@ local function sendProtocol(proto)
 	con.socket:send(string.char(prot)..proto:writeData())
 	con.socket:settimeout(0)
 end
+local function sendSync(sync,proto)
+	sendProtocol(sync.proto(proto.protoID).data(proto:writeData()))
+end
 local function joinChannel(chan)
 	sendProtocol(P.Join_Chan.chan(chan))
 end
@@ -924,9 +927,10 @@ local function playerMouseClick(id,btn,ev)
 		user.lbtn,user.abtn = false,false
 		createE,checkBut=user.selectedr,user.rbtn
 	else return end
-
-	if user.mousex>=sim.XRES or user.mousey>=sim.YRES then user.drawtype=false return end
-
+	
+	if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
+	if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
+	
 	if ev==1 then
 		user.pmx,user.pmy = user.mousex,user.mousey
 		if not user.drawtype then
@@ -1199,23 +1203,23 @@ end)
 addHook("Req_Player_Sync",function(data, uid)
 	--Create a single sync packet and change it over and over
 	local sync = P.Player_Sync.userID(data.userID())
-	sendProtocol(sync.proto(protoNames["Pause_State"]).state(tpt.set_pause()))
+	sendSync(sync,P.Pause_State.state(tpt.set_pause()))
 	local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
 	local f = assert(io.open(fullName,"rb"))
 	local s = f:read"*a"
 	f:close()
 	deleteStamp(stampName)
-	--Should this clear area too?
-	sendProtocol(sync.proto(protoNames["Stamp_Data"]).data(s))
-	sendProtocol(sync.proto(protoNames["Ambient_State"]).state(tpt.ambient_heat()))
-	sendProtocol(sync.proto(protoNames["NGrav_State"]).state(tpt.newtonian_gravity()))
-	sendProtocol(sync.proto(protoNames["Heat_State"]).state(tpt.heat()))
-	sendProtocol(sync.proto(protoNames["Equal_State"]).state(sim.waterEqualisation()))
-	sendProtocol(sync.proto(protoNames["Grav_Mode"]).state(sim.gravityMode()))
-	sendProtocol(sync.proto(protoNames["Air_Mode"]).state(sim.airMode()))
-	sendProtocol(sync.proto(protoNames["Edge_Mode"]).state(sim.edgeMode()))
+	sendSync(sync,P.Clear_Area.start.x(0).start.y(0).stop.x(sim.XRES-1).stop.y(sim.YRES-1))
+	sendSync(sync,P.Stamp_Data.data(s))
+	sendSync(sync,P.Ambient_State.state(tpt.ambient_heat()))
+	sendSync(sync,P.NGrav_State.state(tpt.newtonian_gravity()))
+	sendSync(sync,P.Heat_State.state(tpt.heat()))
+	sendSync(sync,P.Equal_State.state(sim.waterEqualisation()))
+	sendSync(sync,P.Grav_Mode.state(sim.gravityMode()))
+	sendSync(sync,P.Air_Mode.state(sim.airMode()))
+	sendSync(sync,P.Edge_Mode.state(sim.edgeMode()))
 	local t = getViewModes()
-	sendProtocol(sync.proto(protoNames["View_Mode_Advanced"]).display(t[1]).render(t[2]).color(t[3]))
+	sendSync(sync,P.View_Mode_Advanced.display(t[1]).render(t[2]).color(t[3]))
 end)
 
 local function connectThink()
@@ -1555,9 +1559,6 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
 		L.mousex,L.mousey = mousex,mousey
 		sendProtocol(P.Mouse_Click.click.button(L.mButt).click.event(L.mEvent))
-	elseif L.mEvent==3 and (L.mousex~=mousex or L.mousey~=mousey) then
-		sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
-		L.mousex,L.mousey = mousex,mousey
 	end
 
 	--Click inside button first
