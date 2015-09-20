@@ -1556,8 +1556,10 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	if button~=obut or event~=oevnt then
 		L.mButt,L.mEvent = button,event
 		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
-		sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
-		L.mousex,L.mousey = mousex,mousey
+		if L.mEvent~=3 then
+			sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
+			L.mousex,L.mousey = mousex,mousey
+		end
 		sendProtocol(P.Mouse_Click.click.button(L.mButt).click.event(L.mEvent))
 	end
 
