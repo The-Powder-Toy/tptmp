@@ -84,6 +84,7 @@ local function joinChannel(chan)
 	sendProtocol(P.Join_Chan.chan(chan))
 end
 function connectToServer(ip,port,nick)
+	
 	if con.connected then return false,"Already connected" end
 	ip = ip or "starcatcher.us"
 	port = port or PORT
@@ -105,13 +106,13 @@ function connectToServer(ip,port,nick)
 	local prot = string.byte(c)
 	--Only a few packets are allowed during connection
 	if prot == protoNames["Disconnect"] then
+		con.connected = false
 		local data = P.Disconnect:readData(sock)
 		local reason = data.reason()
 		if reason=="This nick is already on the server" then
 			nick = nick:gsub("(.)$",function(s) local n=tonumber(s) if n and n+1 <= 9 then return n+1 else return nick:sub(-1)..'0' end end)
 			return connectToServer(ip,port,nick)
 		end
-		con.connected = false
 		return false,reason
 	end
 	--Possibly receive changed username here? or later
@@ -927,11 +928,9 @@ local function playerMouseClick(id,btn,ev)
 		user.lbtn,user.abtn = false,false
 		createE,checkBut=user.selectedr,user.rbtn
 	else return end
-	
-	if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
-	if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
-	
 	if ev==1 then
+		if user.mousex>=sim.XRES then return end
+		if user.mousey>=sim.YRES then return end
 		user.pmx,user.pmy = user.mousex,user.mousey
 		if not user.drawtype then
 			--left box
@@ -946,6 +945,8 @@ local function playerMouseClick(id,btn,ev)
 		end
 		createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,user)
 	elseif ev==2 and checkBut and user.drawtype then
+		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
+		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
 		if user.drawtype==2 then
 			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
@@ -1098,7 +1099,7 @@ addHook("Replace_Mode",function(data, uid)
 end)
 addHook("Zoom_State",function(data, uid)
 	if con.members[uid].drawtype == 4 then
-		con.members[uid].drawType = false
+		con.members[uid].drawtype = false
 		con.members[uid].lbtn, con.members[uid].rbtn, con.members[uid].abtn = false, false, false
 	end
 end)
@@ -1556,7 +1557,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	if button~=obut or event~=oevnt then
 		L.mButt,L.mEvent = button,event
 		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
-		if L.mEvent~=3 then
+		if L.shift then --We don't track line mode, fixes in TPT coming to replace this
 			sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
 			L.mousex,L.mousey = mousex,mousey
 		end
