@@ -950,7 +950,7 @@ local function playerMouseClick(id,btn,ev)
 		if user.drawtype==2 then
 			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
-		else
+		elseif user.drawtype==1 then --The end of drawtype=3 would be drawn by playMouseMove
 			if user.alt then user.mousex,user.mousey = lineSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
 		end
@@ -1557,7 +1557,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	if button~=obut or event~=oevnt then
 		L.mButt,L.mEvent = button,event
 		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
-		if L.shift then --We don't track line mode, fixes in TPT coming to replace this
+		if event~=3 then --We don't track line mode, fixes in TPT coming to replace this
 			sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
 			L.mousex,L.mousey = mousex,mousey
 		end
