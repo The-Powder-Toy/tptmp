@@ -1056,10 +1056,12 @@ addHook("User_Mode",function(data, uid)
 end)
 addHook("Mouse_Pos",function(data, uid)
 	con.members[uid].mousex, con.members[uid].mousey = data.position.x(), data.position.y()
+	_print(data:tostring())
 	playerMouseMove(uid)
 end)
 addHook("Mouse_Click",function(data, uid)
 	local btn, ev = data.click.button(), data.click.event()
+	_print(data:tostring())
 	playerMouseClick(uid,btn,ev)
 end)
 addHook("Brush_Size",function(data, uid)
@@ -1301,20 +1303,23 @@ local function drawStuff()
 		end
 	end
 end
+local function updateBrush()
+	if tpt.brushx > 255 then tpt.brushx = 255 end
+	if tpt.brushy > 255 then tpt.brushy = 255 end
+	local nbx,nby = tpt.brushx,tpt.brushy
+	if L.brushx~=nbx or L.brushy~=nby then
+		L.brushx,L.brushy = nbx,nby
+		sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
+	end
+end
 
 local function sendStuff()
 	if not con.connected then return end
 	--mouse position every frame, not exactly needed, might be better/more accurate from clicks
-	if tpt.brushx > 255 then tpt.brushx = 255 end
-	if tpt.brushy > 255 then tpt.brushy = 255 end
-	local nbx,nby = tpt.brushx,tpt.brushy
-	if L.brushx~=nbx or L.brushy~=nby and not L.stabbed then
-		L.brushx,L.brushy = nbx,nby
-		sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
-	end
+	updateBrush()
 	local nmx,nmy = tpt.mousex,tpt.mousey
 	if nmx<sim.XRES and nmy<sim.YRES then nmx,nmy = sim.adjustCoords(nmx,nmy) end
-	if L.mousex~= nmx or L.mousey~= nmy then
+	if L.mousex~= nmx or L.mousey~= nmy and L.mEvent~=3 then
 		L.mousex,L.mousey = nmx,nmy
 		sendProtocol(P.Mouse_Pos.position.x(L.mousex).position.y(L.mousey))
 	end
@@ -1448,7 +1453,7 @@ end
 local tpt_buttons = {
 	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end},
 	["rload"] = {x1=19, y1=408, x2=35, y2=422, f=function() if L.lastSave then if L.ctrl then infoText:reset("If you re-opened the save, please type /sync") else sendProtocol(P.Reload_Sim) end else infoText:reset("Reloading local saves is not synced currently. Type /sync") end end},
-	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() sendProtocol(P.Clear_Sim) L.lastSave=nil end},
+	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() infoText:reset("You clicked CLEAR") sendProtocol(P.Clear_Sim) L.lastSave=nil end},
 	["opts"] = {x1=581, y1=408, x2=595, y2=422, f=function() L.checkOpt=true end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
 	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end},
@@ -1544,24 +1549,28 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 
 	if button > 0 and L.skipClick then L.skipClick=false return true end
 	if chatwindow:process(oldx,oldy,button,event,wheel) then return false end
-
-	local obut,oevnt = L.mButt,L.mEvent
+	
+	local obut,oevnt,t  = L.mButt,L.mEvent,{}
+	L.mButt,L.mEvent = button,event
+	
 	if button~=obut or event~=oevnt then
-		L.mButt,L.mEvent = button,event
-		--Update brush here too
-		if tpt.brushx > 255 then tpt.brushx = 255 end
-		if tpt.brushy > 255 then tpt.brushy = 255 end
-		local nbx,nby = tpt.brushx,tpt.brushy
-		if L.brushx~=nbx or L.brushy~=nby then
-			L.brushx,L.brushy = nbx,nby
-			sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
-		end
-		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
-		if event~=3 then --We don't track line mode, fixes in TPT coming to replace this
-			sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
+		updateBrush()
+		table.insert(t,P.Mouse_Click.click.button(L.mButt).click.event(L.mEvent))
+		if L.mousex ~= mousex or L.mousey ~= mousey then
 			L.mousex,L.mousey = mousex,mousey
+			if event==3 then
+				table.insert(t,P.Mouse_Pos.position.x(mousex).position.y(mousey))
+			else
+				table.insert(t,1,P.Mouse_Pos.position.x(mousex).position.y(mousey))
+			end
 		end
-		sendProtocol(P.Mouse_Click.click.button(L.mButt).click.event(L.mEvent))
+		for i,v in ipairs(t) do sendProtocol(v) end
+	elseif event==3 then
+		updateBrush()
+		if L.mousex ~= mousex or L.mousey ~= mousey then
+			L.mousex,L.mousey = mousex,mousey
+			sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
+		end
 	end
 
 	--Click inside button first
