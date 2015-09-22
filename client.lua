@@ -919,12 +919,15 @@ local function playerMouseClick(id,btn,ev)
 	--_print(tostring(btn)..tostring(ev))
 	if ev==0 then return end
 	if btn==1 then
+		user.lbtn=ev
 		user.rbtn,user.abtn = false,false
 		createE,checkBut=user.selectedl,user.lbtn
 	elseif btn==2 then
+		user.abtn=ev
 		user.rbtn,user.lbtn = false,false
 		createE,checkBut=user.selecteda,user.abtn
 	elseif btn==4 then
+		user.rbtn=ev
 		user.lbtn,user.abtn = false,false
 		createE,checkBut=user.selectedr,user.rbtn
 	else return end
@@ -950,7 +953,8 @@ local function playerMouseClick(id,btn,ev)
 		if user.drawtype==2 then
 			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
-		elseif user.drawtype==1 then --The end of drawtype=3 would be drawn by playMouseMove
+		else
+			L.skipDraw = true
 			if user.alt then user.mousex,user.mousey = lineSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
 		end
@@ -970,6 +974,7 @@ local function playerMouseMove(id)
 		createE,checkBut=user.selecteda,user.abtn
 	else return end
 	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1,-1,user) end return end
+	if L.skipDraw then L.skipDraw=nil return end
 	if checkBut==3 then
 		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
 		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
@@ -1056,14 +1061,6 @@ end)
 addHook("Mouse_Click",function(data, uid)
 	local btn, ev = data.click.button(), data.click.event()
 	playerMouseClick(uid,btn,ev)
-	if ev==0 then return end
-	if btn==1 then
-		con.members[uid].lbtn=ev
-	elseif btn==2 then
-		con.members[uid].abtn=ev
-	elseif btn==4 then
-		con.members[uid].rbtn=ev
-	end
 end)
 addHook("Brush_Size",function(data, uid)
 	con.members[uid].brushx, con.members[uid].brushy = data.x(), data.y()
@@ -1308,18 +1305,18 @@ end
 local function sendStuff()
 	if not con.connected then return end
 	--mouse position every frame, not exactly needed, might be better/more accurate from clicks
-	local nmx,nmy = tpt.mousex,tpt.mousey
-	if nmx<sim.XRES and nmy<sim.YRES then nmx,nmy = sim.adjustCoords(nmx,nmy) end
-	if L.mousex~= nmx or L.mousey~= nmy then
-		L.mousex,L.mousey = nmx,nmy
-		sendProtocol(P.Mouse_Pos.position.x(L.mousex).position.y(L.mousey))
-	end
 	if tpt.brushx > 255 then tpt.brushx = 255 end
 	if tpt.brushy > 255 then tpt.brushy = 255 end
 	local nbx,nby = tpt.brushx,tpt.brushy
 	if L.brushx~=nbx or L.brushy~=nby and not L.stabbed then
 		L.brushx,L.brushy = nbx,nby
 		sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
+	end
+	local nmx,nmy = tpt.mousex,tpt.mousey
+	if nmx<sim.XRES and nmy<sim.YRES then nmx,nmy = sim.adjustCoords(nmx,nmy) end
+	if L.mousex~= nmx or L.mousey~= nmy then
+		L.mousex,L.mousey = nmx,nmy
+		sendProtocol(P.Mouse_Pos.position.x(L.mousex).position.y(L.mousey))
 	end
 	--check selected elements
 	local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
@@ -1556,6 +1553,14 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	local obut,oevnt = L.mButt,L.mEvent
 	if button~=obut or event~=oevnt then
 		L.mButt,L.mEvent = button,event
+		--Update brush here too
+		if tpt.brushx > 255 then tpt.brushx = 255 end
+		if tpt.brushy > 255 then tpt.brushy = 255 end
+		local nbx,nby = tpt.brushx,tpt.brushy
+		if L.brushx~=nbx or L.brushy~=nby then
+			L.brushx,L.brushy = nbx,nby
+			sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
+		end
 		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
 		if event~=3 then --We don't track line mode, fixes in TPT coming to replace this
 			sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
