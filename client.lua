@@ -954,7 +954,7 @@ local function playerMouseClick(id,btn,ev)
 			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
 		else
-			L.skipDraw = true
+			--L.skipDraw = true
 			if user.alt then user.mousex,user.mousey = lineSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
 		end
@@ -974,7 +974,7 @@ local function playerMouseMove(id)
 		createE,checkBut=user.selecteda,user.abtn
 	else return end
 	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1,-1,user) end return end
-	if L.skipDraw then L.skipDraw=nil return end
+	--if L.skipDraw then L.skipDraw=nil return end
 	if checkBut==3 then
 		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
 		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
@@ -1419,11 +1419,6 @@ local function sendStuff()
 	end
 end
 local function updatePlayers()
-	if con.members then
-		for k,v in pairs(con.members) do
-			playerMouseMove(k)
-		end
-	end
 	--Keep last frame of stick2
 	L.lastStick2=L.stick2
 	L.stick2=false
