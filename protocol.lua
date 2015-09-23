@@ -102,7 +102,7 @@ protocol = {
 	[38] = {
 		{name="replacemode",size=1},
 	},
-	--["Zoom_State"], Mouse changed zoom state
+	--["Mouse_Reset"], Forced mouseup event due to zoom window or entering another interface
 	[39] = {},
 	--["View_Mode_Simple"] = 48,
 	[48] = {
@@ -218,7 +218,7 @@ local protoName = {
 	["Key_Mods"] = 36,
 	["Selected_Elem"] = 37,
 	["Replace_Mode"] = 38,
-	["Zoom_State"] = 39,
+	["Mouse_Reset"] = 39,
 	["View_Mode_Simple"] = 48,
 	["Pause_State"] = 49,
 	["Frame_Step"] = 50,

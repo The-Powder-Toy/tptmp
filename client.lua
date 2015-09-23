@@ -72,7 +72,7 @@ local function sendProtocol(proto)
 	if not con.connected then return false,"Not connected" end
 	local prot = proto.protoID
 	if L.stabbed and editSim[prot] then return false,"No Permission" end
-	con.socket:settimeout(10)
+	con.socket:settimeout(5)
 	--_print("Sending "..proto:tostring())
 	con.socket:send(string.char(prot)..proto:writeData())
 	con.socket:settimeout(0)
@@ -84,12 +84,11 @@ local function joinChannel(chan)
 	sendProtocol(P.Join_Chan.chan(chan))
 end
 function connectToServer(ip,port,nick)
-	
 	if con.connected then return false,"Already connected" end
-	ip = ip or "starcatcher.us"
+	ip = ip or "cracker.starcatcher.us"
 	port = port or PORT
 	local sock = socket.tcp()
-	sock:settimeout(10)
+	sock:settimeout(5)
 	local s,r = sock:connect(ip,port)
 	if not s then return false,r end
 	sock:settimeout(0)
@@ -130,19 +129,18 @@ function connectToServer(ip,port,nick)
 	sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.selrep))
 	sendProtocol(P.Replace_Mode.replacemode(L.replacemode))
 	sendProtocol(P.Selected_Deco.RGBA(L.dcolour))
-	_print("Data sent")
 	return true
 end
 --get up to a null (\0)
 local function conGetNull()
 	con.socket:settimeout(nil)
 	local c,r = con.socket:receive(1)
-	if not c and r ~= "timeout" then disconnected("moo"..r) return nil end
+	if not c and r ~= "timeout" then disconnected("In conGetNull 1: "..r) return nil end
 	local rstring=""
 	while c~="\0" do
 	rstring = rstring..c
 	c,r = con.socket:receive(1)
-	if not c and r ~= "timeout" then disconnected("moo2"..r) return nil end
+	if not c and r ~= "timeout" then disconnected("In conGetNull 2: "..r) return nil end
 	end
 	con.socket:settimeout(0)
 	return rstring
@@ -152,7 +150,7 @@ local function cChar()
 	con.socket:settimeout(0)
 	local c,r = con.socket:receive(1)
 	con.socket:settimeout(0)
-	if not c and r~="timeout" then disconnected("moo3"..r) return nil,r end
+	if not c and r~="timeout" then disconnected("In cChar: "..r) return nil,r end
 	return c,r
 end
 function getByte()
@@ -1056,12 +1054,10 @@ addHook("User_Mode",function(data, uid)
 end)
 addHook("Mouse_Pos",function(data, uid)
 	con.members[uid].mousex, con.members[uid].mousey = data.position.x(), data.position.y()
-	_print(data:tostring())
 	playerMouseMove(uid)
 end)
 addHook("Mouse_Click",function(data, uid)
 	local btn, ev = data.click.button(), data.click.event()
-	_print(data:tostring())
 	playerMouseClick(uid,btn,ev)
 end)
 addHook("Brush_Size",function(data, uid)
@@ -1096,11 +1092,9 @@ end)
 addHook("Replace_Mode",function(data, uid)
 	con.members[uid].replacemode = data.replacemode()
 end)
-addHook("Zoom_State",function(data, uid)
-	if con.members[uid].drawtype == 4 then
-		con.members[uid].drawtype = false
-		con.members[uid].lbtn, con.members[uid].rbtn, con.members[uid].abtn = false, false, false
-	end
+addHook("Mouse_Reset",function(data, uid)
+	con.members[uid].drawtype = false
+	con.members[uid].lbtn, con.members[uid].rbtn, con.members[uid].abtn = false, false, false
 end)
 addHook("View_Mode_Simple",function(data, uid)
 	tpt.display_mode(data.mode())
@@ -1229,7 +1223,7 @@ local function connectThink()
 	while 1 do
 		local cmd,r = getByte()
 		if cmd then
-			if not protoNames[cmd] then _print("Unknown Protocol, Sad") disconnected("Unknown Proto") break end
+			if not protoNames[cmd] then _print("Unknown Protocol "..cmd) disconnected("Unknown Proto") break end
 			local uid
 			if not noIDProt[cmd] then uid = getByte() end
 			--_print("Trying to get protocol "..cmd)
@@ -1240,11 +1234,9 @@ local function connectThink()
 					--Hooks can return true to stop future hooks
 					if v(prot,uid) then break end
 				end
-			else
-				_print("No hooks for "..protoNames[cmd])
 			end
 		else
-			if r ~= "timeout" then disconnected("moo4"..r) end
+			if r ~= "timeout" then disconnected("In connectThink: "..r) end
 			break
 		end
 	end
@@ -1453,7 +1445,7 @@ end
 local tpt_buttons = {
 	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end},
 	["rload"] = {x1=19, y1=408, x2=35, y2=422, f=function() if L.lastSave then if L.ctrl then infoText:reset("If you re-opened the save, please type /sync") else sendProtocol(P.Reload_Sim) end else infoText:reset("Reloading local saves is not synced currently. Type /sync") end end},
-	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() infoText:reset("You clicked CLEAR") sendProtocol(P.Clear_Sim) L.lastSave=nil end},
+	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() sendProtocol(P.Clear_Sim) L.lastSave=nil end},
 	["opts"] = {x1=581, y1=408, x2=595, y2=422, f=function() L.checkOpt=true end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
 	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end},
@@ -1471,18 +1463,29 @@ if jacobsmod then
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
+	if event == 4 or event == 5 then
+		sendProtocol(P.Mouse_Reset) -- mouse reset from zoom window, this protocol probably isn't needed anymore though
+		if event == 4 then
+			if L.ctrl then
+				L.ctrl=false sendProtocol(P.Key_Mods.key.char(0).key.state(0))
+			end
+			if L.shift then
+				L.shift=false sendProtocol(P.Key_Mods.key.char(1).key.state(0))
+			end
+			if L.alt then
+				L.alt=false sendProtocol(P.Key_Mods.key.char(2).key.state(0))
+			end
+			return true
+		end
+	end
+
 	if button > 4 then return end -- in case mouse wheel ever sends 8 or 16 event
 	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end end
 	if L.stabbed and mousex < sim.XRES and mousey < sim.YRES and not L.stamp and not L.placeStamp then if chatwindow:process(mousex,mousey,button,event,wheel) then return false end return false end
 
 	local oldx, oldy = mousex, mousey
 	if mousex<sim.XRES and mousey<sim.YRES then
-		local lastMouseInZoom = L.mouseInZoom
 		mousex,mousey = sim.adjustCoords(mousex,mousey)
-		L.mouseInZoom = oldx ~= mousex or oldy ~= mousey
-		if L.mouseInZoom ~= lastMouseInZoom then
-			sendProtocol(P.Zoom_State)
-		end
 	end
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 and L.stampx == -1 then
