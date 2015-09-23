@@ -1464,19 +1464,9 @@ end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
 	if event == 4 or event == 5 then
-		sendProtocol(P.Mouse_Reset) -- mouse reset from zoom window, this protocol probably isn't needed anymore though
-		if event == 4 then
-			if L.ctrl then
-				L.ctrl=false sendProtocol(P.Key_Mods.key.char(0).key.state(0))
-			end
-			if L.shift then
-				L.shift=false sendProtocol(P.Key_Mods.key.char(1).key.state(0))
-			end
-			if L.alt then
-				L.alt=false sendProtocol(P.Key_Mods.key.char(2).key.state(0))
-			end
-			return true
-		end
+		-- mouse reset from various changes, UI, zoom
+		sendProtocol(P.Mouse_Reset)
+		return true
 	end
 
 	if button > 4 then return end -- in case mouse wheel ever sends 8 or 16 event
@@ -1643,7 +1633,7 @@ local keypressfuncs = {
 	[98] = function() if L.stabbed then return false end if L.ctrl then sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) else sendProtocol(P.Pause_State.state(1)) sendProtocol(P.Deco_State.state(1)) end end,
 
 	--c , copy
-	[99] = function() if L.ctrl then L.stamp=true L.copying=true L.stampx = -1 L.stampy = -1 end end,
+	[99] = function() if L.ctrl then L.stamp=true L.copying=true L.placeStamp=false L.stampx = -1 L.stampy = -1 end end,
 
 	--d key, debug, api broken right now
 	--[100] = function() if L.stabbed then return false end  conSend(55) end,
@@ -1658,10 +1648,10 @@ local keypressfuncs = {
 	[105] = function() if L.stabbed then return false end sendProtocol(P.Invert_Press) end,
 
 	--K , stamp menu, abort our known stamp, who knows what they picked, send full screen?
-	[107] = function() L.lastStamp={data=nil,w=0,h=0}  if L.stabbed then return false end L.placeStamp=true end,
+	[107] = function() L.lastStamp={data=nil,w=0,h=0} if L.stabbed then return false end L.placeStamp=true L.copying=false L.stamp=false end,
 
 	--L , last Stamp
-	[108] = function() if L.stabbed then return false end if L.lastStamp then L.placeStamp=true end end,
+	[108] = function() if L.stabbed then return false end L.copying=false L.stamp=false if L.lastStamp then L.placeStamp=true end end,
 
 	--N , newtonian gravity or new save
 	[110] = function() if L.stabbed then return false end if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else sendProtocol(P.Deco_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end end,
@@ -1673,7 +1663,7 @@ local keypressfuncs = {
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then if L.stabbed then return false end sendProtocol(P.Reload_Sim) end end,
 
 	--S, stamp
-	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true L.stampx = -1 L.stampy = -1 end,
+	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true L.copying=false L.placeStamp=false L.stampx = -1 L.stampy = -1 end,
 
 	--T, tabs
 	[116] = function() if jacobsmod then L.tabs = not L.tabs end end,
@@ -1682,16 +1672,16 @@ local keypressfuncs = {
 	[117] = function() sendProtocol(P.Ambient_State.state(bit.bxor(tpt.ambient_heat(),1))) end,
 
 	--V, paste the copystamp
-	[118] = function() if L.stabbed then return false end if L.ctrl and L.lastCopy then L.placeStamp=true L.copying=true end end,
+	[118] = function() if L.stabbed then return false end if L.ctrl and L.lastCopy then L.stamp=false L.placeStamp=true L.copying=true end end,
 
 	--X, cut a copystamp and clear
-	[120] = function() if L.stabbed then return false end if L.ctrl then L.stamp=true L.copying=1 L.stampx = -1 L.stampy = -1 end end,
+	[120] = function() if L.stabbed then return false end if L.ctrl then L.stamp=true L.placeStamp=false L.copying=1 L.stampx = -1 L.stampy = -1 end end,
 
 	--W,Y (grav mode, air mode)
 	[119] = function() if L.stabbed then return false end if L.lastStick2 and not L.ctrl then return end sendProtocol(P.Grav_Mode.state((sim.gravityMode()+1)%3))  return true end,
 	[121] = function() if L.stabbed then return false end sendProtocol(P.Air_Mode.state((sim.airMode()+1)%5)) return true end,
 	--Z
-	[122] = function() myZ=true L.skipClick=true end,
+	[122] = function() L.skipClick=true sendProtocol(P.Mouse_Reset) end,
 
 	--Arrows for stamp adjust
 	[273] = function() if L.placeStamp then L.smoved=true end end,
@@ -1714,8 +1704,19 @@ local keypressfuncs = {
 	[308] = function() L.alt=true sendProtocol(P.Key_Mods.key.char(2).key.state(1)) end,
 }
 local keyunpressfuncs = {
+	--Fake key to reset modifiers
+	[0] = function() 
+		if L.ctrl then
+			L.ctrl=false sendProtocol(P.Key_Mods.key.char(0).key.state(0))
+		end
+		if L.shift then
+			L.shift=false sendProtocol(P.Key_Mods.key.char(1).key.state(0))
+		end
+		if L.alt then
+			L.alt=false sendProtocol(P.Key_Mods.key.char(2).key.state(0))
+		end end,
 	--Z
-	[122] = function() myZ=false L.skipClick=false if L.alt then L.skipClick=true end end,
+	[122] = function() L.skipClick=false if L.alt then L.skipClick=true end end,
 	--SHIFT,CTRL,ALT
 	[303] = function() L.shift=false sendProtocol(P.Key_Mods.key.char(1).key.state(0)) end,
 	[304] = function() L.shift=false sendProtocol(P.Key_Mods.key.char(1).key.state(0)) end,
