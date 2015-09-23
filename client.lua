@@ -125,8 +125,8 @@ function connectToServer(ip,port,nick)
 	sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
 	sendProtocol(P.Selected_Elem.selected.button(0).selected.elem(L.sell))
 	sendProtocol(P.Selected_Elem.selected.button(1).selected.elem(L.sela))
-	sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(L.selr))
-	sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.selrep))
+	sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(L.selrep))
+	sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.selr))
 	sendProtocol(P.Replace_Mode.replacemode(L.replacemode))
 	sendProtocol(P.Selected_Deco.RGBA(L.dcolour))
 	return true
@@ -911,51 +911,44 @@ end
 
 --clicky click
 local function playerMouseClick(id,btn,ev)
-	local user = con.members[id]
-	local createE, checkBut
-
+	local user,checkBut = con.members[id], nil
 	--_print(tostring(btn)..tostring(ev))
 	if ev==0 then return end
-	if btn==1 then
-		user.lbtn=ev
-		user.rbtn,user.abtn = false,false
-		createE,checkBut=user.selectedl,user.lbtn
-	elseif btn==2 then
-		user.abtn=ev
-		user.rbtn,user.lbtn = false,false
-		createE,checkBut=user.selecteda,user.abtn
-	elseif btn==4 then
-		user.rbtn=ev
-		user.lbtn,user.abtn = false,false
-		createE,checkBut=user.selectedr,user.rbtn
-	else return end
+	
+	--btn: 1-left 2-middle 4-right
+	user.btn[btn] = ev
 	if ev==1 then
+		--Outside clicks are ignored
 		if user.mousex>=sim.XRES then return end
 		if user.mousey>=sim.YRES then return end
 		user.pmx,user.pmy = user.mousex,user.mousey
+		user.lastbtn = btn
 		if not user.drawtype then
 			--left box
 			if user.ctrl and not user.shift then user.drawtype = 2 return end
 			--left line
 			if user.shift and not user.ctrl then user.drawtype = 1 return end
 			--floodfill
-			if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,createE,-1,-1,user) user.drawtype = 3 return end
+			if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,user.select[btn],-1,-1,user) user.drawtype = 3 return end
 			--an alt click
 			if user.alt then return end
 			user.drawtype=4 --normal hold
+			createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,user.select[btn],user.brush,user)
+		elseif user.drawtype==3 then
+			floodAny(user.mousex,user.mousey,user.select[btn],-1,-1,user)
 		end
-		createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,user)
-	elseif ev==2 and checkBut and user.drawtype then
+	elseif ev==2 and user.drawtype then
 		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
 		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
 		if user.drawtype==2 then
 			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
-			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
-		else
+			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,user.select[user.lastbtn],user)
+		elseif user.drawtype~=3 then
 			--L.skipDraw = true
 			if user.alt then user.mousex,user.mousey = lineSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
-			createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
+			createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,user.select[user.lastbtn],user.brush,user)
 		end
+		user.lastbtn=nil --Nothing should use lastbtn without a 1 event first
 		user.drawtype=false
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
@@ -963,20 +956,12 @@ end
 --To draw continued lines
 local function playerMouseMove(id)
 	local user = con.members[id]
-	local createE, checkBut
-	if user.lbtn then
-		createE,checkBut=user.selectedl,user.lbtn
-	elseif user.rbtn then
-		createE,checkBut=user.selectedr,user.rbtn
-	elseif user.abtn then
-		createE,checkBut=user.selecteda,user.abtn
-	else return end
-	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1,-1,user) end return end
+	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,user.select[user.lastbtn],-1,-1,user) end return end
 	--if L.skipDraw then L.skipDraw=nil return end
-	if checkBut==3 then
+	if user.btn[user.lastbtn]==3 then
 		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
 		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
-		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
+		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,user.select[user.lastbtn],user.brush,user)
 		user.pmx,user.pmy = user.mousex,user.mousey
 	end
 end
@@ -1023,11 +1008,11 @@ addHook("Chan_Name",function(data, uid)
 end)
 addHook("Chan_Member",function(data, uid)
 	--Basic user table, will be receiving the full data shortly
-	con.members[uid] = {name=data.name(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,replacemode=0,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
+	con.members[uid] = {name=data.name(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,296,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false}
 end)
 addHook("User_Join",function(data, uid)
 	local name = data.name()
-	con.members[uid] = {name=name,mousex=0,mousey=0,brushx=4,brushy=4,brush=0,selectedl=1,selectedr=0,selecteda=296,replacemode=0,dcolour={0,0,0,0},lbtn=false,abtn=false,rbtn=false,ctrl=false,shift=false,alt=false}
+	con.members[uid] = {name=name,mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,296,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false}
 	chatwindow:addline(name.." has joined",255,255,50)
 end)
 addHook("User_Leave",function(data, uid)
@@ -1078,13 +1063,8 @@ addHook("Key_Mods",function(data, uid)
 end)
 addHook("Selected_Elem",function(data, uid)
 	local btn, el = data.selected.button(), data.selected.elem()
-	if btn==0 then
-		con.members[uid].selectedl=el
-	elseif btn==1 then
-		con.members[uid].selecteda=el
-	elseif btn==2 then
-		con.members[uid].selectedr=el
-	elseif btn==3 then
+	con.members[uid].select[btn+1] = el
+	if btn==2 then
 		--sync replace mode element between all players since apparently you have to set tpt.selectedreplace to use replace mode ...
 		tpt.selectedreplace = elem.property(el, "Identifier")
 	end
@@ -1094,7 +1074,7 @@ addHook("Replace_Mode",function(data, uid)
 end)
 addHook("Mouse_Reset",function(data, uid)
 	con.members[uid].drawtype = false
-	con.members[uid].lbtn, con.members[uid].rbtn, con.members[uid].abtn = false, false, false
+	con.members[uid].btn = {}
 end)
 addHook("View_Mode_Simple",function(data, uid)
 	tpt.display_mode(data.mode())
@@ -1325,10 +1305,10 @@ local function sendStuff()
 		sendProtocol(P.Selected_Elem.selected.button(1).selected.elem(L.sela))
 	elseif L.selr~=nselr then
 		L.selr=nselr
-		sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(L.selr))
+		sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.selr))
 	elseif L.selrep~=nselrep then
 		L.selrep=nselrep
-		sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.selrep))
+		sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(L.selrep))
 	end
 	local ncol = sim.decoColour()
 	if L.dcolour~=ncol then
@@ -1546,15 +1526,19 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	local obut,oevnt,t  = L.mButt,L.mEvent,{}
 	L.mButt,L.mEvent = button,event
 	
-	if button~=obut or event~=oevnt then
+	local btnDiff = button~=obut
+	if btnDiff or event~=oevnt then
 		updateBrush()
-		table.insert(t,P.Mouse_Click.click.button(L.mButt).click.event(L.mEvent))
+		table.insert(t,P.Mouse_Click.click.button(button).click.event(event))
 		if L.mousex ~= mousex or L.mousey ~= mousey then
 			L.mousex,L.mousey = mousex,mousey
 			if event==3 then
 				table.insert(t,P.Mouse_Pos.position.x(mousex).position.y(mousey))
 			else
 				table.insert(t,1,P.Mouse_Pos.position.x(mousex).position.y(mousey))
+			end
+			if btnDiff and event==1 and oevnt==3 then
+				table.insert(t,1,P.Mouse_Reset)
 			end
 		end
 		for i,v in ipairs(t) do sendProtocol(v) end
