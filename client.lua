@@ -36,7 +36,7 @@ local KEYBOARD = 1 --only change if you have issues. Only other option right now
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, selrep=0, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
 shift=false, alt=false, ctrl=false, tabs = false, skipClick=false, pauseNextFrame=false,
 copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false,
-mouseInZoom=false, stabbed=false, muted=false, skipDraw={}}
+mouseInZoom=false, stabbed=false, muted=false}
 --Protocols that edit the simulation in some way.
 local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67,68,69,70}, {}
 --Protocols that don't send an ID to client
@@ -1007,11 +1007,11 @@ addHook("Chan_Name",function(data, uid)
 end)
 addHook("Chan_Member",function(data, uid)
 	--Basic user table, will be receiving the full data shortly
-	con.members[uid] = {name=data.name(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,296,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false}
+	con.members[uid] = {name=data.name(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,296,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false,skipDraw=false}
 end)
 addHook("User_Join",function(data, uid)
 	local name = data.name()
-	con.members[uid] = {name=name,mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,296,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false}
+	con.members[uid] = {name=name,mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,296,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false,skipDraw=false}
 	chatwindow:addline(name.." has joined",255,255,50)
 end)
 addHook("User_Leave",function(data, uid)
@@ -1037,9 +1037,10 @@ addHook("User_Mode",function(data, uid)
 	end
 end)
 addHook("Mouse_Pos",function(data, uid)
-	con.members[uid].mousex, con.members[uid].mousey = data.position.x(), data.position.y()
+	local user = con.members[uid]
+	user.mousex, user.mousey = data.position.x(), data.position.y()
 	playerMouseMove(uid)
-	L.skipDraw[uid]=true
+	user.skipDraw=true
 end)
 addHook("Mouse_Click",function(data, uid)
 	local btn, ev = data.click.button(), data.click.event()
@@ -1399,9 +1400,9 @@ local function updatePlayers()
 	if con.members then
 		for k,v in pairs(con.members) do
 			--If the mouse_pos was updated this frame we don't need to try again
-			if not L.skipDraw[k] then 
+			if not v.skipDraw then 
 				playerMouseMove(k)
-			else L.skipDraw[k]=nil
+			else v.skipDraw=nil
 			end
 		end
 	end
