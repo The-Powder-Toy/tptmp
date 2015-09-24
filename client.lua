@@ -34,9 +34,9 @@ local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, selrep=0, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
-shift=false, alt=false, ctrl=false, tabs = false, z=false, skipClick=false, pauseNextFrame=false,
+shift=false, alt=false, ctrl=false, tabs = false, skipClick=false, pauseNextFrame=false,
 copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false,
-mouseInZoom=false, stabbed=false, muted=false}
+mouseInZoom=false, stabbed=false, muted=false, skipDraw={}}
 --Protocols that edit the simulation in some way.
 local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67,68,69,70}, {}
 --Protocols that don't send an ID to client
@@ -957,7 +957,6 @@ end
 local function playerMouseMove(id)
 	local user = con.members[id]
 	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,user.select[user.lastbtn],-1,-1,user) end return end
-	--if L.skipDraw then L.skipDraw=nil return end
 	if user.btn[user.lastbtn]==3 then
 		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
 		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
@@ -1040,6 +1039,7 @@ end)
 addHook("Mouse_Pos",function(data, uid)
 	con.members[uid].mousex, con.members[uid].mousey = data.position.x(), data.position.y()
 	playerMouseMove(uid)
+	L.skipDraw[uid]=true
 end)
 addHook("Mouse_Click",function(data, uid)
 	local btn, ev = data.click.button(), data.click.event()
@@ -1396,6 +1396,15 @@ local function sendStuff()
 	end
 end
 local function updatePlayers()
+	if con.members then
+		for k,v in pairs(con.members) do
+			--If the mouse_pos was updated this frame we don't need to try again
+			if not L.skipDraw[k] then 
+				playerMouseMove(k)
+			else L.skipDraw[k]=nil
+			end
+		end
+	end
 	--Keep last frame of stick2
 	L.lastStick2=L.stick2
 	L.stick2=false
@@ -1579,7 +1588,8 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		end
 	end
 end
-
+local _skb, stabKeyBlocks = {32,48,49,50,51,52,53,54,55,56,57,59,61,96,98,102,104,105,107,108,110,114,117,118,119,120,121,127,277,286},{}
+for i,v in ipairs(_skb) do stabKeyBlocks[v]=true end
 local keypressfuncs = {
 	--TAB, Override brush changes, disables custom brushes
 	[9] = function() if not jacobsmod or not L.ctrl then tpt.brushID = (tpt.brushID+1)%3 sendProtocol(P.Brush_Shape.shape(tpt.brushID)) return false end end,
@@ -1588,63 +1598,63 @@ local keypressfuncs = {
 	[27] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
 
 	--space, pause toggle
-	[32] = function() if L.stabbed then return false end sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end,
+	[32] = function() sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end,
 
 	--View modes 0-9
-	[48] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(10)) end,
-	[49] = function() if L.stabbed then return false end if L.shift then sendProtocol(P.View_Mode_Simple.mode(9)) tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end sendProtocol(P.View_Mode_Simple) end,
-	[50] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(1)) end,
-	[51] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(2)) end,
-	[52] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(3)) end,
-	[53] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(4)) end,
-	[54] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(5)) end,
-	[55] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(6)) end,
-	[56] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(7)) end,
-	[57] = function() if L.stabbed then return false end sendProtocol(P.View_Mode_Simple.mode(8)) end,
+	[48] = function() sendProtocol(P.View_Mode_Simple.mode(10)) end,
+	[49] = function() if L.shift then sendProtocol(P.View_Mode_Simple.mode(9)) tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end sendProtocol(P.View_Mode_Simple) end,
+	[50] = function() sendProtocol(P.View_Mode_Simple.mode(1)) end,
+	[51] = function() sendProtocol(P.View_Mode_Simple.mode(2)) end,
+	[52] = function() sendProtocol(P.View_Mode_Simple.mode(3)) end,
+	[53] = function() sendProtocol(P.View_Mode_Simple.mode(4)) end,
+	[54] = function() sendProtocol(P.View_Mode_Simple.mode(5)) end,
+	[55] = function() sendProtocol(P.View_Mode_Simple.mode(6)) end,
+	[56] = function() sendProtocol(P.View_Mode_Simple.mode(7)) end,
+	[57] = function() sendProtocol(P.View_Mode_Simple.mode(8)) end,
 
 	--semicolon / ins / del for replace mode
-	[59] = function() if L.stabbed then return false end if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end sendProtocol(P.Replace_Mode.replacemode(L.replacemode)) end,
-	[277] = function() if L.stabbed then return false end L.replacemode = bit.bxor(L.replacemode, 1) sendProtocol(P.Replace_Mode.replacemode(L.replacemode)) end,
-	[127] = function() if L.stabbed then return false end L.replacemode = bit.bxor(L.replacemode, 2) sendProtocol(P.Replace_Mode.replacemode(L.replacemode)) end,
+	[59] = function() if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end sendProtocol(P.Replace_Mode.replacemode(L.replacemode)) end,
+	[277] = function() L.replacemode = bit.bxor(L.replacemode, 1) sendProtocol(P.Replace_Mode.replacemode(L.replacemode)) end,
+	[127] = function() L.replacemode = bit.bxor(L.replacemode, 2) sendProtocol(P.Replace_Mode.replacemode(L.replacemode)) end,
 
 	--= key, pressure/spark reset
-	[61] = function() if L.stabbed then return false end if L.ctrl then sendProtocol(P.Clear_Spark) else sendProtocol(P.Clear_Press) end end,
+	[61] = function() if L.ctrl then sendProtocol(P.Clear_Spark) else sendProtocol(P.Clear_Press) end end,
 
 	--`, console
-	[96] = function() if L.stabbed then return false end if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false end end,
+	[96] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false end end,
 
 	--b , deco, pauses sim
-	[98] = function() if L.stabbed then return false end if L.ctrl then sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) else sendProtocol(P.Pause_State.state(1)) sendProtocol(P.Deco_State.state(1)) end end,
+	[98] = function() if L.ctrl then sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) else sendProtocol(P.Pause_State.state(1)) sendProtocol(P.Deco_State.state(1)) end end,
 
 	--c , copy
 	[99] = function() if L.ctrl then L.stamp=true L.copying=true L.placeStamp=false L.stampx = -1 L.stampy = -1 end end,
 
 	--d key, debug, api broken right now
-	--[100] = function() if L.stabbed then return false end  conSend(55) end,
+	--[100] = function() conSend(55) end,
 
 	--F , frame step
-	[102] = function() if L.stabbed then return false end if not jacobsmod or not L.ctrl then sendProtocol(P.Frame_Step) end end,
+	[102] = function() if not jacobsmod or not L.ctrl then sendProtocol(P.Frame_Step) end end,
 
 	--H , HUD and intro text
-	[104] = function() if L.stabbed then return false end if L.ctrl and jacobsmod then return false end end,
+	[104] = function() if L.ctrl and jacobsmod then return false end end,
 
 	--I , invert pressure
-	[105] = function() if L.stabbed then return false end sendProtocol(P.Invert_Press) end,
+	[105] = function() sendProtocol(P.Invert_Press) end,
 
 	--K , stamp menu, abort our known stamp, who knows what they picked, send full screen?
-	[107] = function() L.lastStamp={data=nil,w=0,h=0} if L.stabbed then return false end L.placeStamp=true L.copying=false L.stamp=false end,
+	[107] = function() L.lastStamp={data=nil,w=0,h=0} L.placeStamp=true L.copying=false L.stamp=false end,
 
 	--L , last Stamp
-	[108] = function() if L.stabbed then return false end L.copying=false L.stamp=false if L.lastStamp then L.placeStamp=true end end,
+	[108] = function() L.copying=false L.stamp=false if L.lastStamp then L.placeStamp=true end end,
 
 	--N , newtonian gravity or new save
-	[110] = function() if L.stabbed then return false end if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else sendProtocol(P.Deco_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end end,
+	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else sendProtocol(P.Deco_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end end,
 
 	--O, old menu in jacobs mod
 	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 and showbutton.y < 150 then return false elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end end,
 
 	--R , for stamp rotate, Reload
-	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then if L.stabbed then return false end sendProtocol(P.Reload_Sim) end end,
+	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then sendProtocol(P.Reload_Sim) end end,
 
 	--S, stamp
 	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true L.copying=false L.placeStamp=false L.stampx = -1 L.stampy = -1 end,
@@ -1656,14 +1666,14 @@ local keypressfuncs = {
 	[117] = function() sendProtocol(P.Ambient_State.state(bit.bxor(tpt.ambient_heat(),1))) end,
 
 	--V, paste the copystamp
-	[118] = function() if L.stabbed then return false end if L.ctrl and L.lastCopy then L.stamp=false L.placeStamp=true L.copying=true end end,
+	[118] = function() if L.ctrl and L.lastCopy then L.stamp=false L.placeStamp=true L.copying=true end end,
 
 	--X, cut a copystamp and clear
-	[120] = function() if L.stabbed then return false end if L.ctrl then L.stamp=true L.placeStamp=false L.copying=1 L.stampx = -1 L.stampy = -1 end end,
+	[120] = function() if L.ctrl then L.stamp=true L.placeStamp=false L.copying=1 L.stampx = -1 L.stampy = -1 end end,
 
 	--W,Y (grav mode, air mode)
-	[119] = function() if L.stabbed then return false end if L.lastStick2 and not L.ctrl then return end sendProtocol(P.Grav_Mode.state((sim.gravityMode()+1)%3))  return true end,
-	[121] = function() if L.stabbed then return false end sendProtocol(P.Air_Mode.state((sim.airMode()+1)%5)) return true end,
+	[119] = function() if L.lastStick2 and not L.ctrl then return end sendProtocol(P.Grav_Mode.state((sim.gravityMode()+1)%3))  return true end,
+	[121] = function() sendProtocol(P.Air_Mode.state((sim.airMode()+1)%5)) return true end,
 	--Z
 	[122] = function() L.skipClick=true sendProtocol(P.Mouse_Reset) end,
 
@@ -1677,7 +1687,7 @@ local keypressfuncs = {
 	[282] = function() if jacobsmod then return false end end,
 
 	--F5 , save reload
-	[286] = function() if L.stabbed then return false end sendProtocol(P.Reload_Sim) end,
+	[286] = function() sendProtocol(P.Reload_Sim) end,
 
 	--SHIFT,CTRL,ALT
 	[303] = function() L.shift=true sendProtocol(P.Key_Mods.key.char(1).key.state(1)) end,
@@ -1724,6 +1734,7 @@ local function keyclicky(key,nkey,modifier,event)
 	local check = chatwindow:textprocess(key,nkey,modifier,event)
 	if type(check)=="boolean" then return not check end
 	--_print(nkey)
+	if L.stabbed and stabKeyBlocks[nkey] then return false end
 	local ret
 	if event==1 then
 		if keypressfuncs[nkey] then
