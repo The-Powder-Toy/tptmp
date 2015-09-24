@@ -18,7 +18,7 @@ local versionstring = "0.83"
 if TPTMP then if TPTMP.version <= 3 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
 TPTMP = {["version"] = 3} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
-dofile "scripts/tptmp.protocol" -- Need to ensure this exists for the client.
+dofile "scripts/tptmp.protocol" local P,P_O=P_C,P -- Need to ensure this exists for the client.
 if not sim.clearRect then error"Tpt version not supported" end
 local using_manager = false
 _print = print
@@ -911,7 +911,7 @@ end
 
 --clicky click
 local function playerMouseClick(id,btn,ev)
-	local user,checkBut = con.members[id], nil
+	local user = con.members[id]
 	--_print(tostring(btn)..tostring(ev))
 	if ev==0 then return end
 	
@@ -1184,7 +1184,7 @@ addHook("Req_Player_Sync",function(data, uid)
 	f:close()
 	deleteStamp(stampName)
 	sendSync(sync,P.Clear_Area.start.x(0).start.y(0).stop.x(sim.XRES-1).stop.y(sim.YRES-1))
-	sendSync(sync,P.Stamp_Data.data(s))
+	sendSync(sync,P.Stamp_Data.position.x(0).position.y(0).data(s))
 	sendSync(sync,P.Ambient_State.state(tpt.ambient_heat()))
 	sendSync(sync,P.NGrav_State.state(tpt.newtonian_gravity()))
 	sendSync(sync,P.Heat_State.state(tpt.heat()))
@@ -1299,7 +1299,7 @@ local function sendStuff()
 	local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
 	if L.sell~=nsell then
 		L.sell=nsell
-		sendProtocol(P.Selected_Elem.selected.elem(L.sell))
+		sendProtocol(P.Selected_Elem.selected.button(0).selected.elem(L.sell))
 	elseif L.sela~=nsela then
 		L.sela=nsela
 		sendProtocol(P.Selected_Elem.selected.button(1).selected.elem(L.sela))

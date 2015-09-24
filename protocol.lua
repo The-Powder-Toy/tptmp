@@ -1,4 +1,6 @@
 require 'bit'
+local lshift, rshift, band, rol, ror = bit.lshift, bit.rshift, bit.band, bit.rol, bit.ror
+local insert, concat = table.insert, table.concat
 protocol = {
 	--Init_Connect
 	[2] = {
@@ -252,7 +254,7 @@ local function schar(s) if type(s)=="number" then return string.char(s) else ret
 local function compValue(self)
 	local size,res = self.max,0
 	for i=1,size do
-		res = res + bit.lshift(self[i],bit.lshift(size-i,3))
+		res = res + lshift(self[i],lshift(size-i,3))
 	end
 	return res
 end
@@ -260,131 +262,137 @@ local function compValueStr(self)
 	return self[self.max+1] or ""
 end
 local function compValueBit(self,offset,bits)
-	local val,size = self.p(),self.p.max*8
-	val = bit.rol(val,offset+(32-size))
-	return bit.rshift(val,32-bits)
+	local val = self.p()
+	val = rol(val,offset)
+	return rshift(val,32-bits)
 end
 local function setValue(self,data)
 	local size = self.max
 	for i=size,1,-1 do
-		self[i] = bit.band(data,0xff)
-		data = bit.rshift(data,8)
+		self[i] = band(data,0xff)
+		data = rshift(data,8)
 	end
-	self.p._writeCache = nil
-	return self.p --Main Protocol
 end
 local function setValueStr(self,data)
 	self.strsize = #data
 	self[self.max+1] = data:sub(1,self.strsize)
 	setValue(self,self.strsize)
-	self.p._writeCache = nil
-	return self.p
 end
-local function setValueBit(self,data,offset,bits)
-	local val,size = self.p(),self.p.max*8
-	local rot = size-offset-bits
-	val = bit.ror(val,rot)
-	val = bit.lshift(bit.rshift(val,bits),bits)
-	self.p(bit.rol(val+data,rot))
-	self.p.p._writeCache = nil
+local function setValueBit(self,data,rot,bits)
+	local val = self.p()
+	val = ror(val,rot)
+	val = lshift(rshift(val,bits),bits)
+	self.p(rol(val+data,rot))
 	return self.p.p --Main Protocol is one farther on bits
 end
-local function makeMeta(typ,offset,bits)
-	local Value, sValue = compValue, setValue
+local function makeMeta(typ,p,offset,bits)
+	local Value, sValue, rot  = compValue, setValue, nil
 	if typ==1 then Value, sValue = compValueStr, setValueStr end
-	if typ==2 then Value, sValue = compValueBit, setValueBit end
+	if typ==2 then local size=p.max*8 Value, sValue, rot, offset = compValueBit, setValueBit, size-offset-bits, offset+(32-size)  end
 	return {
 	__call = function(t,data)
 		if not data then --A call on a value will GET the value, byteArrays return a table
 			return Value(t,offset,bits)
 		else -- A call with data will SET the value, byteArrays use a table
-			return sValue(t,data,offset,bits)
+			p._writeCache = nil
+			return sValue(t,data,rot,bits) or p
 		end
 	end,}
 end
+local function T_read(self,socket)
+	for i,v in ipairs(self) do
+		self[i] = getByte()
+	end
+	--String data is held in the table just after size
+	if self.str then
+		self.strsize = compValue(self)
+		if self.strsize>0 then _,self[self.max+1] = getBytes(socket,self.strsize) end
+	end
+end
+local function T_write(self)
+	local t={}
+	for i,v in ipairs(self) do
+		insert(t,schar(v))
+	end
+	return concat(t,"")
+end
+local function T_string(self)
+	return self.nam..":"..self()
+end
+local function T_string_bit(self)
+	local more={}
+	for k,v in ipairs(self.fields) do
+		insert(more,v..":"..self[v]())
+	end
+	return self.nam..":{"..concat(more,",").."}"
+end
 local function dataType()
 	return {
-	["read"] = function(self,socket)
-		for i,v in ipairs(self) do
-			self[i] = getByte()
-		end
-		if self.str then
-			self.strsize = compValue(self)
-			if self.strsize>0 then _,self[self.max+1] = getBytes(socket,self.strsize) end
-		end
-	end,
-	["write"] = function(self)
-		local t={}
-		for i,v in ipairs(self) do
-			table.insert(t,schar(v))
-		end
-		return table.concat(t,"")
-	end,
-	["string"] = function(self)
-		return self.nam..":"..self()
-	end,
-}end
+	["read"] = T_read,
+	["write"] = T_write,
+	["string"] = T_string}
+end
 local function dataTypeBit()
-	local t=dataType()
-	t.string = function(self)
-		local more={}
-		for k,v in ipairs(self.fields) do
-			table.insert(more,v..":"..self[v]())
-		end
-		return self.nam..":{"..table.concat(more,",").."}"
+	return {
+	["read"] = T_read,
+	["write"] = T_write,
+	["string"] = T_string_bit}
+end
+local function P_totalSize(self)
+	local tsize = 0
+	for i,v in ipairs(self) do
+		tsize = tsize + v.max + (v.str and v.strsize or 0)
 	end
-	return t
+	return tsize
+end
+local function P_writeData(self)
+	if not self._writeCache then
+		local res = {}
+		for i,v in ipairs(self) do
+			insert(res,v:write())
+		end
+		self._writeCache = concat(res,"")
+	end
+	return self._writeCache
+end
+local function P_readData(self,socket)
+	for i,v in ipairs(self) do
+		v:read(socket)
+	end
+	self._writeCache = nil
+	return self
+end
+local function P_toString(self)
+	local temp = {}
+	for i,v in ipairs(self) do
+		insert(temp,v:string())
+	end
+	return "{"..concat(temp,",").."}"
 end
 function protocolArray(proto)
 	local t = {}
 	local prot = protocol[proto]
 	if prot then
-		local initialSize = 0
 		for i,v in ipairs(prot) do
 			local temp = v.bit and dataTypeBit() or dataType()
-			for ii=1,v.size do table.insert(temp,0) end
+			for ii=1,v.size do insert(temp,0) end
 			temp.max, temp.str, temp.bit, temp.nam, temp.fields, temp.p = v.size, v.str, v.bit, v.name, v.fields, t
-			if v.bit then local off=0 for ind,field in ipairs(v.fields) do temp[field]={p=temp} setmetatable(temp[field],makeMeta(2,off,v.sizes[ind])) off=off+v.sizes[ind] end end
+			if v.bit then local off=0 for ind,field in ipairs(v.fields) do temp[field]={p=temp} setmetatable(temp[field],makeMeta(2,temp,off,v.sizes[ind])) off=off+v.sizes[ind] end end
 			t[v.name] = temp
 			t[i] = temp
-			setmetatable(temp,makeMeta(v.str and 1 or 0))
+			setmetatable(temp,makeMeta(v.str and 1 or 0, t))
 		end
-		t["protoID"] = proto
-		t["totalSize"] = function(self)
-			local tsize = 0
-			for i,v in ipairs(self) do
-				tsize = tsize + v.max + (v.str and v.strsize or 0)
-			end
-			return tsize
-		end
-		t["writeData"] = function(self)
-			if not self._writeCache then
-				local res = {}
-				for i,v in ipairs(self) do
-					table.insert(res,v:write())
-				end
-				self._writeCache = table.concat(res,"")
-			end
-			return self._writeCache
-		end
-		t["readData"] = function(self,socket)
-			for i,v in ipairs(self) do
-				v:read(socket)
-			end
-			self._writeCache = nil
-			return self
-		end
-		t["tostring"] = function(self)
-			local temp = {}
-			for i,v in ipairs(self) do
-				table.insert(temp,v:string())
-			end
-			return "{"..table.concat(temp,",").."}"
-		end
+		t.protoID = proto
+		t.totalSize = P_totalSize
+		t.writeData = P_writeData
+		t.readData = P_readData
+		t.tostring = P_toString
 	else
 		error("Bad protocol "..(proto or "??"))
 	end
 	return t
 end
-P = {}
+--P is shortcut for creating a new packet, P_C is the same but caches the new protocol, only one per type is ever made
+P, P_C = {}, {}
 setmetatable(P,{__index = function(t,cmd) if not protoNames[cmd] then error(cmd.." is invalid") end return protocolArray(protoNames[cmd]) end})
+setmetatable(P_C,{__index = function(t,cmd) if not protoNames[cmd] then error(cmd.." is invalid") end t[cmd]=protocolArray(protoNames[cmd]) return t[cmd] end})
