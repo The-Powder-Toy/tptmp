@@ -50,7 +50,7 @@ local username = get_name()
 if username == "" then
 	username = "Guest"..math.random(10000,99999)
 end
-local chatwindow
+local chatwindow, hideChat
 local con = {connected = false,
 		 socket = nil,
 		 members = nil,
@@ -481,6 +481,7 @@ new = function(x,y,w,h,f,text)
 	b.drawbox=false
 	b.almostselected=false
 	b.invert=true
+	b.wasinside, b.onLeave, b.onEnter = false, function() end, function() end
 	b:drawadd(function(self)
 		if self.invert and self.almostselected then
 			self.almostselected=false
@@ -497,7 +498,14 @@ new = function(x,y,w,h,f,text)
 		self.t:onmove(x,y)
 	end)
 	function b:process(mx,my,button,event,wheel)
-		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then return false end
+		local inside = mx>=self.x and mx<=self.x2 and my>=self.y and my<=self.y2
+		if not inside then
+			if event == 0 and self.wasinside then self:onLeave() end
+			self.wasinside=false
+			return false
+		end
+		if event == 0 and not self.wasinside then self:onEnter() end
+		self.wasinside = true
 		if event==3 then self.almostselected=true end
 		if event==2 then self:f() end
 		return true
@@ -519,7 +527,7 @@ new=function(x,y,w,h)
 	chat.lines = {}
 	chat.scrollbar = ui_scrollbar.new(chat.x2-2,chat.y+11,chat.h-22,0,chat.shown_lines)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
-	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true TPTMP.chatHidden=true end,">>")
+	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) hideChat() end,">>")
 	chat:drawadd(function(self)
 		if self.w > 175 and jacobsmod then
 			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer, by cracker64")/2,self.y+2,"TPT Multiplayer, by cracker64")
@@ -736,7 +744,24 @@ end
 local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function() if using_manager and not MANAGER.hidden then _print("minimize the manager before opening TPTMP") return end if not hooks_enabled then TPTMP.enableMultiplayer() end L.chatHidden=false TPTMP.chatHidden=false L.flashChat=false end,"<<")
+local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function(self) 
+	if using_manager and not MANAGER.hidden then _print("minimize the manager before opening TPTMP") return end 
+	if not hooks_enabled then TPTMP.enableMultiplayer() end 
+	L.chatHidden=(not TPTMP.chatHidden) TPTMP.chatHidden=L.chatHidden L.flashChat=false
+	self.t.text = (L.chatHidden and "<<" or ">>")
+	end,"<<")
+hideChat = function()
+	L.chatHidden=true TPTMP.chatHidden=true
+	showbutton.t.text = "<<"
+end
+showbutton.onEnter = function(self)
+	L.chatHidden, L.flashChat = false, false
+	chatwindow.inputbox:setfocus(true)
+end
+showbutton.onLeave = function(self)
+	if not TPTMP.chatHidden then return end
+	L.chatHidden = true
+end
 if jacobsmod and tpt.oldmenu()~=0 then
 	showbutton:onmove(0, 256)
 end
@@ -1012,17 +1037,25 @@ end)
 addHook("User_Join",function(data, uid)
 	local name = data.name()
 	con.members[uid] = {name=name,mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,296,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false,skipDraw=false}
-	chatwindow:addline(name.." has joined",255,255,50)
+	local line = name.." has joined"
+	chatwindow:addline(line,255,255,50)
+	if L.chatHidden then print(line) end
 end)
 addHook("User_Leave",function(data, uid)
-	chatwindow:addline(con.members[uid].name.." has left",255,255,50)
+	local line = con.members[uid].name.." has left"
+	chatwindow:addline(line,255,255,50)
+	if L.chatHidden then print(line) end
 	con.members[uid] = nil
 end)
 addHook("User_Chat",function(data, uid)
-	chatwindow:addline(con.members[uid].name .. ": " .. data.msg())
+	local line = con.members[uid].name .. ": " .. data.msg()
+	chatwindow:addline(line)
+	if L.chatHidden then print(line) end
 end)
 addHook("User_Me",function(data, uid)
-	chatwindow:addline("* " .. con.members[uid].name .. " " .. data.msg())
+	local line = "* " .. con.members[uid].name .. " " .. data.msg()
+	chatwindow:addline(line)
+	if L.chatHidden then print(line) end
 end)
 addHook("Server_Broadcast",function(data, uid)
 	chatwindow:addline(data.msg(),data.R(),data.G(),data.B())
@@ -1296,6 +1329,8 @@ local function sendStuff()
 		L.mousex,L.mousey = nmx,nmy
 		sendProtocol(P.Mouse_Pos.position.x(L.mousex).position.y(L.mousey))
 	end
+	--Mouseover checks
+	showbutton:process(nmx,nmy,0,0,0)
 	--check selected elements
 	local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
 	if L.sell~=nsell then
@@ -1413,7 +1448,8 @@ end
 
 local pressedKeys
 local function step()
-	if not L.chatHidden then chatwindow:draw() else showbutton:draw() end
+	if not L.chatHidden then chatwindow:draw() end
+	showbutton:draw()
 	if hooks_enabled then
 		if pressedKeys and pressedKeys["repeat"] < socket.gettime() then
 			if pressedKeys["repeat"] < socket.gettime()-.05 then
@@ -1460,7 +1496,8 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	end
 
 	if button > 4 then return end -- in case mouse wheel ever sends 8 or 16 event
-	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end end
+	showbutton:process(mousex,mousey,button,event,wheel)
+	if not hooks_enabled then return true end
 	if L.stabbed and mousex < sim.XRES and mousey < sim.YRES and not L.stamp and not L.placeStamp then if chatwindow:process(mousex,mousey,button,event,wheel) then return false end return false end
 
 	local oldx, oldy = mousex, mousey
@@ -1596,7 +1633,7 @@ local keypressfuncs = {
 	[9] = function() if not jacobsmod or not L.ctrl then tpt.brushID = (tpt.brushID+1)%3 sendProtocol(P.Brush_Shape.shape(tpt.brushID)) return false end end,
 
 	--ESC
-	[27] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
+	[27] = function() if not L.chatHidden then hideChat() return false end end,
 
 	--space, pause toggle
 	[32] = function() sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end,
@@ -1767,7 +1804,7 @@ function TPTMP.enableMultiplayer()
 	end
 end
 TPTMP.con = con
-TPTMP.chatHidden = true
+hideChat()
 tpt.register_step(step)
 tpt.register_mouseclick(mouseclicky)
 tpt.register_keypress(keyclicky)
