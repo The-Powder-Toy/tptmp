@@ -761,6 +761,7 @@ end
 showbutton.onLeave = function(self)
 	if not TPTMP.chatHidden then return end
 	L.chatHidden = true
+	chatwindow.inputbox:setfocus(false)
 end
 if jacobsmod and tpt.oldmenu()~=0 then
 	showbutton:onmove(0, 256)
