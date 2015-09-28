@@ -34,7 +34,7 @@ local succ,err=pcall(function()
 	server:settimeout(0)
 	
 	--Protocols that edit the simulation in some way.
-	local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67,68,69,70}, {}
+	local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67,68,69,70,71}, {}
 	--Protocols that don't send an ID to client
 	local _noIDProt, noIDProt = {2,3,4,8,9,13,14,15,22,23,24,25,128,129}, {}
 	for i,v in ipairs(_editSim) do editSim[v]=true end for i,v in ipairs(_noIDProt) do noIDProt[v]=true end
@@ -501,6 +501,7 @@ local succ,err=pcall(function()
 	addHook("Clear_Press",genericRelay)
 	addHook("Invert_Press",genericRelay)
 	addHook("Clear_Sim",genericRelay)
+	addHook("Sign_Data",genericRelay)
 	addHook("View_Mode_Advanced",genericRelay)
 	addHook("Selected_Deco",function(client, id, data)
 		client.deco = data.RGBA()

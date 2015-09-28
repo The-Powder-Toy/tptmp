@@ -33,12 +33,12 @@ local hooks_enabled = false --hooks only enabled once you maximize the button
 local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
-local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, selrep=0, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
+local L = {mousex=0, mousey=0, brushx=0, brushy=0, select={1,296,0,0}, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
 shift=false, alt=false, ctrl=false, tabs = false, skipClick=false, pauseNextFrame=false,
 copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false,
-mouseInZoom=false, stabbed=false, muted=false}
+mouseInZoom=false, stabbed=false, muted=false, signs={}}
 --Protocols that edit the simulation in some way.
-local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67,68,69,70}, {}
+local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67,68,69,70,71}, {}
 --Protocols that don't send an ID to client
 local _noIDProt, noIDProt = {2,3,4,8,9,13,14,15,22,23,24,25,128,129}, {}
 for i,v in ipairs(_editSim) do editSim[v]=true end for i,v in ipairs(_noIDProt) do noIDProt[v]=true end
@@ -123,10 +123,10 @@ function connectToServer(ip,port,nick)
 	username = nick
 	sendProtocol(P.Brush_Shape.shape(tpt.brushID))
 	sendProtocol(P.Brush_Size.x(L.brushx).y(L.brushy))
-	sendProtocol(P.Selected_Elem.selected.button(0).selected.elem(L.sell))
-	sendProtocol(P.Selected_Elem.selected.button(1).selected.elem(L.sela))
-	sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(L.selrep))
-	sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.selr))
+	sendProtocol(P.Selected_Elem.selected.button(0).selected.elem(L.select[1]))
+	sendProtocol(P.Selected_Elem.selected.button(1).selected.elem(L.select[2]))
+	sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(L.select[3]))
+	sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.select[4]))
 	sendProtocol(P.Replace_Mode.replacemode(L.replacemode))
 	sendProtocol(P.Selected_Deco.RGBA(L.dcolour))
 	return true
@@ -202,6 +202,22 @@ local function altgr(s)
 		return (s:gsub("(.)",function(c)return keyboardaltgr[KEYBOARD]["after"]:sub(keyboardaltgr[KEYBOARD]["before"]:find(c,1,true))end))
 	else return s end
 end
+local function unpackDeco(dcolour)
+	local b = bit.band(dcolour,0x000000FF)
+	local g = bit.rshift(bit.band(dcolour,0x0000FF00),8)
+	local r = bit.rshift(bit.band(dcolour,0x00FF0000),16)
+	local a = bit.rshift(bit.band(dcolour,0xFF000000),24)
+	return r,g,b,a
+end
+--Sync local sign cache
+local function localSigns()
+	for i=1,16 do
+		local sign = sim.signs[i]
+		--Signs have x, y, text, justification, all default to nil
+		L.signs[i] = {x = sign.x, y = sign.y, text = sign.text, ju = sign.justification}
+	end
+end
+localSigns()
 
 local ui_base local ui_box local ui_text local ui_button local ui_scrollbar local ui_inputbox local ui_chatbox
 ui_base = {
@@ -836,8 +852,8 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
-			--Fix deco
-			sim.decoBrush(x,y,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart,brush)
+			local r,g,b,a = unpackDeco(user.dcolour)
+			sim.decoBrush(x,y,rx,ry,r,g,b,a,convertDecoTool(c)-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -858,8 +874,8 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 		elseif c<=toolEnd then
 			if c>=toolStart then local str=1.0 if user.drawtype==4 then if user.shift then str=10.0 elseif user.alt then str=0.1 end end sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush,str) end
 		elseif c<= decoEnd then
-			--Fix deco
-			sim.decoLine(x1,y1,x2,y2,rx,ry,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart,brush)
+			local r,g,b,a = unpackDeco(user.dcolour)
+			sim.decoLine(x1,y1,x2,y2,rx,ry,r,g,b,a,convertDecoTool(c)-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -878,7 +894,8 @@ local function createBoxAny(x1,y1,x2,y2,c,user)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
 		elseif c<= decoEnd then
-			sim.decoBox(x1,y1,x2,y2,user.dcolour[2],user.dcolour[3],user.dcolour[4],user.dcolour[1],convertDecoTool(c)-decoStart)
+			local r,g,b,a = unpackDeco(user.dcolour)
+			sim.decoBox(x1,y1,x2,y2,r,g,b,a,convertDecoTool(c)-decoStart)
 		end
 		return
 	elseif c>=golStart then
@@ -1209,6 +1226,21 @@ addHook("Reload_Sim",function(data, uid)
 		infoText:reset("Error reloading save from "..con.members[uid].name)
 	end
 end)
+addHook("Sign_Data",function(data, uid)
+	local sID = data.signID()
+	local x, y, text, ju = data.position.x(), data.position.y(), data.text(), data.just()
+	local sign, lsign = sim.signs[sID], L.signs[sID]
+	if sign and sign.x then
+		--Existing sign
+		sign.x, sign.y, sign.text, sign.justification = x, y, text, ju
+	else
+		--New sign! Use the new ID incase they were somehow out of sync
+		sID = sim.signs.new(text, x, y, ju)
+		lsign = L.signs[sID]
+	end
+	--Update locals
+	lsign.x, lsign.y, lsign.text, lsign.ju = x, y, text, ju
+end)
 addHook("Req_Player_Sync",function(data, uid)
 	--Create a single sync packet and change it over and over
 	local sync = P.Player_Sync.userID(data.userID())
@@ -1334,18 +1366,18 @@ local function sendStuff()
 	showbutton:process(nmx,nmy,0,0,0)
 	--check selected elements
 	local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
-	if L.sell~=nsell then
-		L.sell=nsell
-		sendProtocol(P.Selected_Elem.selected.button(0).selected.elem(L.sell))
-	elseif L.sela~=nsela then
-		L.sela=nsela
-		sendProtocol(P.Selected_Elem.selected.button(1).selected.elem(L.sela))
-	elseif L.selr~=nselr then
-		L.selr=nselr
-		sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.selr))
-	elseif L.selrep~=nselrep then
-		L.selrep=nselrep
-		sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(L.selrep))
+	if L.select[1]~=nsell then
+		L.select[1]=nsell
+		sendProtocol(P.Selected_Elem.selected.button(0).selected.elem(nsell))
+	elseif L.select[2]~=nsela then
+		L.select[2]=nsela
+		sendProtocol(P.Selected_Elem.selected.button(1).selected.elem(nsela))
+	elseif L.select[4]~=nselr then
+		L.select[4]=nselr
+		sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(nselr))
+	elseif L.select[3]~=nselrep then
+		L.select[3]=nselrep
+		sendProtocol(P.Selected_Elem.selected.button(2).selected.elem(nselrep))
 	end
 	local ncol = sim.decoColour()
 	if L.dcolour~=ncol then
@@ -1430,6 +1462,16 @@ local function sendStuff()
 		sendProtocol(P.Grav_Mode.state(sim.gravityMode()))
 		sendProtocol(P.Air_Mode.state(sim.airMode()))
 		sendProtocol(P.Edge_Mode.state(sim.edgeMode()))
+	end
+	if L.checkSigns then
+		L.checkSigns=false
+		for i=1,16 do
+			local lsign,sign = L.signs[i], sim.signs[i]
+			if sign.x ~= lsign.x or sign.y ~= lsign.y or sign.text ~= lsign.text or sign.justification ~= lsign.ju then
+				lsign.x, lsign.y, lsign.text, lsign.ju = sign.x, sign.y, sign.text, sign.justification
+				sendProtocol(P.Sign_Data.signID(i).position.x(lsign.x or 0).position.y(lsign.y or 0).text(lsign.text or "").just(lsign.ju or 0))
+			end
+		end
 	end
 end
 local function updatePlayers()
@@ -1595,6 +1637,12 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		if L.mousex ~= mousex or L.mousey ~= mousey then
 			L.mousex,L.mousey = mousex,mousey
 			sendProtocol(P.Mouse_Pos.position.x(mousex).position.y(mousey))
+		end
+	end
+	--Possible sign event just happened
+	if event==2 then
+		if L.select[button] == 297 then
+			L.checkSigns = true
 		end
 	end
 

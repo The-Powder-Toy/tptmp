@@ -183,6 +183,13 @@ protocol = {
 	},
 	--["Reload_Sim"] = 70,
 	[70] = {},
+	-- Sign_Data = 71,
+	[71] = {
+		{name="signID",size=1},
+		{name="position",size=3,bit=true,fields={"x","y"},sizes={12,12}},
+		{name="text",size=1,str=true},
+		{name="just",size=1},
+	},
 	--["Req_Player_Sync"] = 128,  Server->Client Only
 	[128] = {
 		{name="userID",size=1},
@@ -242,6 +249,7 @@ local protoName = {
 	["Edge_Mode"] = 68,
 	["Load_Save"] = 69,
 	["Reload_Sim"] = 70,
+	["Sign_Data"] = 71,
 	["Req_Player_Sync"] = 128,
 	["Player_Sync"] = 129,
 }
