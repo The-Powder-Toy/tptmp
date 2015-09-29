@@ -4,16 +4,16 @@
 local versionstring = "0.83"
 
 --TODO's
---FIGH,STKM,STK2,LIGH need a few more creation adjustments
---Some more server functions
--------------------------------------------------------
-
---CHANGES:
---Lots of Fixes
---More colors!
---ESC key will unfocus, then minimize chat
---Changes from jacob, including: Support jacobsMod, keyrepeat
---Support replace mode
+--***Connect Button***
+--Support New_Nick
+--Channel UserList UI
+--Ensure protocol file exists
+--Config UI
+--Config Options {sync_view_modes ; sync_debug_mode ; chat_width ; chat_height ; sync_frames ; auto_connect}
+--WIND + line
+--PROP Tool
+--! commands in chat
+--
 
 if TPTMP then if TPTMP.version <= 3 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
 TPTMP = {["version"] = 3} -- script version sent on connect to ensure server protocol is the same
@@ -33,7 +33,7 @@ local hooks_enabled = false --hooks only enabled once you maximize the button
 local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
-local L = {mousex=0, mousey=0, brushx=0, brushy=0, select={1,296,0,0}, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
+local L = {mousex=0, mousey=0, brushx=0, brushy=0, select={1,333,0,0}, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
 shift=false, alt=false, ctrl=false, tabs = false, skipClick=false, pauseNextFrame=false,
 copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false,
 mouseInZoom=false, stabbed=false, muted=false, signs={}}
@@ -798,34 +798,27 @@ local eleNameTable = {
 ["DEFAULT_PT_LIFE_LLIF"] = 276,["DEFAULT_PT_LIFE_STAN"] = 267,["DEFAULT_PT_LIFE_SEED"] = 268,["DEFAULT_PT_LIFE_MAZE"] = 269,["DEFAULT_PT_LIFE_COAG"] = 270,
 ["DEFAULT_PT_LIFE_WALL"] = 271,["DEFAULT_PT_LIFE_GNAR"] = 272,["DEFAULT_PT_LIFE_REPL"] = 273,["DEFAULT_PT_LIFE_MYST"] = 274,["DEFAULT_PT_LIFE_LOTE"] = 275,
 ["DEFAULT_PT_LIFE_FRG2"] = 276,["DEFAULT_PT_LIFE_STAR"] = 277,["DEFAULT_PT_LIFE_FROG"] = 278,["DEFAULT_PT_LIFE_BRAN"] = 279,
-["DEFAULT_WL_0"] = 280,["DEFAULT_WL_1"] = 281,["DEFAULT_WL_2"] = 282,["DEFAULT_WL_3"] = 283,["DEFAULT_WL_4"] = 284,
-["DEFAULT_WL_5"] = 285,["DEFAULT_WL_6"] = 286,["DEFAULT_WL_7"] = 287,["DEFAULT_WL_8"] = 288,["DEFAULT_WL_9"] = 289,["DEFAULT_WL_10"] = 290,
-["DEFAULT_WL_11"] = 291,["DEFAULT_WL_12"] = 292,["DEFAULT_WL_13"] = 293,["DEFAULT_WL_14"] = 294,["DEFAULT_WL_15"] = 295,
-["DEFAULT_UI_SAMPLE"] = 296,["DEFAULT_UI_SIGN"] = 297,["DEFAULT_UI_PROPERTY"] = 298,["DEFAULT_UI_WIND"] = 299,
-["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_VAC"] = 302,["DEFAULT_TOOL_AIR"] = 303,["DEFAULT_TOOL_PGRV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,
-["DEFAULT_DECOR_SET"] = 306,["DEFAULT_DECOR_ADD"] = 307,["DEFAULT_DECOR_SUB"] = 308,["DEFAULT_DECOR_MUL"] = 309,["DEFAULT_DECOR_DIV"] = 310,["DEFAULT_DECOR_SMDG"] = 311,["DEFAULT_DECOR_CLR"] = 312,["DEFAULT_DECOR_LIGH"] = 313, ["DEFAULT_DECOR_DARK"] = 314,
-["DEFAULT_WL_16"] = 315
+["DEFAULT_WL_ERASE"] = 280,["DEFAULT_WL_CNDTW"] = 281,["DEFAULT_WL_EWALL"] = 282,["DEFAULT_WL_DTECT"] = 283,["DEFAULT_WL_STRM"] = 284,
+["DEFAULT_WL_FAN"] = 285,["DEFAULT_WL_LIQD"] = 286,["DEFAULT_WL_ABSRB"] = 287,["DEFAULT_WL_WALL"] = 288,["DEFAULT_WL_AIR"] = 289,["DEFAULT_WL_POWDR"] = 290,
+["DEFAULT_WL_CNDTR"] = 291,["DEFAULT_WL_EHOLE"] = 292,["DEFAULT_WL_GAS"] = 293,["DEFAULT_WL_GRVTY"] = 294,["DEFAULT_WL_ENRGY"] = 295,
+["DEFAULT_WL_NOAIR"] = 296,["DEFAULT_WL_ERASEA"] = 297,
+["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_VAC"] = 302,["DEFAULT_TOOL_AIR"] = 303,["DEFAULT_TOOL_PGRV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,["DEFAULT_UI_WIND"] = 306,
+["DEFAULT_DECOR_SET"] = 307,["DEFAULT_DECOR_ADD"] = 308,["DEFAULT_DECOR_SUB"] = 309,["DEFAULT_DECOR_MUL"] = 310,["DEFAULT_DECOR_DIV"] = 311,["DEFAULT_DECOR_SMDG"] = 312,["DEFAULT_DECOR_CLR"] = 313,["DEFAULT_DECOR_LIGH"] = 314, ["DEFAULT_DECOR_DARK"] = 315,
+["DEFAULT_UI_SAMPLE"] = 333,["DEFAULT_UI_SIGN"] = 334,["DEFAULT_UI_PROPERTY"] = 335,
 }
+local golStart,golEnd=256,279
+local wallStart,wallEnd=280,297
+local toolStart,toolEnd=300,306
+local decoStart,decoEnd=307,315
 local function convertDecoTool(c)
 	return c
 end
 if jacobsmod then
-	function convertDecoTool(c)
-		if c >= 307 and c <= 311 then
-			c = c + 1
-		elseif c == 312 then
-			c = 307
+	convertDecoTool = function(c)
+		if c > decoStart and c <= decoStart+6 then
+			c =  decoStart + 1 + (c-decoStart)%6
 		end
 		return c
-	end
-	local modNameTable = {
-	["DEFAULT_WL_ERASE"] = 280,["DEFAULT_WL_CNDTW"] = 281,["DEFAULT_WL_EWALL"] = 282,["DEFAULT_WL_DTECT"] = 283,["DEFAULT_WL_STRM"] = 284,
-	["DEFAULT_WL_FAN"] = 285,["DEFAULT_WL_LIQD"] = 286,["DEFAULT_WL_ABSRB"] = 287,["DEFAULT_WL_WALL"] = 288,["DEFAULT_WL_AIR"] = 289,["DEFAULT_WL_POWDR"] = 290,
-	["DEFAULT_WL_CNDTR"] = 291,["DEFAULT_WL_EHOLE"] = 292,["DEFAULT_WL_GAS"] = 293,["DEFAULT_WL_GRVTY"] = 294,["DEFAULT_WL_ENRGY"] = 295,["DEFAULT_WL_ERASEA"] = 280,
-	["DEFAULT_WL_NOAIR"] = 315
-	}
-	for k,v in pairs(modNameTable) do
-		eleNameTable[k] = v
 	end
 end
 local gravList= {[0]="Vertical",[1]="Off",[2]="Radial"}
@@ -838,10 +831,7 @@ local createOverride = {
 	[88] = function(rx,ry,c) local tmp=rx*4+ry*4+7 if tmp>300 then tmp=300 end return rx,ry,c+bit.lshift(tmp,8) end,
 	[128] = function(rx,ry,c) return 0,0,c end,
 	[158] = function(rx,ry,c) return 0,0,c end}
-local golStart,golEnd=256,279
-local wallStart,wallEnd=280,295
-local toolStart,toolEnd=300,305
-local decoStart,decoEnd=306,314
+
 
 --Functions that do stuff in powdertoy
 local function createPartsAny(x,y,rx,ry,c,brush,user)
@@ -1050,11 +1040,11 @@ addHook("Chan_Name",function(data, uid)
 end)
 addHook("Chan_Member",function(data, uid)
 	--Basic user table, will be receiving the full data shortly
-	con.members[uid] = {name=data.name(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,296,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false,skipDraw=false}
+	con.members[uid] = {name=data.name(),mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,333,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false,skipDraw=false}
 end)
 addHook("User_Join",function(data, uid)
 	local name = data.name()
-	con.members[uid] = {name=name,mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,296,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false,skipDraw=false}
+	con.members[uid] = {name=name,mousex=0,mousey=0,brushx=4,brushy=4,brush=0,select={1,333,0,0},dcolour={0,0,0,0},btn={[1]=nil,[2]=nil,[4]=nil},ctrl=false,shift=false,alt=false,skipDraw=false}
 	local line = name.." has joined"
 	chatwindow:addline(line,255,255,50)
 	if L.chatHidden then print(line) end
@@ -1641,7 +1631,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	end
 	--Possible sign event just happened
 	if event==2 then
-		if L.select[button] == 297 then
+		if L.select[button] == 334 then
 			L.checkSigns = true
 		end
 	end
@@ -1689,7 +1679,7 @@ local keypressfuncs = {
 
 	--View modes 0-9
 	[48] = function() sendProtocol(P.View_Mode_Simple.mode(10)) end,
-	[49] = function() if L.shift then sendProtocol(P.View_Mode_Simple.mode(9)) tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end sendProtocol(P.View_Mode_Simple) end,
+	[49] = function() if L.shift then sendProtocol(P.View_Mode_Simple.mode(9)) tpt.display_mode(9)--[[force local display mode, screw debug check for now]] return false end sendProtocol(P.View_Mode_Simple.mode(0)) end,
 	[50] = function() sendProtocol(P.View_Mode_Simple.mode(1)) end,
 	[51] = function() sendProtocol(P.View_Mode_Simple.mode(2)) end,
 	[52] = function() sendProtocol(P.View_Mode_Simple.mode(3)) end,

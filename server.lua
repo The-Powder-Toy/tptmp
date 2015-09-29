@@ -298,7 +298,7 @@ local succ,err=pcall(function()
 		
 		client.brush=0
 		client.brushX, client.brushY = 4,4
-		client.selection={1,296,0,0}
+		client.selection={1,333,0,0}
 		client.replacemode=0
 		client.deco=0
 		client.op=false
