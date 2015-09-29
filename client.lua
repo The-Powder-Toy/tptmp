@@ -10,7 +10,6 @@ local versionstring = "0.83"
 --Ensure protocol file exists
 --Config UI
 --Config Options {sync_view_modes ; sync_debug_mode ; chat_width ; chat_height ; sync_frames ; auto_connect}
---WIND + line
 --PROP Tool
 --! commands in chat
 --
@@ -59,11 +58,8 @@ local function disconnected(reason)
 	if con.socket then
 		con.socket:close()
 	end
-	if reason then
-		chatwindow:addline(reason,255,50,50)
-	else
-		chatwindow:addline("Connection was closed",255,50,50)
-	end
+	reason = reason or "Connection was closed"
+	chatwindow:addline(reason,255,50,50)
 	con.connected = false
 	con.members = {}
 	L.stabbed, L.muted = false, false
@@ -131,20 +127,6 @@ function connectToServer(ip,port,nick)
 	sendProtocol(P.Selected_Deco.RGBA(L.dcolour))
 	return true
 end
---get up to a null (\0)
-local function conGetNull()
-	con.socket:settimeout(nil)
-	local c,r = con.socket:receive(1)
-	if not c and r ~= "timeout" then disconnected("In conGetNull 1: "..r) return nil end
-	local rstring=""
-	while c~="\0" do
-	rstring = rstring..c
-	c,r = con.socket:receive(1)
-	if not c and r ~= "timeout" then disconnected("In conGetNull 2: "..r) return nil end
-	end
-	con.socket:settimeout(0)
-	return rstring
-end
 --get next char/byte
 local function cChar()
 	con.socket:settimeout(0)
@@ -183,25 +165,18 @@ local function getArgs(msg)
 	if not msg then return {} end
 	local args = {}
 	for word in msg:gmatch("([^%s%c]+)") do
-	table.insert(args,word)
+		table.insert(args,word)
 	end
 	return args
 end
 
 --get different lists for other language keyboards
 local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'߿߿߿߿߿߿߿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#߿߿߿ߥ&/()=?;:_*`^>",}  }
-local keyboardaltrg = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'߿߿߿߼",after=" qwertyuiopasdfghjklzxcvbnm1@߿߿߿ߤ߶{[]}\\,.-'~|",},}
+local keyboardaltgr = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'߿߿߿߼",after=" qwertyuiopasdfghjklzxcvbnm1@߿߿߿ߤ߶{[]}\\,.-'~|",},}
+local function shift(c, keyb)
+	return keyb and keyb.after:sub(keyb.before:find(c,1,true)) or c
+end
 
-local function shift(s)
-	if keyboardshift[KEYBOARD]~=nil then
-		return (s:gsub("(.)",function(c)return keyboardshift[KEYBOARD]["after"]:sub(keyboardshift[KEYBOARD]["before"]:find(c,1,true))end))
-	else return s end
-end
-local function altgr(s)
-	if keyboardaltgr[KEYBOARD]~=nil then
-		return (s:gsub("(.)",function(c)return keyboardaltgr[KEYBOARD]["after"]:sub(keyboardaltgr[KEYBOARD]["before"]:find(c,1,true))end))
-	else return s end
-end
 local function unpackDeco(dcolour)
 	local b = bit.band(dcolour,0x000000FF)
 	local g = bit.rshift(bit.band(dcolour,0x0000FF00),8)
@@ -318,7 +293,7 @@ newscroll = function(text,x,y,vis,force,r,g,b)
 				local newstart=pos
 				local newlast=pos+1
 				while tpt.textwidth(self.text:sub(newstart,newlast))<self.visible and newlast<self.length do
-						newlast=newlast+1
+					newlast=newlast+1
 				end
 				self.start=newstart self.last=newlast-1
 			end
@@ -327,7 +302,7 @@ newscroll = function(text,x,y,vis,force,r,g,b)
 			if newlast<self.minlast then newlast=self.minlast end
 			local newstart=1
 			while tpt.textwidth(self.text:sub(newstart,newlast))>= self.visible do
-					newstart=newstart+1
+				newstart=newstart+1
 			end
 			self.start=newstart self.last=newlast
 		end
@@ -398,11 +373,11 @@ new=function(x,y,w,h)
 	function intext:textprocess(key,nkey,modifier,event)
 		if event~=1 then return end
 		if not self.focus then
-			if nkey==13 then self:setfocus(true) return true end
+			if nkey==13 or nkey==271 then self:setfocus(true) return true end
 			return
 		end
 		if nkey==27 then self:setfocus(false) return true end
-		if nkey==13 then if socket.gettime() < self.ratelimit then return true end local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 self.currentline = "" self.ratelimit=socket.gettime()+1 return text end end --enter
+		if nkey==13 or nkey==271 then if socket.gettime() < self.ratelimit then return true end local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 self.currentline = "" self.ratelimit=socket.gettime()+1 return text end end --enter
 		if nkey==273 then if socket.gettime() < self.ratelimit then return true end self:moveline(-1) return true end --up
 		if nkey==274 then self:moveline(1) return true end --down
 		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
@@ -424,8 +399,8 @@ new=function(x,y,w,h)
 			if nkey<32 or nkey>=127 then return true end --normal key
 			local shiftkey = (modi==1 or modi==2)
 			if math.floor((modifier%16384)/8192)==1 and key >= 'a' and key <= 'z' then shiftkey = not shiftkey end
-			local addkey = shiftkey and shift(key) or key
-			if (math.floor(modi/512))==1 then addkey=altgr(key) end
+			local addkey = shiftkey and shift(key,keyboardshift[KEYBOARD]) or key
+			if (math.floor(modi/512))==1 then addkey=shift(key,keyboardaltgr[KEYBOARD]) end
 			newstr = self.t.text:sub(1,self.cursor) .. addkey .. self.t.text:sub(self.cursor+1)
 			self.currentline = newstr
 			self.t:update(newstr,self.cursor+1)
@@ -823,21 +798,25 @@ if jacobsmod then
 end
 local gravList= {[0]="Vertical",[1]="Off",[2]="Radial"}
 local airList= {[0]="On",[1]="Pressure Off",[2]="Velocity Off",[3]="Off",[4]="No Update"}
-local noFlood = {[15]=true,[55]=true,[87]=true,[128]=true,[158]=true}
+local noFlood = {[15]=true,[55]=true,[87]=true,[128]=true,[158]=true,[284]=true}
 local noShape = {[55]=true,[87]=true,[128]=true,[158]=true}
 local createOverride = {
-	[55] = function(rx,ry,c) return 0,0,c end,
-	[87] = function(rx,ry,c) local tmp=rx+ry if tmp>55 then tmp=55 end return 0,0,c+bit.lshift(tmp,8) end,
-	[88] = function(rx,ry,c) local tmp=rx*4+ry*4+7 if tmp>300 then tmp=300 end return rx,ry,c+bit.lshift(tmp,8) end,
-	[128] = function(rx,ry,c) return 0,0,c end,
-	[158] = function(rx,ry,c) return 0,0,c end}
-
+	[55] = function(rx,ry,c) return 0,0,c end, --STKM
+	[87] = function(rx,ry,c) local tmp=rx+ry if tmp>55 then tmp=55 end return 0,0,c+bit.lshift(tmp,8) end, --LIGH
+	[88] = function(rx,ry,c) local tmp=rx*4+ry*4+7 if tmp>300 then tmp=300 end return rx,ry,c+bit.lshift(tmp,8) end, --TESC
+	[128] = function(rx,ry,c) return 0,0,c end, --STKM2
+	[158] = function(rx,ry,c) return 0,0,c end, -- FIGH
+	[284] = function(rx,ry,c) return 0,0,c end, -- Streamline
+	}
 
 --Functions that do stuff in powdertoy
 local function createPartsAny(x,y,rx,ry,c,brush,user)
+	if createOverride[c] then
+		rx,ry,c = createOverride[c](rx,ry,c)
+		if c<0 then return end
+	end
 	if c>=wallStart then
 		if c<= wallEnd then
-			if c == 284 then rx,ry = 0,0 end
 			sim.createWalls(x,y,rx,ry,c-wallStart,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
@@ -849,17 +828,17 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
-	if createOverride[c] then
-		rx,ry,c = createOverride[c](rx,ry,c)
-	end
 	sim.createParts(x,y,rx,ry,c,brush,user.replacemode)
 end
 local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	if noShape[c] then return end
 	if jacobsmod and c == tpt.element("ball") and not user.shift then return end
+	if createOverride[c] then
+		rx,ry,c = createOverride[c](rx,ry,c)
+		if c<0 then return end
+	end
 	if c>=wallStart then
 		if c<= wallEnd then
-			if c == 284 then rx,ry = 0,0 end
 			sim.createWallLine(x1,y1,x2,y2,rx,ry,c-wallStart,brush)
 		elseif c<=toolEnd then
 			if c>=toolStart then local str=1.0 if user.drawtype==4 then if user.shift then str=10.0 elseif user.alt then str=0.1 end end sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush,str) end
@@ -871,13 +850,14 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
-	if createOverride[c] then
-		rx,ry,c = createOverride[c](rx,ry,c)
-	end
 	sim.createLine(x1,y1,x2,y2,rx,ry,c,brush,user.replacemode)
 end
 local function createBoxAny(x1,y1,x2,y2,c,user)
 	if noShape[c] then return end
+	if createOverride[c] then
+		_,_,c = createOverride[c](user.brushx,user.brushy,c)
+		if c<0 then return end
+	end
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.createWallBox(x1,y1,x2,y2,c-wallStart)
@@ -891,13 +871,14 @@ local function createBoxAny(x1,y1,x2,y2,c,user)
 	elseif c>=golStart then
 		c = 78+(c-golStart)*256
 	end
-	if createOverride[c] then
-		_,_,c = createOverride[c](user.brushx,user.brushy,c)
-	end
 	sim.createBox(x1,y1,x2,y2,c,user and user.replacemode)
 end
 local function floodAny(x,y,c,cm,bm,user)
 	if noFlood[c] then return end
+	if createOverride[c] then
+		_,_,c = createOverride[c](user.brushx,user.brushy,c)
+		if c<0 then return end
+	end
 	if c>=wallStart then
 		if c<= wallEnd then
 			sim.floodWalls(x,y,c-wallStart,bm)
@@ -907,26 +888,21 @@ local function floodAny(x,y,c,cm,bm,user)
 	elseif c>=golStart then --GoL adjust
 		c = 78+(c-golStart)*256
 	end
-	if createOverride[c] then
-		_,_,c = createOverride[c](user.brushx,user.brushy,c)
-	end
 	sim.floodParts(x,y,c,cm,user.replacemode)
 end
+
 local function lineSnapCoords(x1,y1,x2,y2)
-	local nx,ny
 	local snapAngle = math.floor(math.atan2(y2-y1, x2-x1)/(math.pi*0.25)+0.5)*math.pi*0.25;
 	local lineMag = math.sqrt(math.pow(x2-x1,2)+math.pow(y2-y1,2));
-	nx = math.floor(lineMag*math.cos(snapAngle)+x1+0.5);
-	ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
+	local nx = math.floor(lineMag*math.cos(snapAngle)+x1+0.5);
+	local ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
 	return nx,ny
 end
-
 local function rectSnapCoords(x1,y1,x2,y2)
-	local nx,ny
 	local snapAngle = math.floor((math.atan2(y2-y1, x2-x1)+math.pi*0.25)/(math.pi*0.5)+0.5)*math.pi*0.5 - math.pi*0.25;
 	local lineMag = math.sqrt(math.pow(x2-x1,2)+math.pow(y2-y1,2));
-	nx = math.floor(lineMag*math.cos(snapAngle)+x1+0.5);
-	ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
+	local nx = math.floor(lineMag*math.cos(snapAngle)+x1+0.5);
+	local ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
 	return nx,ny
 end
 local renModes = {[0xff00f270]=1,[-16715152]=1,[0x0400f381]=2,[0xf382]=4,[0xf388]=8,[0xf384]=16,[0xfff380]=32,[1]=0xff00f270,[2]=0x0400f381,[4]=0xf382,[8]=0xf388,[16]=0xf384,[32]=0xfff380}
@@ -977,7 +953,6 @@ local function playerMouseClick(id,btn,ev)
 			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,user.select[user.lastbtn],user)
 		elseif user.drawtype~=3 then
-			--L.skipDraw = true
 			if user.alt then user.mousex,user.mousey = lineSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,user.select[user.lastbtn],user.brush,user)
 		end
@@ -989,8 +964,13 @@ end
 --To draw continued lines
 local function playerMouseMove(id)
 	local user = con.members[id]
-	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,user.select[user.lastbtn],-1,-1,user) end return end
-	if user.btn[user.lastbtn]==3 then
+	if user.drawtype==3 then
+		floodAny(user.mousex,user.mousey,user.select[user.lastbtn],-1,-1,user)
+	elseif user.drawtype==1 and user.select[user.lastbtn]==306 then --Wind continuous draw
+		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
+		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
+		createLineAny(user.pmx,user.pmy,user.mousex,user.mousey,user.brushx,user.brushy,user.select[user.lastbtn],user.brush,user)
+	elseif user.drawtype==4 and user.btn[user.lastbtn]==3 then
 		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
 		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
 		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,user.select[user.lastbtn],user.brush,user)
@@ -1344,7 +1324,7 @@ end
 
 local function sendStuff()
 	if not con.connected then return end
-	--mouse position every frame, not exactly needed, might be better/more accurate from clicks
+	--mouse position every step, slightly different from 1 and 2  click events.
 	updateBrush()
 	local nmx,nmy = tpt.mousex,tpt.mousey
 	if nmx<sim.XRES and nmy<sim.YRES then nmx,nmy = sim.adjustCoords(nmx,nmy) end
@@ -1630,10 +1610,8 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 		end
 	end
 	--Possible sign event just happened
-	if event==2 then
-		if L.select[button] == 334 then
-			L.checkSigns = true
-		end
+	if event==2 and L.select[button]==334 then
+		L.checkSigns = true
 	end
 
 	--Click inside button first
@@ -1802,7 +1780,7 @@ local function keyclicky(key,nkey,modifier,event)
 		return
 	end
 	if chatwindow.inputbox.focus then
-		if event == 1 and nkey~=13 and nkey~=27 then
+		if event == 1 and nkey~=13 and nkey~=27 and nkey~=271 then
 			pressedKeys = {["repeat"] = socket.gettime()+.6, ["key"] = key, ["nkey"] = nkey, ["modifier"] = modifier, ["event"] = event}
 		elseif event == 2 and pressedKeys and nkey == pressedKeys["nkey"] then
 			pressedKeys = nil
