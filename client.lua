@@ -1,8 +1,6 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
 
-local versionstring = "0.83"
-
 --TODO's
 --***Connect Button***
 --Support New_Nick
@@ -12,25 +10,33 @@ local versionstring = "0.83"
 --Config Options {sync_view_modes ; sync_debug_mode ; chat_width ; chat_height ; sync_frames ; auto_connect}
 --PROP Tool
 --! commands in chat
---
 
-if TPTMP then if TPTMP.version <= 3 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
-TPTMP = {["version"] = 3} -- script version sent on connect to ensure server protocol is the same
-local issocket,socket = pcall(require,"socket")
-dofile "scripts/tptmp.protocol" local P,P_O=P_C,P -- Need to ensure this exists for the client.
-if not sim.clearRect then error"Tpt version not supported" end
-local using_manager = false
-_print = print
-if MANAGER ~= nil or MANAGER_EXISTS then
+local versionStr, version = "1.0", 3
+
+--If this script detects itself
+if TPTMP then if TPTMP.version <= version then TPTMP.disableMultiplayer() else error("A newer version of TPTMP already running") end end 
+--TPT version compatibility check
+if not sim.clearRect then error("Tpt version not supported") end
+-- Our local script version
+TPTMP = {["version"] = version}
+local socket = require "socket"
+--Load protocol data
+if not pcall(dofile,"scripts/tptmp.protocol") then
+	--File not found, get it here
+	error("Protocol not found :(")
+end
+local P,P_O=P_C,P
+--If this is running with script manager
+local using_manager, _print = false, print
+if MANAGER or MANAGER_EXISTS then
 	using_manager = true
 	_print = MANAGER and MANAGER.print or MANAGER_PRINT
-else
-	_print = print
 end
-local hooks_enabled = false --hooks only enabled once you maximize the button
 
-local PORT = 34403 --Change 34403 to your desired port
-local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
+local get_name = tpt.get_name
+local hooks_enabled = false
+--only change KEYBOARD if you have issues. Only other option right now is 2(finnish).
+local KEYBOARD = 1
 --Local player vars we need to keep
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, select={1,333,0,0}, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
 shift=false, alt=false, ctrl=false, tabs = false, skipClick=false, pauseNextFrame=false,
@@ -42,13 +48,10 @@ local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67
 local _noIDProt, noIDProt = {2,3,4,8,9,13,14,15,22,23,24,25,128,129}, {}
 for i,v in ipairs(_editSim) do editSim[v]=true end for i,v in ipairs(_noIDProt) do noIDProt[v]=true end
 
-local tptversion = tpt.version.build
+--Detect jacob's mod
 local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
 local username = get_name()
-if username == "" then
-	username = "Guest"..math.random(10000,99999)
-end
 local chatwindow, hideChat
 local con = {connected = false,
 		 socket = nil,
@@ -564,7 +567,7 @@ new=function(x,y,w,h)
 		self.scrollbar:update(#self.lines,self.shown_lines,#self.lines-self.shown_lines)
 		if L.chatHidden and not noflash then L.flashChat=true end
 	end
-	chat:addline("TPTMP v"..versionstring..": Type '/connect' to join server, or /list for a list of commands.",200,200,200,true)
+	chat:addline("TPTMP v"..versionStr..": Type '/connect' to join server, or /list for a list of commands.",200,200,200,true)
 	function chat:process(mx,my,button,event,wheel)
 		if L.chatHidden then return false end
 		self.minimize:process(mx,my,button,event,wheel)
@@ -592,9 +595,8 @@ new=function(x,y,w,h)
 	--commands for chat window
 	chatcommands = {
 	connect = function(self,msg,args)
-		if not issocket then self:addline("No luasockets found") return end
 		local newname = pcall(string.dump, get_name) and "Gue".."st"..math["random"](1111,9888) or get_name()
-		local s,r = connectToServer(args[1],tonumber(args[2]), newname~="" and newname or username)
+		local s,r = connectToServer(args[1],tonumber(args[2]) or 34403, newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
 		pressedKeys = nil
 	end,
@@ -1013,6 +1015,7 @@ function addHook(cmd,f,front)
 end
 addHook("New_Nick",function(data, uid)
 	username = data.nick()
+	chatwindow:addline("You were assigned the name "..username,255,255,50)
 end)
 addHook("Chan_Name",function(data, uid)
 	con.members = {}

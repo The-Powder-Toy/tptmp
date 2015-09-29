@@ -32,7 +32,7 @@ local succ,err=pcall(function()
 	end
 	server = succ
 	server:settimeout(0)
-	
+	math.randomseed(os.time())
 	--Protocols that edit the simulation in some way.
 	local _editSim, editSim = {33,48,49,50,51,53,54,56,57,58,59,60,61,62,63,64,66,67,68,69,70,71}, {}
 	--Protocols that don't send an ID to client
@@ -248,15 +248,17 @@ local succ,err=pcall(function()
 
 	-- coroutine that handles the client
 	function handler(id,client)
-		--local major,minor,scriptver=byte(),byte(),byte()
-		--client.nick=nullstr()
 		local init = getByte()
 		if init~=protoNames["Init_Connect"] then
 			disconnect(id,"Invalid Connect")
 		end
 		local initial = P.Init_Connect:readData(client.socket)
-		client.nick = initial.nick()
-		print("Got connect from "..client.nick.." "..initial:tostring())
+		local newnick = initial.nick()
+		client.nick = newnick
+		if newnick == "" then
+			newnick = "Guest"..math.random(10000,99999)
+		end
+		print("Got connect from "..newnick.." "..initial:tostring())
 		for k,v in pairs(bans) do
 			if client.host:match(v) then
 				sendProtocol(client.socket,P.Disconnect.reason("You are banned"))
@@ -273,18 +275,18 @@ local succ,err=pcall(function()
 			disconnect(id,"Bad script version "..initial.script())
 			return
 		end
-		if not client.nick:match("^[%w%-%_]+$") then
+		if not newnick:match("^[%w%-%_]+$") then
 			sendProtocol(client.socket,P.Disconnect.reason("Bad Nickname!"))
 			disconnect(id,"Bad nickname")
 			return
 		end
-		if #client.nick > 32 then
+		if #newnick > 32 then
 			sendProtocol(client.socket,P.Disconnect.reason("Nick too long!"))
 			disconnect(id,"Nick too long")
 			return
 		end
 		for k,v in pairs(clients) do
-			if k~=id and v.nick == client.nick then
+			if k~=id and v.nick == newnick then
 				sendProtocol(client.socket,P.Disconnect.reason("This nick is already on the server"))
 				disconnect(id,"Duplicate nick")
 				return
@@ -292,6 +294,11 @@ local succ,err=pcall(function()
 		end
 		-- Success connect!
 		sendProtocol(client.socket,P.Connect_Succ)
+		--Changed nick
+		if newnick ~= client.nick then
+			sendProtocol(client.socket,P.New_Nick.nick(newnick))
+			client.nick = newnick
+		end
 		-- Tell client their modes
 		local modes = P.User_Mode.nick(client.nick).modes.stab(stabbed[client.nick] and 1 or 0).modes.mute(muted[client.nick] and 1 or 0)
 		sendProtocol(client.socket,modes) 
