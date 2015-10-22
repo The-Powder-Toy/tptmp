@@ -523,7 +523,7 @@ new=function(x,y,w,h)
 	chat.scrollbar = ui_scrollbar.new(chat.x2-2,chat.y+11,chat.h-22,0,chat.shown_lines)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
 	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) hideChat() end,">>")
-	chat.conquit = ui_button.new(chat.x+2,chat.y,38,10,function(self) if con.connected then disconnected("Disconnected") self.t.text="Connect" else connectToServer() self.t.text="Disconn" end end,"Connect")
+	chat.conquit = ui_button.new(chat.x,chat.y,37,10,function(self) if con.connected then disconnected("Disconnected") self.t.text="Connect" else connectToServer() self.t.text="Disconn" end end,"Connect")
 	chat:drawadd(function(self)
 		if self.w > 175 and jacobsmod then
 			tpt.drawtext(self.x+self.w/2-72,self.y+2,"TPT Multiplayer, by cracker64") --72 tpt.textwidth("TPT Multiplayer, by cracker64")/2
