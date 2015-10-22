@@ -2,8 +2,6 @@
 --I highly recommend to use my Autorun Script Manager
 
 --TODO's
---***Connect Button***
---Support New_Nick
 --Channel UserList UI
 --Ensure protocol file exists
 --Config UI
@@ -85,7 +83,8 @@ end
 function connectToServer(ip,port,nick)
 	if con.connected then return false,"Already connected" end
 	ip = ip or "cracker.starcatcher.us"
-	port = port or PORT
+	port = port or 34403
+	nick = nick or username
 	local sock = socket.tcp()
 	sock:settimeout(5)
 	local s,r = sock:connect(ip,port)
@@ -474,17 +473,18 @@ new = function(x,y,w,h,f,text)
 	b.t=ui_text.new(text,x+2,y+2)
 	b.drawbox=false
 	b.almostselected=false
-	b.invert=true
-	b.wasinside, b.onLeave, b.onEnter = false, function() end, function() end
+	b.invert=false
+	b.wasinside, b.mouseover, b.onLeave, b.onEnter = false, false, function() end, function() end
 	b:drawadd(function(self)
-		if self.invert and self.almostselected then
-			self.almostselected=false
+		if self.invert or self.almostselected then
+			self.almostselected = false
 			tpt.fillrect(self.x,self.y,self.w,self.h)
 			local tr=self.t.r local tg=self.t.g local tb=self.t.b
 			b.t:setcolor(0,0,0)
 			b.t:draw()
 			b.t:setcolor(tr,tg,tb)
 		else
+			if self.mouseover then tpt.fillrect(self.x,self.y,self.w,self.h, 150, 150, 150) end
 			b.t:draw()
 		end
 	end)
@@ -495,10 +495,11 @@ new = function(x,y,w,h,f,text)
 		local inside = mx>=self.x and mx<=self.x2 and my>=self.y and my<=self.y2
 		if not inside then
 			if event == 0 and self.wasinside then self:onLeave() end
+			self.mouseover=false
 			self.wasinside=false
 			return false
 		end
-		if event == 0 and not self.wasinside then self:onEnter() end
+		if event == 0 and not self.wasinside then self:onEnter() self.mouseover=true end
 		self.wasinside = true
 		if event==3 then self.almostselected=true end
 		if event==2 then self:f() end
@@ -522,11 +523,12 @@ new=function(x,y,w,h)
 	chat.scrollbar = ui_scrollbar.new(chat.x2-2,chat.y+11,chat.h-22,0,chat.shown_lines)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
 	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) hideChat() end,">>")
+	chat.conquit = ui_button.new(chat.x+2,chat.y,38,10,function(self) if con.connected then disconnected("Disconnected") self.t.text="Connect" else connectToServer() self.t.text="Disconn" end end,"Connect")
 	chat:drawadd(function(self)
 		if self.w > 175 and jacobsmod then
-			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer, by cracker64")/2,self.y+2,"TPT Multiplayer, by cracker64")
+			tpt.drawtext(self.x+self.w/2-72,self.y+2,"TPT Multiplayer, by cracker64") --72 tpt.textwidth("TPT Multiplayer, by cracker64")/2
 		elseif self.w > 100 then
-			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer")/2,self.y+2,"TPT Multiplayer")
+			tpt.drawtext(self.x+self.w/2-37.5,self.y+2,"TPT Multiplayer") -- 37.5 tpt.textwidth("TPT Multiplayer")/2
 		end
 		tpt.drawline(self.x+1,self.y+10,self.x2-1,self.y+10,120,120,120)
 		self.scrollbar:draw()
@@ -539,6 +541,7 @@ new=function(x,y,w,h)
 		end
 		self.inputbox:draw()
 		self.minimize:draw()
+		self.conquit:draw()
 	end)
 	chat:moveadd(function(self,x,y)
 		for i,line in ipairs(self.lines) do
@@ -547,6 +550,7 @@ new=function(x,y,w,h)
 		self.scrollbar:onmove(x,y)
 		self.inputbox:onmove(x,y)
 		self.minimize:onmove(x,y)
+		self.conquit:onmove(x,y)
 	end)
 	function chat:addline(line,r,g,b,noflash)
 		if not line or line=="" then return end --No blank lines
@@ -567,10 +571,11 @@ new=function(x,y,w,h)
 		self.scrollbar:update(#self.lines,self.shown_lines,#self.lines-self.shown_lines)
 		if L.chatHidden and not noflash then L.flashChat=true end
 	end
-	chat:addline("TPTMP v"..versionStr..": Type '/connect' to join server, or /list for a list of commands.",200,200,200,true)
+	chat:addline("TPTMP v"..versionStr..": Click [Connect] to join server, or type /list for all commands.",200,200,200,true)
 	function chat:process(mx,my,button,event,wheel)
 		if L.chatHidden then return false end
 		self.minimize:process(mx,my,button,event,wheel)
+		self.conquit:process(mx,my,button,event,wheel)
 		if self.moving and event==3 then
 			local newx,newy = mx-self.relx,my-self.rely
 			local ax,ay = 0,0
@@ -748,6 +753,7 @@ hideChat = function()
 	showbutton.t.text = "<<"
 end
 showbutton.onEnter = function(self)
+	if not con.connected then return end
 	L.chatHidden, L.flashChat = false, false
 	chatwindow.inputbox:setfocus(true)
 end
@@ -759,8 +765,8 @@ end
 if jacobsmod and tpt.oldmenu()~=0 then
 	showbutton:onmove(0, 256)
 end
-local flashCount=0
-showbutton.drawbox = true showbutton:drawadd(function(self) if L.flashChat then self.almostselected=true flashCount=flashCount+1 if flashCount%25==0 then self.invert=not self.invert end end end)
+showbutton.drawbox = true
+
 if using_manager then
 	local loadsettings = function() chatwindow = ui_chatbox.new(100, 100, tonumber(MANAGER.getsetting("tptmp", "width")), tonumber(MANAGER.getsetting("tptmp", "height"))) end
 	if not pcall(loadsettings) then chatwindow = ui_chatbox.new(100, 100, 225, 150) end
@@ -1335,8 +1341,6 @@ local function sendStuff()
 		L.mousex,L.mousey = nmx,nmy
 		sendProtocol(P.Mouse_Pos.position.x(L.mousex).position.y(L.mousey))
 	end
-	--Mouseover checks
-	showbutton:process(nmx,nmy,0,0,0)
 	--check selected elements
 	local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
 	if L.select[1]~=nsell then
@@ -1462,9 +1466,11 @@ local function updatePlayers()
 	L.stick2=false
 end
 
-local pressedKeys
+local pressedKeys, tickHooks, ticker = nil, {}, 0
 local function step()
-	if not L.chatHidden then chatwindow:draw() end
+	local mx, my = tpt.mousex, tpt.mousey
+	if not L.chatHidden then chatwindow:process(mx, my,0,0,0) chatwindow:draw() end
+	showbutton:process(mx, my,0,0,0)
 	showbutton:draw()
 	if hooks_enabled then
 		if pressedKeys and pressedKeys["repeat"] < socket.gettime() then
@@ -1481,8 +1487,16 @@ local function step()
 		connectThink()
 		updatePlayers()
 	end
+	ticker = ticker+1
+	for i,v in pairs(tickHooks) do
+		if (ticker%v.tick) == 0 then
+			v.f()
+		end
+	end
 end
-
+local pc, cq = nil, chatwindow.conquit -- Previous color, connect button
+table.insert(tickHooks,{tick=40,f=function() if not con.connected then cq.drawbox=true if pc then cq:setcolor(pc[1],pc[2],pc[3]) pc=nil else pc = {cq.r,cq.g,cq.b} cq:setcolor(130,255,130) end else cq.drawbox=false end end})
+table.insert(tickHooks,{tick=25,f=function() if L.flashChat then showbutton.invert=not showbutton.invert else showbutton.invert=false end end})
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
 	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end},
@@ -1585,7 +1599,7 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 
 	if button > 0 and L.skipClick then L.skipClick=false return true end
 	if chatwindow:process(oldx,oldy,button,event,wheel) then return false end
-	
+
 	local obut,oevnt,t  = L.mButt,L.mEvent,{}
 	L.mButt,L.mEvent = button,event
 	
