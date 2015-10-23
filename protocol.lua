@@ -401,6 +401,7 @@ function protocolArray(proto)
 	return t
 end
 --P is shortcut for creating a new packet, P_C is the same but caches the new protocol, only one per type is ever made
+P_Ver = 1
 P, P_C = {}, {}
 setmetatable(P,{__index = function(t,cmd) if not protoNames[cmd] then error(cmd.." is invalid") end return protocolArray(protoNames[cmd]) end})
 setmetatable(P_C,{__index = function(t,cmd) if not protoNames[cmd] then error(cmd.." is invalid") end t[cmd]=protocolArray(protoNames[cmd]) return t[cmd] end})
