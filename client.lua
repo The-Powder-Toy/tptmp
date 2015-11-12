@@ -82,7 +82,7 @@ local function joinChannel(chan)
 end
 local function connectToServer(ip,port,nick)
 	if con.connected then return false,"Already connected" end
-	ip = ip or "starcatcher.us"
+	ip = ip or "tptmp.starcatcher.us"
 	port = port or PORT
 	local sock = socket.tcp()
 	sock:settimeout(10)
