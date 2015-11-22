@@ -1465,6 +1465,7 @@ if jacobsmod then
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
+	if button >= 8 then return end
 	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end end
 	if L.stamp and button>0 and button~=2 then
 		if event==1 and button==1 and L.stampx == -1 then
