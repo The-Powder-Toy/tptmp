@@ -16,7 +16,7 @@ if TPTMP then if TPTMP.version <= version then TPTMP.disableMultiplayer() else e
 --TPT version compatibility check
 if not sim.clearRect then error("Tpt version not supported") end
 -- Our local script version, protocol version
-TPTMP = {version = version, proto = 1}
+TPTMP = {version = version, proto = 1, versionStr = versionStr}
 local socket = require "socket"
 --Load protocol data
 pcall(dofile,"scripts/tptmp.protocol")
