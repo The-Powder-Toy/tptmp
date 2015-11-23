@@ -84,7 +84,7 @@ end
 function connectToServer(ip,port,nick)
 	if con.connected then return false,"Already connected" end
 	ip = ip or "cracker.starcatcher.us"
-	port = port or 34403
+	port = port or 34404
 	nick = nick or username
 	local sock = socket.tcp()
 	sock:settimeout(5)
@@ -602,7 +602,7 @@ new=function(x,y,w,h)
 	chatcommands = {
 	connect = function(self,msg,args)
 		local newname = pcall(string.dump, get_name) and "Gue".."st"..math["random"](1111,9888) or get_name()
-		local s,r = connectToServer(args[1],tonumber(args[2]) or 34403, newname~="" and newname or username)
+		local s,r = connectToServer(args[1],tonumber(args[2]) or 34404, newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
 		pressedKeys = nil
 	end,
