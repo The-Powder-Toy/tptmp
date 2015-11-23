@@ -3,6 +3,7 @@ function commandHooks.slist(client, msg, msgsplit)
 	for k,v in pairs(commandHooks) do
 		table.insert(list, k)
 	end
+	table.sort(list)
 	serverMsg(client, "Server commands: "..table.concat(list, ", "))
 	return true
 end
@@ -11,6 +12,7 @@ local helptext = {
 ["slist"] = "(slist): Prints a list of server side commands.",
 ["shelp"] = "(shelp [<command>]): Prints help for a command.",
 ["online"] = "(online): Prints how many players are online and how many rooms there are.",
+["names"] = "(names): Prints which channel you are in and what players are in it.",
 ["msg"] = "(msg <user> <message>): Sends a private message to a user.",
 ["seen"] = "(seen <user>): Tells you the amount of time since a user was last online.",
 ["motd"] = "(motd <motd>): Sets the motd for a channel, if you were the first to join.",
@@ -36,7 +38,18 @@ function commandHooks.online(client, msg, msgsplit)
 	return true
 end
 
+function commandHooks.names(client, msg, msgsplit)
+	local users = {}
+	for k,v in pairs(rooms[client.room]) do
+		table.insert(users, clients[v].nick)
+	end
+	table.sort(users)
+	serverMsg(client, "Currently in room "..client.room..": "..table.concat(users, ", "))
+	return true
+end
+
 function commandHooks.msg(client, msg, msgsplit)
+	if #msgsplit == 0 then return true end
 	local to = msgsplit[1]
 	local message = msg:sub(#msgsplit[1]+2)
 	local sent = false
@@ -53,7 +66,7 @@ function commandHooks.msg(client, msg, msgsplit)
 	return true
 end
 
-function timestr(t)
+local function timestr(t)
 	local seconds, minutes, hours, days
 	local str = {}
 	days = math.floor(t/86400)
