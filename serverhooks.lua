@@ -1,6 +1,6 @@
 serverHooks = {}
 commandHooks = {}
-
+local unpack = unpack or table.unpack
 --Load all hooks in hooks/ here (copied from Crackbot)
 function loadhook(name)
 	local succ,err = pcall(dofile, "hooks/"..name)

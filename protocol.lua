@@ -1,4 +1,8 @@
-require 'bit'
+if bit32 then
+	bit=bit32 bit.rol=bit.lrotate bit.ror=bit.rrotate
+elseif not bit then
+	bit = require 'bit'
+end
 local lshift, rshift, band, rol, ror = bit.lshift, bit.rshift, bit.band, bit.rol, bit.ror
 local insert, concat = table.insert, table.concat
 protocol = {
