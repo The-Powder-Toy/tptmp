@@ -3,7 +3,6 @@
 
 --TODO's
 --Channel UserList UI
---Ensure protocol file exists
 --Config UI
 --Config Options {sync_view_modes ; sync_debug_mode ; chat_width ; chat_height ; sync_frames ; auto_connect}
 --PROP Tool
@@ -18,13 +17,28 @@ if not sim.clearRect then error("Tpt version not supported") end
 -- Our local script version, protocol version
 TPTMP = {version = version, proto = 1, versionStr = versionStr}
 local socket = require "socket"
---Load protocol data
+
+--Load / update protocol data
 pcall(dofile,"scripts/tptmp.protocol")
+local function updateprotocol()
+	-- can't check for tpt.getscript directly, since it the older version existed since a long time ago
+	if tpt.version.major >= 91 or tpt.version.jacob1s_mod >= 32 then
+		if tpt.confirm("Install TPTMP", "The TPTMP protocol must be downloaded and installed to scripts/tptmp.protocol") then
+			fs.makeDirectory("scripts")
+			tpt.getscript(69, "scripts/tptmp.protocol", 1, 0)
+		end
+	end
+	if not P_Ver then
+		error("Protocol not found")
+	elseif P_Ver < TPTMP.proto then
+		error("Protocol is out of date, needs "..TPTMP.proto.." but is "..P_Ver)
+	end
+end
 if not P_Ver or P_Ver < TPTMP.proto then
-	--tpt.getscript()
-	error("Protocol not found :(")
+	updateprotocol()
 end
 local P,P_O=P_C,P
+
 --If this is running with script manager
 local using_manager, _print = false, print
 if MANAGER or MANAGER_EXISTS then
