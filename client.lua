@@ -602,7 +602,7 @@ new=function(x,y,w,h)
 	chat:addline("TPTMP v"..versionStr..": Click [Connect] to join server, or type /list for all commands.",200,200,200,true)
 	function chat:process(mx,my,button,event,wheel)
 		if L.chatHidden then return false end
-		canMove = true
+		local canMove = true
 		if self.minimize:process(mx,my,button,event,wheel) then canMove = false end
 		if self.conquit:process(mx,my,button,event,wheel) then canMove = false end
 		if self.moving and event==3 then
@@ -1054,7 +1054,7 @@ addHook("New_Nick",function(data, uid)
 end)
 addHook("Chan_Name",function(data, uid)
 	con.members = {}
-	chatwindow:addline("Moved to chan "..data.chan(),255,255,50)
+	chatwindow:addline("Moved to channel "..data.chan(),255,255,50)
 end)
 addHook("Chan_Member",function(data, uid)
 	--Basic user table, will be receiving the full data shortly
