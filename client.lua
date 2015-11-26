@@ -31,7 +31,7 @@ local function updateprotocol()
 	if not P_Ver then
 		error("Protocol not found")
 	elseif P_Ver < TPTMP.proto then
-		error("Protocol is out of date, needs "..TPTMP.proto.." but is "..P_Ver)
+		error("Protocol is out of date, needs version "..TPTMP.proto.." but is version "..P_Ver)
 	end
 end
 if not P_Ver or P_Ver < TPTMP.proto then
@@ -515,9 +515,9 @@ new = function(x,y,w,h,f,text)
 			return false
 		end
 		if event == 0 and not self.wasinside then self:onEnter() self.mouseover=true end
-		self.wasinside = true
-		if event==3 then self.almostselected=true end
-		if event==2 then self:f() end
+		if event==1 then self.wasinside = true end
+		if event==3 and self.wasinside then self.almostselected=true end
+		if event==2 and self.wasinside then self:f() end
 		return true
 	end
 	return b
@@ -538,7 +538,20 @@ new=function(x,y,w,h)
 	chat.scrollbar = ui_scrollbar.new(chat.x2-2,chat.y+11,chat.h-22,0,chat.shown_lines)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
 	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) hideChat() end,">>")
-	chat.conquit = ui_button.new(chat.x,chat.y,37,10,function(self) if con.connected then disconnected("Disconnected") self.t.text="Connect" else connectToServer() self.t.text="Disconn" end end,"Connect")
+	chat.conquit = ui_button.new(chat.x,chat.y,37,10,
+		function(self)
+			if con.connected then
+				disconnected("Disconnected")
+				self.t.text="Connect"
+			else
+				local s,r = connectToServer()
+				if not s then
+					chat:addline(r,255,50,50)
+				else
+					self.t.text="Disconn"
+				end
+			end
+		end, "Connect")
 	chat:drawadd(function(self)
 		if self.w > 175 and jacobsmod then
 			tpt.drawtext(self.x+self.w/2-72,self.y+2,"TPT Multiplayer, by cracker64") --72 tpt.textwidth("TPT Multiplayer, by cracker64")/2
@@ -589,8 +602,9 @@ new=function(x,y,w,h)
 	chat:addline("TPTMP v"..versionStr..": Click [Connect] to join server, or type /list for all commands.",200,200,200,true)
 	function chat:process(mx,my,button,event,wheel)
 		if L.chatHidden then return false end
-		self.minimize:process(mx,my,button,event,wheel)
-		self.conquit:process(mx,my,button,event,wheel)
+		canMove = true
+		if self.minimize:process(mx,my,button,event,wheel) then canMove = false end
+		if self.conquit:process(mx,my,button,event,wheel) then canMove = false end
 		if self.moving and event==3 then
 			local newx,newy = mx-self.relx,my-self.rely
 			local ax,ay = 0,0
@@ -607,7 +621,7 @@ new=function(x,y,w,h)
 		if self.moving and event==2 then self.moving=false return true end
 		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then if button == 0 then return false end self.inputbox:setfocus(false) return false elseif event==1 and which ~= 0 and not self.inputbox.focus then self.inputbox:setfocus(true) end
 		self.scrollbar:process(mx,my,button,event,wheel)
-		if event==1 and which==0 then self.moving=true self.lastx=mx self.lasty=my self.relx=mx-self.x self.rely=my-self.y return true end
+		if event==1 and which==0 and canMove then self.moving=true self.lastx=mx self.lasty=my self.relx=mx-self.x self.rely=my-self.y return true end
 		if event==1 and which==self.shown_lines+1 then self.inputbox:setfocus(true) return true elseif self.inputbox.focus then return true end --trigger input_box
 		if which>0 and which<self.shown_lines+1 and self.lines[which+self.scrollbar.pos] then self.lines[which+self.scrollbar.pos]:process(mx,my,button,event,wheel) end
 		return event==1
