@@ -763,7 +763,7 @@ end
 local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function(self) 
+local showbutton = ui_button.new(gfx.WIDTH-16,using_manager and 119 or 136,14,14,function(self) 
 	if using_manager and not MANAGER.hidden then _print("minimize the manager before opening TPTMP") return end 
 	if not hooks_enabled then TPTMP.enableMultiplayer() end 
 	L.chatHidden=(not TPTMP.chatHidden) TPTMP.chatHidden=L.chatHidden L.flashChat=false
@@ -1525,14 +1525,14 @@ local tpt_buttons = {
 	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() sendProtocol(P.Clear_Sim) L.lastSave=nil end},
 	["opts"] = {x1=581, y1=408, x2=595, y2=422, f=function() L.checkOpt=true end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
-	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end},
-	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) end},
-	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.NGrav_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end},
-	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Ambient_State.state(bit.bxor(tpt.ambient_heat(),1))) end},
+	["pause"] = {x1=gfx.WIDTH-16, y1=408, x2=gfx.WIDTH-2, y2=422, f=function() sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end},
+	["deco"] = {x1=gfx.WIDTH-16, y1=33, x2=gfx.WIDTH-2, y2=47, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) end},
+	["newt"] = {x1=gfx.WIDTH-16, y1=49, x2=gfx.WIDTH-2, y2=63, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.NGrav_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end},
+	["ambh"] = {x1=gfx.WIDTH-16, y1=65, x2=gfx.WIDTH-2, y2=79, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Ambient_State.state(bit.bxor(tpt.ambient_heat(),1))) end},
 }
 if jacobsmod then
-	tpt_buttons["tab"] = {x1=613, y1=1, x2=627, y2=15, f=function() L.tabs = not L.tabs end}
-	tpt_buttons["tabs"] = {x1=613, y1=17, x2=627, y2=147, f=function() if L.tabs or L.ctrl then L.sendScreen = true end end}
+	tpt_buttons["tab"] = {x1=gfx.WIDTH-16, y1=1, x2=gfx.WIDTH-2, y2=15, f=function() L.tabs = not L.tabs end}
+	tpt_buttons["tabs"] = {x1=gfx.WIDTH-16, y1=17, x2=gfx.WIDTH-2, y2=147, f=function() if L.tabs or L.ctrl then L.sendScreen = true end end}
 	tpt_buttons["opts"] = {x1=465, y1=408, x2=479, y2=422, f=function() L.checkOpt=true end}
 	tpt_buttons["clear"] = {x1=481, y1=408, x2=497, y2=422, f=function() sendProtocol(P.Clear_Sim) L.lastSave=nil end}
 	tpt_buttons["disp"] = {x1=595, y1=408, x2=611, y2=422,f=function() L.checkRen=2 L.pModes=getViewModes() end}
