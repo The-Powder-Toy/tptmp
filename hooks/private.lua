@@ -1,27 +1,19 @@
 privaterooms = {}
 invites = {}
 
-function serverHooks.private(client, cmd, msg)
-	if cmd == 1 and msg ~= "null" and client.nick and privaterooms[msg] then
-		if not invites[client.nick] or invites[client.nick] ~= msg then
-			serverMsg(client, "That channel is invite only, joining lobby instead.")
+addSecondaryHook(function(client, id, prot)
+	local chan = prot.chan()
+	if chan ~= "null" and privaterooms[chan] then
+		--Joining an old private channel, clear list
+		if not rooms[chan] then privaterooms[chan]=nil return end
+		
+		if invites[client.nick] ~= chan then
+			serverMsg(client, "That channel is invite only, join failed.")
 			return true
 		end
 	end
-	--[[if cmd == -1 and client.nick then
-		invites[client.nick] = nil
-	end]]
-	if cmd == -2 then
-		if not rooms[msg] then
-			privaterooms[msg] = nil
-			for k,v in pairs(invites) do
-				if v == msg then
-					invites[k] = nil
-				end
-			end
-		end
-	end
-end
+end,"Join_Chan")
+
 
 function commandHooks.invite(client, msg, msgsplit)
 	local to = msgsplit[1]

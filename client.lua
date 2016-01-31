@@ -69,7 +69,7 @@ local chatwindow, hideChat
 local con = {connected = false,
 		 socket = nil,
 		 members = nil,
-		 pingTime = os.time()+60}
+		 pingTime = os.time()+5}
 local function disconnected(reason)
 	if con.socket then
 		con.socket:close()
@@ -142,6 +142,7 @@ function connectToServer(ip,port,nick)
 	sendProtocol(P.Selected_Elem.selected.button(3).selected.elem(L.select[4]))
 	sendProtocol(P.Replace_Mode.replacemode(L.replacemode))
 	sendProtocol(P.Selected_Deco.RGBA(L.dcolour))
+	sendProtocol(P.Join_Chan.chan("null"))
 	return true
 end
 --get next char/byte

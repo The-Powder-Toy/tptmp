@@ -1,4 +1,3 @@
-serverHooks = {}
 commandHooks = {}
 local unpack = unpack or table.unpack
 --Load all hooks in hooks/ here (copied from Crackbot)
@@ -13,11 +12,25 @@ function loadhook(name)
 	print(ret)
 	return ret
 end
+function addSecondaryHook(f, cmd)
+	addHook(cmd,function(client,id,prot) 
+			local s,e = pcall(f,client,id,prot) 
+			if not s then
+				if crackbot then
+					crackbot:send("Hook error: "..e.."\n")
+				else
+					print("Hook error: "..e)
+				end
+			elseif e then
+				return true
+			end 
+		end
+	,dataHookCount(cmd))
+end
 
 function loadallhooks()
 	local listcmd = WINDOWS and "dir /b" or "ls"
 	local pluginList = io.popen(listcmd.." \"hooks\"")
-	serverHooks = {}
 	commandHooks = {}
 	for file in pluginList:lines() do
 		if file:sub(#file-3,#file) == ".lua" then
@@ -29,11 +42,11 @@ loadallhooks()
 
 --function used in some hooks
 function countTable(t)
-	local t2 = {}
+	local c = 0
 	for k,v in pairs(t) do
-		table.insert(t2,v)
+		c = c + 1
 	end
-	return #t2
+	return c
 end
 
 --split a string into words
@@ -48,34 +61,16 @@ function getArgs(msg)
 	return args
 end
 
-local function callHook(hook, ...)
-	local succ,err = pcall(hook, unpack(arg))
-	if not succ then
-		if crackbot then
-			crackbot:send("Hook error: "..err.."\n")
-		else
-			print("Hook error: "..err)
-		end
-	elseif err then
-		return true
-	end
-end
-
-function onChat(client, cmd, msg)
-	for k, v in pairs(serverHooks) do
-		if type(v) == "function" and callHook(v, client, cmd, msg) then
+--Chat hook for extra commands
+addSecondaryHook(function(client, id, prot)
+	local msg = prot.msg()
+	local split = getArgs(msg)
+	if split[1]:sub(1,1) == "/" then
+		local command = split[1]:sub(2)
+		local msg = msg:sub(#command+3)
+		table.remove(split, 1)
+		if commandHooks[command] and type(commandHooks[command]) == "function" and commandHooks[command](client, msg, split) then
 			return true
 		end
 	end
-	if cmd == 19 then
-		local split = getArgs(msg)
-		if split[1]:sub(1,1) == "/" then
-			local command = split[1]:sub(2)
-			local msg = msg:sub(#command+3)
-			table.remove(split, 1)
-			if commandHooks[command] and type(commandHooks[command]) == "function" and callHook(commandHooks[command], client, msg, split) then
-				return true
-			end
-		end
-	end
-end
+end,"User_Chat")

@@ -1,15 +1,14 @@
 motd = {}
-
-function serverHooks.motd(client, cmd, msg)
-	if cmd==1 and client.room then
-		if motd and motd[client.room] then
-			serverMsg(client, "[MOTD] "..motd[client.room])
-		elseif client.nick and client.room == "null" then
-			serverMsg(client, "[MOTD] BREAKING NEWS! "..client.nick.." has joined the room.")
-			return
-		end
+--NOTE: client.room in this hook is previous room.
+--Join hook, current misses the initial connect :(
+addSecondaryHook(function(client, id, prot)
+	local newRoom = prot.chan()
+	if motd[newRoom] then
+		serverMsg(client, "[MOTD] "..motd[newRoom])
+	else
+		serverMsg(client, "[MOTD] BREAKING NEWS! "..client.nick.." has joined the room.")
 	end
-end
+end,"Join_Chan")
 
 function commandHooks.motd(client, msg, msgsplit)
 	if client.room and client.room ~= "null" and rooms[client.room] and clients[rooms[client.room][1]] and clients[rooms[client.room][1]].nick == client.nick then

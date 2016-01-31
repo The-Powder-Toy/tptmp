@@ -46,13 +46,14 @@ local succ,err=pcall(function()
 		if front then table.insert(dataHooks[cmd],front,f)
 		else table.insert(dataHooks[cmd],f) end
 	end
+	function dataHookCount(cmd) return dataHooks[protoNames[cmd]] and #dataHooks[protoNames[cmd]] or nil end
 	bans={}
 	stabbed={}
 	muted={}
 	clients={}
 	rooms={}
 	
-	dofile("serverhooks.lua")
+	
 	
 	-- nonblockingly read a null-terminated string
 	function nullstr()
@@ -139,7 +140,6 @@ local succ,err=pcall(function()
 			rooms[room]=nil
 			--print("Deleted room '"..room.."'")
 		end
-		onChat(clients[uid],-2,room)
 	end
 
 	-- join a room
@@ -152,15 +152,6 @@ local succ,err=pcall(function()
 		end
 		client.room=room
 
-		--hook system (check if user is allowed)
-		if onChat(client, 1, room) then
-			if room ~= "null" then
-				join('null', id)
-			else
-				disconnect(id, 'Banned from lobby')
-			end
-			return
-		end
 		-- Confirm the changed channel back to new user
 		sendProtocol(client.socket,P.Chan_Name.chan(room))
 		-- Existing users -> New user
@@ -210,9 +201,10 @@ local succ,err=pcall(function()
 		if #reason > 0 then
 			message = message..": "..reason
 		end
-		serverMsg(clients[victim], message, 255, 50, 50)
-		print(moderator.." has kicked "..clients[victim].nick.." from "..clients[victim].room.." ("..reason..")")
-		serverMsgExcept(clients[victim].room, clients[victim].nick, moderator.." has kicked "..clients[victim].nick.." from "..clients[victim].room.." ("..reason..")")
+		local client = clients[victim]
+		serverMsg(client, message, 255, 50, 50)
+		print(moderator.." has kicked "..client.nick.." from "..client.room.." ("..reason..")")
+		serverMsgExcept(client.room, client.nick, moderator.." has kicked "..client.nick.." from "..client.room.." ("..reason..")")
 		disconnect(victim, "kicked by "..moderator..": "..reason)
 	end
 
@@ -232,11 +224,11 @@ local succ,err=pcall(function()
 		local found, fid = false, 0
 		for _,uid in ipairs(rooms[moderator.room]) do
 			if clients[uid].nick == nick then
-				if not onChat(clients[moderator], id, nick) then
+				--[[if not onChat(clients[moderator], id, nick) then
 					f(uid, ...)
 					found, fid = true, uid
 					
-				end
+				end]]
 			end
 		end
 		if not found then
@@ -344,7 +336,7 @@ local succ,err=pcall(function()
 			print"nothing to leave"
 		end
 		clients[id]=nil
-		onChat(client,-1,err)
+		--TODO: Implement some kind of disconnect hook
 	end
 	local function runLua(msg)
 		local e,err = loadstring(msg)
@@ -397,8 +389,10 @@ local succ,err=pcall(function()
 		end
 	end)
 	addHook("Join_Chan",function(client, id, data)
-		leave(client.room,id)
-		join(data.chan(),id)
+		if client.room ~= data.chan() then
+			leave(client.room,id)
+			join(data.chan(),id)
+		end
 	end)
 	addHook("User_Chat",function(client, id, data)
 		local msg=data.msg()
@@ -549,6 +543,10 @@ local succ,err=pcall(function()
 			end
 		end,1)
 	end
+	
+	--Hooks last to ensure hook order!
+	dofile("serverhooks.lua")
+	
 -------- MAIN LOOP
 	while 1 do
 		-- has anything happened on this iteration

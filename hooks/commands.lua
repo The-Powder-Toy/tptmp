@@ -114,8 +114,9 @@ function commandHooks.seen(client, msg, msgsplit)
 	return true
 end
 
-function serverHooks.commands(client, cmd, msg)
-	if cmd == -1 and client.room == "null" then
+--Last seen message, check pings
+addSecondaryHook(function(client, id, prot)
+	if client.room == "null" then
 		lastseen[client.nick] = os.time()
 	end
-end
+end,"Ping")
