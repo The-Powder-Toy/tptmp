@@ -362,6 +362,7 @@ new=function(x,y,w,h)
 		end
 		if nkey==27 then self:setfocus(false) return true end
 		if nkey==13 then if socket.gettime() < self.ratelimit then return true end local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 self.currentline = "" self.ratelimit=socket.gettime()+1 return text end end --enter
+		if nkey==267 then key="/" nkey=47 end
 		if nkey==273 then if socket.gettime() < self.ratelimit then return true end self:moveline(-1) return true end --up
 		if nkey==274 then self:moveline(1) return true end --down
 		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
