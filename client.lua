@@ -48,8 +48,7 @@ end
 
 local get_name = tpt.get_name
 local hooks_enabled = false
---only change KEYBOARD if you have issues. Only other option right now is 2(finnish).
-local KEYBOARD = 1
+
 --Local player vars we need to keep
 local L = {mousex=0, mousey=0, brushx=0, brushy=0, select={1,333,0,0}, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
 shift=false, alt=false, ctrl=false, tabs = false, skipClick=false, pauseNextFrame=false,
@@ -188,13 +187,6 @@ local function getArgs(msg)
 	return args
 end
 
---get different lists for other language keyboards
-local keyboardshift = { {before=" qwertyuiopasdfghjklzxcvbnm1234567890-=.,/`|;'[]\\",after=" QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*()_+><?~\\:\"{}|",},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'߿߿߿߿߿߿߿<",after=" QWERTYUIOPASDFGHJKLZXCVBNM!\"#߿߿߿ߥ&/()=?;:_*`^>",}  }
-local keyboardaltgr = { {nil},{before=" qwertyuiopasdfghjklzxcvbnm1234567890+,.-'߿߿߿߼",after=" qwertyuiopasdfghjklzxcvbnm1@߿߿߿ߤ߶{[]}\\,.-'~|",},}
-local function shift(c, keyb)
-	return keyb and keyb.after:sub(keyb.before:find(c,1,true)) or c
-end
-
 local function unpackDeco(dcolour)
 	local b = bit.band(dcolour,0x000000FF)
 	local g = bit.rshift(bit.band(dcolour,0x0000FF00),8)
@@ -307,7 +299,7 @@ newscroll = function(text,x,y,vis,force,r,g,b)
 					newstart=newstart+1
 				end
 				self.start=newstart self.last=newlast
-			elseif pos<self.start and pos>0 then --position less than current visible
+			elseif pos<self.start and pos>=0 then --position less than current visible
 				local newstart=pos
 				local newlast=pos+1
 				while tpt.textwidth(self.text:sub(newstart,newlast))<self.visible and newlast<self.length do
@@ -396,11 +388,12 @@ new=function(x,y,w,h)
 		end
 		if nkey==27 then self:setfocus(false) return true end
 		if nkey==13 or nkey==271 then if socket.gettime() < self.ratelimit then return true end local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 self.currentline = "" self.ratelimit=socket.gettime()+1 return text end end --enter
-		if nkey==267 then key="/" nkey=47 end
 		if nkey==273 then if socket.gettime() < self.ratelimit then return true end self:moveline(-1) return true end --up
 		if nkey==274 then self:moveline(1) return true end --down
 		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
 		if nkey==276 then self:movecursor(-1) self.t:update(nil,self.cursor) return true end --left
+		if nkey==278 then self.cursor=0 self.t:update(nil,self.cursor) end --Home
+		if nkey==279 then self.cursor=self.t.length self.t:update(nil,self.cursor) end --End
 		local modi = (modifier%1024)
 		local newstr
 		if nkey==8 and self.cursor > 0 then newstr=self.t.text:sub(1,self.cursor-1) .. self.t.text:sub(self.cursor+1) self:movecursor(-1) --back
@@ -415,12 +408,9 @@ new=function(x,y,w,h)
 				end
 			end
 		else
-			if nkey<32 or nkey>=127 then return true end --normal key
-			local shiftkey = (modi==1 or modi==2)
-			if math.floor((modifier%16384)/8192)==1 and key >= 'a' and key <= 'z' then shiftkey = not shiftkey end
-			local addkey = shiftkey and shift(key,keyboardshift[KEYBOARD]) or key
-			if (math.floor(modi/512))==1 then addkey=shift(key,keyboardaltgr[KEYBOARD]) end
-			newstr = self.t.text:sub(1,self.cursor) .. addkey .. self.t.text:sub(self.cursor+1)
+			--Only allow printable characters
+			if key:match("%c") then return true end
+			newstr = self.t.text:sub(1,self.cursor) .. key .. self.t.text:sub(self.cursor+1)
 			self.currentline = newstr
 			self.t:update(newstr,self.cursor+1)
 			self:movecursor(1)
@@ -1823,6 +1813,7 @@ local keyunpressfuncs = {
 	[308] = function() L.alt=false sendProtocol(P.Key_Mods.key.char(2).key.state(0)) end,
 }
 local function keyclicky(key,nkey,modifier,event)
+	--print(nkey, string.byte(key), modifier, event)
 	if not hooks_enabled then
 		if jacobsmod and bit.band(modifier, 0xC0) == 0 and key == 'o' and event == 1 then if tpt.oldmenu()==0 and showbutton.y < 150 then showbutton:onmove(0, 256) elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end
 		return
@@ -1836,7 +1827,6 @@ local function keyclicky(key,nkey,modifier,event)
 	end
 	local check = chatwindow:textprocess(key,nkey,modifier,event)
 	if type(check)=="boolean" then return not check end
-	--_print(nkey, key)
 	if L.stabbed and stabKeyBlocks[nkey] then return false end
 	local ret
 	if event==1 then
