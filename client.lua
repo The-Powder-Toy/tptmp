@@ -501,12 +501,12 @@ new = function(x,y,w,h,f,text)
 	function b:process(mx,my,button,event,wheel)
 		local inside = mx>=self.x and mx<=self.x2 and my>=self.y and my<=self.y2
 		if not inside then
-			if event == 0 and self.wasinside then self:onLeave() end
+			if event == 0 and self.mouseover then self:onLeave() end
 			self.mouseover=false
 			self.wasinside=false
 			return false
 		end
-		if event == 0 and not self.wasinside then self:onEnter() self.mouseover=true end
+		if event == 0 and not self.mouseover then self:onEnter() self.mouseover=true end
 		if event==1 then self.wasinside = true end
 		if event==3 and self.wasinside then self.almostselected=true end
 		if event==2 and self.wasinside then self:f() end
