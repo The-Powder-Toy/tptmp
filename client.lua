@@ -763,7 +763,18 @@ end
 local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-local showbutton = ui_button.new(gfx.WIDTH-16,using_manager and 119 or 136,14,14,function(self) 
+local function getypos()
+	local ypos = 136
+	if jacobsmod and tpt.oldmenu and tpt.oldmenu()==1 then
+		ypos = gfx.HEIGHT-32
+	elseif tpt.num_menus then
+		ypos = gfx.HEIGHT-32-16*tpt.num_menus()
+	end
+	if using_manager then ypos = ypos - 17 end
+	return ypos
+end
+local jacobsmod_old_menu_check = false
+local showbutton = ui_button.new(gfx.WIDTH-16,getypos(),14,14,function(self) 
 	if using_manager and not MANAGER.hidden then _print("minimize the manager before opening TPTMP") return end 
 	if not hooks_enabled then TPTMP.enableMultiplayer() end 
 	L.chatHidden=(not TPTMP.chatHidden) TPTMP.chatHidden=L.chatHidden L.flashChat=false
@@ -1490,6 +1501,7 @@ end
 local pressedKeys, tickHooks, ticker = nil, {}, 0
 local function step()
 	local mx, my = tpt.mousex, tpt.mousey
+	if jacobsmod_old_menu_check then showbutton:onmove(0, getypos()-showbutton.y) end
 	if not L.chatHidden then chatwindow:process(mx, my,0,0,0) chatwindow:draw() end
 	showbutton:process(mx, my,0,0,0)
 	showbutton:draw()
@@ -1714,7 +1726,7 @@ local keypressfuncs = {
 	[61] = function() if L.ctrl then sendProtocol(P.Clear_Spark) else sendProtocol(P.Clear_Press) end end,
 
 	--`, console
-	[96] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false end end,
+	[96] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false else jacobsmod_old_menu_check = true end end,
 
 	--b , deco, pauses sim
 	[98] = function() if L.ctrl then sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) else sendProtocol(P.Pause_State.state(1)) sendProtocol(P.Deco_State.state(1)) end end,
@@ -1744,7 +1756,7 @@ local keypressfuncs = {
 	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else sendProtocol(P.Deco_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end end,
 
 	--O, old menu in jacobs mod
-	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 and showbutton.y < 150 then return false elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end end,
+	[111] = function() if jacobsmod and not L.ctrl then jacobsmod_old_menu_check = true end end,
 
 	--R , for stamp rotate, Reload
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then sendProtocol(P.Reload_Sim) end end,
@@ -1815,7 +1827,7 @@ local keyunpressfuncs = {
 local function keyclicky(key,nkey,modifier,event)
 	--print(nkey, string.byte(key), modifier, event)
 	if not hooks_enabled then
-		if jacobsmod and bit.band(modifier, 0xC0) == 0 and key == 'o' and event == 1 then if tpt.oldmenu()==0 and showbutton.y < 150 then showbutton:onmove(0, 256) elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end
+		if jacobsmod and bit.band(modifier, 0xC0) == 0 and (key == 'o' or nkey == 96) and event == 1 then jacobsmod_old_menu_check = true end
 		return
 	end
 	if chatwindow.inputbox.focus then
