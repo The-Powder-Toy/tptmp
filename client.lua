@@ -1,7 +1,7 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
 
-local versionstring = "0.86"
+local versionstring = "0.87"
 
 --TODO's
 --FIGH,STKM,STK2,LIGH need a few more creation adjustments
@@ -18,7 +18,7 @@ local versionstring = "0.86"
 if TPTMP then if TPTMP.version <= 2 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
 TPTMP = {["version"] = 2, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
-if not tpt.selectedreplace then error"Tpt version not supported" end
+if not sim.clearRect then error"Tpt version not supported" end
 local using_manager = false
 local _print = print
 if MANAGER ~= nil or MANAGER_EXISTS then
@@ -362,7 +362,6 @@ new=function(x,y,w,h)
 		end
 		if nkey==27 then self:setfocus(false) return true end
 		if nkey==13 then if socket.gettime() < self.ratelimit then return true end local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 self.currentline = "" self.ratelimit=socket.gettime()+1 return text end end --enter
-		if nkey==267 then key="/" nkey=47 end
 		if nkey==273 then if socket.gettime() < self.ratelimit then return true end self:moveline(-1) return true end --up
 		if nkey==274 then self:moveline(1) return true end --down
 		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
@@ -382,11 +381,7 @@ new=function(x,y,w,h)
 			end
 		else
 			if nkey<32 or nkey>=127 then return true end --normal key
-			local shiftkey = (modi==1 or modi==2)
-			if math.floor((modifier%16384)/8192)==1 and key >= 'a' and key <= 'z' then shiftkey = not shiftkey end
-			local addkey = shiftkey and shift(key) or key
-			if (math.floor(modi/512))==1 then addkey=altgr(key) end
-			newstr = self.t.text:sub(1,self.cursor) .. addkey .. self.t.text:sub(self.cursor+1)
+			newstr = self.t.text:sub(1,self.cursor) .. key .. self.t.text:sub(self.cursor+1)
 			self.currentline = newstr
 			self.t:update(newstr,self.cursor+1)
 			self:movecursor(1)
@@ -1196,9 +1191,7 @@ local dataCmds = {
 		local b1,b2,b3,b4,b5,b6=cByte(),cByte(),cByte(),cByte(),cByte(),cByte()
 		local x1,y1 =((b1*16)+math.floor(b2/16)),((b2%16)*256)+b3
 		local x2,y2 =((b4*16)+math.floor(b5/16)),((b5%16)*256)+b6
-		--clear walls and parts
-		createBoxAny(x1,y1,x2,y2,280)
-		createBoxAny(x1,y1,x2,y2,0)
+		sim.clearRect(x1,y1,x2-x1+1,y2-y1+1)
 	end,
 	--Edge mode (1 byte state)
 	[68] = function()
