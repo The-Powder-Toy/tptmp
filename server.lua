@@ -365,14 +365,6 @@ local succ,err=pcall(function()
 		end
 		crackbot:send(runLua(s).."\n")
 	end
-	--[=[
-			What were these for? can these checks use the new hooks?
-			if cmd~=16 and cmd~=19 and cmd~=20 and cmd~=21 and cmd~=23 and cmd~=24 then --handled separately with more info
-				if onChat(client,cmd) then --allow any events to be canceled with hooks
-					cmd=0 --hack
-				end 
-			end
-	--]=]
 	local function genericRelay(client, id, data)
 		sendroomexcept(client.room,id,data)
 	end
@@ -456,7 +448,7 @@ local succ,err=pcall(function()
 		if uid then
 			modaction(client, 24, nick, mute, client.nick, data.modes.mute()==1)
 			clients[uid].op = data.modes.op()==1
-			local packet = data.nick(), P.User_Mode
+			local packet = P.User_Mode
 			packet.modes.stab(stabbed[nick] and 1 or 0).modes.mute(muted[nick] and 1 or 0).modes.op(client.op and 1 or 0)
 			--Let everyone know
 			sendroomexcept(client.room,-1,packet)
