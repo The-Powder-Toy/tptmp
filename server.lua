@@ -194,8 +194,13 @@ local succ,err=pcall(function()
 				disconnect(id,"Banned user")
 			end
 		end
-		if minor~=config.versionminor or major~=config.versionmajor then
-			client.socket:send("\0Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")\0")
+		if major < config.versionmajormin or (major == config.versionmajormin and minor < config.versionminormin) then
+			client.socket:send("\0Your version is out of date (requires at least "..config.versionmajormin.."."..config.versionminormin..")\0")
+			disconnect(id,"Bad version "..major.."."..minor)
+			return
+		end
+		if major > config.versionmajormax or (major == config.versionmajormax and minor > config.versionminormax) then
+			client.socket:send("\0Your version is too new (requires at most "..config.versionmajormax.."."..config.versionminormax..")\0")
 			disconnect(id,"Bad version "..major.."."..minor)
 			return
 		end
