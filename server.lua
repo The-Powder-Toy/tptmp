@@ -146,6 +146,16 @@ local succ,err=pcall(function()
 		end
 
 		-- send who's in room
+		for _,uid in ipairs(rooms[room]) do
+			if not clients[uid] then
+				crackbot:send("ERROR: client "..uid.." in room "..room.." doesn't exist, removing\n")
+				leave(room, uid)
+				if not rooms[room] then
+					rooms[room]={}
+					print("Re-created room '"..room.."' due to error")
+				end
+			end
+		end
 		client.socket:send("\16"..string.char(#rooms[room]))
 		for _,uid in ipairs(rooms[room]) do
 			client.socket:send(string.char(uid)..clients[uid].nick.."\0")
