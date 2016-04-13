@@ -161,8 +161,15 @@ local succ,err=pcall(function()
 		table.insert(rooms[room],id)
 		sendroomexcept(room,id,"\17"..string.char(id)..client.nick.."\0")
 		if #rooms[room]>1 then
-			print("asking "..rooms[room][1].." to provide sync")
-			clients[rooms[room][1]].socket:send("\128"..string.char(id))
+			--print("asking "..rooms[room][1].." to provide sync")
+			--clients[rooms[room][1]].socket:send("\128"..string.char(id))
+			for i,v in ipairs(rooms[room]) do
+				if clients[v].nick and clients[v].nick:find("%[CHAT%]") ~= 1 then
+					print("asking "..clients[v].nick.." to provide sync")
+					clients[v].socket:send("\128"..string.char(id))
+					return
+				end
+			end
 		end
 	end
 
@@ -228,7 +235,7 @@ local succ,err=pcall(function()
 		end
 		client.brush=0
 		client.size="\4\4"
-		client.selection={"\0\1","\64\0","\128\0"}
+		client.selection={"\0\1","\64\0","\128\0","\192\0"}
 		client.replacemode="0"
 		client.deco="\0\0\0\0"
 		print(client.nick.." done identifying")
@@ -324,10 +331,19 @@ local succ,err=pcall(function()
 				local data=char()
 				sendroomexcept(client.room,id,"\36"..string.char(id)..data)
 			elseif cmd==37 then
-				local data=char()..char()
+				local byte1 = char()
+				local byte2 = char()
+				local data = byte1..byte2
 				local btn=math.floor(data:byte(1)/64)
-				client.selection[btn+1]=data
-				sendroomexcept(client.room,id,"\37"..string.char(id)..data)
+				--if client.nick == "jacob1" or client.nick == "jacob2" then
+				--	crackbot:send("test: "..string.byte(byte1)..", "..string.byte(byte2).."\n")
+				--end
+				if string.byte(byte1) ~= 194 and string.byte(byte1) ~= 195 then
+					client.selection[btn+1]=data
+					sendroomexcept(client.room,id,"\37"..string.char(id)..data)
+				else
+					client.ischat = true
+				end
 			elseif cmd==38 then
 				local data=char()
 				client.replacemode = data
