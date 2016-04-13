@@ -485,23 +485,42 @@ local succ,err=pcall(function()
 		elseif conn then
 			conn:settimeout(0)
 			local host,port=conn:getpeername()
-			print("New connection: "..(host or"?")..":"..(port or"?"))
-			-- look for free IDs
-			local hasid
-			for i=0,255 do
-				if not clients[i] then
-					clients[i]={socket=conn,host=host,port=port,lastping=os.time(),coro=coroutine.create(handler)}
-					coroutine.resume(clients[i].coro,i,clients[i])
-					hasid=i
-					break
+			-- prevent abuse with too many open connections
+			local thisip = 0
+			for k,v in pairs(clients) do
+				if host == v.host then
+					thisip = thisip + 1
 				end
 			end
-			if hasid then
-				print("Assigned ID is "..hasid)
-			else
-				conn:send"\0Server has too many users\0"
-				print"No user IDs left"
+			if thisip >= 4 then
+				conn:send("\0There are too many connections open from this ip\0")
+				print("Too many connections from this ip: "..host)
 				conn:close()
+			elseif host == "58.30.71.10" then
+				conn:close()
+			else
+				print("New connection: "..(host or"?")..":"..(port or"?"))
+
+				-- look for free IDs
+				local hasid
+				for i=0,255 do
+					if not clients[i] then
+						clients[i]={socket=conn,host=host,port=port,lastping=os.time(),coro=coroutine.create(handler)}
+						coret, coerr = coroutine.resume(clients[i].coro,i,clients[i])
+						if not coret then
+							print("ERROR! "..coerr)
+						end
+						hasid=i
+						break
+					end
+				end
+				if hasid then
+					print("Assigned ID is "..hasid)
+				else
+					conn:send("\0Server has too many users\0")
+					print("No user IDs left")
+					conn:close()
+				end
 			end
 			anything=true
 		end
