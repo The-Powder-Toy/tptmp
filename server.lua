@@ -514,7 +514,14 @@ local succ,err=pcall(function()
 				local c,err=client.socket:receive(1)
 				while c do
 					anything=true
-					coroutine.resume(client.coro,c)
+					if coroutine.status(client.coro) == "dead" then
+						serverMsg(client, "The server errored while handling your connection")
+						disconnect(id, "SERVER ERROR")
+					end
+					coret, coerr = coroutine.resume(client.coro,c)
+					if not coret then
+						print("ERROR! "..coerr)
+					end
 					if not clients[id] then
 						err=nil
 						break
