@@ -85,15 +85,17 @@ local succ,err=pcall(function()
 	
 	-- send to all users on room except given one (usually self)
 	function sendroomexcept(room,uid,data)
+		if not rooms[room] then return end
 		for _,id in ipairs(rooms[room]) do
-			if id~=uid then
+			if id~=uid and clients[id] and clients[id].socket then
 				clients[id].socket:send(data)
 			end
 		end
 	end
 	function sendroomexceptLarge(room,uid,data)
+		if not rooms[room] then return end
 		for _,id in ipairs(rooms[room]) do
-			if id~=uid then
+			if id~=uid and clients[id] and clients[id].socket then
 				clients[id].socket:settimeout(8)
 				local s,r,e = clients[id].socket:send(data)
 				clients[id].socket:settimeout(0)
@@ -103,8 +105,11 @@ local succ,err=pcall(function()
 
 	-- leave a room
 	function leave(room,uid)
-		print(clients[uid].nick.." left "..room)
-		sendroomexcept(room,uid,"\18"..string.char(uid))
+		print((clients[uid] and clients[uid].nick or "UNKNOWN").." left "..room)
+		if clients[uid] then
+			sendroomexcept(room,uid,"\18"..string.char(uid))
+		end
+		if not rooms[room] then return end
 		for i,id in ipairs(rooms[room]) do
 			if id==uid then
 				table.remove(rooms[room],i)
@@ -115,7 +120,9 @@ local succ,err=pcall(function()
 			rooms[room]=nil
 			print("Deleted room '"..room.."'")
 		end
-		onChat(clients[uid],-2,room)
+		if clients[uid] then
+			onChat(clients[uid],-2,room)
+		end
 	end
 
 	-- join a room
@@ -396,7 +403,7 @@ local succ,err=pcall(function()
 				local i=byte()
 				local b1,b2,b3=byte(),byte(),byte()
 				local sz=b1*65536+b2*256+b3
-				print(client.nick.." provided sync for "..clients[i].nick..", it was "..sz.." bytes")
+				print(client.nick.." provided sync for "..(clients[i] and clients[i].nick or "UNKOWN")..", it was "..sz.." bytes")
 				local s,stm = bytes(client.socket,sz)
 				if s then
 					clients[i].socket:settimeout(8)
