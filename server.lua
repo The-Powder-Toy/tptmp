@@ -157,6 +157,18 @@ local succ,err=pcall(function()
 		end
 		client.room=room
 
+		-- check for major errors that should never happen but will break the server entirely if they do
+		for _,uid in ipairs(rooms[room]) do
+			if not clients[uid] then
+				crackbot:send("ERROR: client "..uid.." in room "..room.." doesn't exist, removing\n")
+				leave(room, uid)
+				if not rooms[room] then
+					rooms[room]={}
+					print("Re-created room '"..room.."' due to error")
+				end
+			end
+		end
+
 		-- Confirm the changed channel back to new user
 		sendProtocol(client.socket,P.Chan_Name.chan(room))
 		-- Existing users -> New user
