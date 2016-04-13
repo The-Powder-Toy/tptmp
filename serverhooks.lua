@@ -65,7 +65,7 @@ end
 addSecondaryHook(function(client, id, prot)
 	local msg = prot.msg()
 	local split = getArgs(msg)
-	if split[1]:sub(1,1) == "/" then
+	if #split > 0 and split[1]:sub(1,1) == "/" then
 		local command = split[1]:sub(2)
 		local msg = msg:sub(#command+3)
 		table.remove(split, 1)

@@ -1,4 +1,4 @@
-badwords = {"fuck", "fag", "rape", "nigger", "assh", "bitch"}
+badwords = {"fuck", "fag", "rapes", "nigger", "assh", "bitch"}
 
 addSecondaryHook(function(client, id, prot)
 	local msg = prot.msg()
