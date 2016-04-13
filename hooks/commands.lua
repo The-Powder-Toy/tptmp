@@ -1,12 +1,3 @@
-function commandHooks.slist(client, msg, msgsplit)
-	local list = {}
-	for k,v in pairs(commandHooks) do
-		table.insert(list, k)
-	end
-	table.sort(list)
-	serverMsg(client, "Server commands: "..table.concat(list, ", "))
-	return true
-end
 
 local helptext = {
 ["slist"] = "(slist): Prints a list of server side commands.",
@@ -19,6 +10,19 @@ local helptext = {
 ["invite"] = "(invite <user>): Invites a user to a channel and sends a message asking them to join.",
 ["private"] = "(private): Toggles a channel's private status. Use /invite to invite users."
 }
+
+function commandHooks.slist(client, msg, msgsplit)
+	local list = {}
+	for k,v in pairs(commandHooks) do
+		if helptext[k] then
+			table.insert(list, k)
+		end
+	end
+	table.sort(list)
+	serverMsg(client, "Server commands: "..table.concat(list, ", "))
+	return true
+end
+
 function commandHooks.shelp(client, msg, msgsplit)
 	local command = msgsplit[1] or "shelp"
 	if helptext[command] then
@@ -65,6 +69,7 @@ function commandHooks.msg(client, msg, msgsplit)
 	end
 	return true
 end
+commandHooks.whisper, commandHooks.w = commandHooks.msg, commandHooks.msg
 
 local function timestr(t)
 	local seconds, minutes, hours, days
