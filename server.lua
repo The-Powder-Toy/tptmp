@@ -262,8 +262,13 @@ local succ,err=pcall(function()
 				disconnect(id,"Banned user")
 			end
 		end
-		if initial.minor()~=config.versionminor or initial.major()~=config.versionmajor then
-			sendProtocol(client.socket,P.Disconnect.reason("Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")"))
+		if initial.major() < config.versionmajormin or (initial.major() == config.versionmajormin and initial.minor() < config.versionminormin) then
+			sendProtocol(client.socket,P.Disconnect.reason("Your version is out of date (requires at least "..config.versionmajormin.."."..config.versionminormin..")"))
+			disconnect(id,"Bad version "..initial.major().."."..initial.minor())
+			return
+		end
+		if initial.major() > config.versionmajormax or (initial.major() == config.versionmajormax and initial.minor() > config.versionminormax) then
+			sendProtocol(client.socket,P.Disconnect.reason("Your version is too new (requires at most "..config.versionmajormax.."."..config.versionminormax..")"))
 			disconnect(id,"Bad version "..initial.major().."."..initial.minor())
 			return
 		end
