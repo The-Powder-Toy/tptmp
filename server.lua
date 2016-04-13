@@ -110,15 +110,17 @@ local succ,err=pcall(function()
 	end
 	-- send to all users on room except given one (usually self)
 	function sendroomexcept(room,uid,data)
+		if not rooms[room] then return end
 		for _,id in ipairs(rooms[room]) do
-			if id~=uid then
+			if id~=uid and clients[id] and clients[id].socket then
 				sendProtocol(clients[id].socket,data,uid)
 			end
 		end
 	end
 	function sendroomexceptLarge(room,uid,data)
+		if not rooms[room] then return end
 		for _,id in ipairs(rooms[room]) do
-			if id~=uid then
+			if id~=uid and clients[id] and clients[id].socket then
 				clients[id].socket:settimeout(8)
 				sendProtocol(clients[id].socket,data,uid)
 				clients[id].socket:settimeout(0)
@@ -128,8 +130,11 @@ local succ,err=pcall(function()
 
 	-- leave a room
 	function leave(room,uid)
-		--print(clients[uid].nick.." left "..room)
-		sendroomexcept(room,uid,P.User_Leave)
+		--print((clients[uid] and clients[uid].nick or "UNKNOWN").." left "..room)
+		if clients[uid] then
+			sendroomexcept(room,uid,P.User_Leave)
+		end
+		if not rooms[room] then return end
 		for i,id in ipairs(rooms[room]) do
 			if id==uid then
 				table.remove(rooms[room],i)
