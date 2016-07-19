@@ -684,7 +684,7 @@ local function getypos()
 	if jacobsmod and tpt.oldmenu and tpt.oldmenu()==1 then
 		ypos = 392
 	elseif tpt.num_menus then
-		ypos = 392-16*tpt.num_menus()
+		ypos = 392-16*tpt.num_menus()-(not jacobsmod and 16 or 0)
 	end
 	if using_manager then ypos = ypos - 17 end
 	return ypos
