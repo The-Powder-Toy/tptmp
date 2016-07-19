@@ -45,6 +45,7 @@ if MANAGER or MANAGER_EXISTS then
 	using_manager = true
 	_print = MANAGER and MANAGER.print or MANAGER_PRINT
 end
+local type = type -- people like to overwrite this function with a global a lot
 
 local get_name = tpt.get_name
 local hooks_enabled = false
