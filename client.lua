@@ -773,7 +773,7 @@ local function getypos()
 	if jacobsmod and tpt.oldmenu and tpt.oldmenu()==1 then
 		ypos = gfx.HEIGHT-32
 	elseif tpt.num_menus then
-		ypos = gfx.HEIGHT-32-16*tpt.num_menus()
+		ypos = gfx.HEIGHT-32-16*tpt.num_menus()-(not jacobsmod and 16 or 0)
 	end
 	if using_manager then ypos = ypos - 17 end
 	return ypos
