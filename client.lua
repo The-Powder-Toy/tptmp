@@ -20,6 +20,7 @@ TPTMP = {["version"] = 2, ["versionStr"] = versionstring} -- script version sent
 local issocket,socket = pcall(require,"socket")
 if not sim.clearRect then error"Tpt version not supported" end
 local using_manager = false
+local type = type -- people like to overwrite this function with a global a lot
 local _print = print
 if MANAGER ~= nil or MANAGER_EXISTS then
 	using_manager = true
