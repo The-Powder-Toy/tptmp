@@ -9,10 +9,13 @@ lua/*
 mime/*
 socket/*
 stamps/*
+scripts/*
 
 ltn12.lua
 mime.lua
 socket.lua
+autorun.lua
+scriptmanager.lua
 powder.pref
 
 
