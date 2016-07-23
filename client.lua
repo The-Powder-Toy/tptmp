@@ -818,29 +818,23 @@ local eleNameTable = {
 ["DEFAULT_PT_LIFE_LLIF"] = 276,["DEFAULT_PT_LIFE_STAN"] = 267,["DEFAULT_PT_LIFE_SEED"] = 268,["DEFAULT_PT_LIFE_MAZE"] = 269,["DEFAULT_PT_LIFE_COAG"] = 270,
 ["DEFAULT_PT_LIFE_WALL"] = 271,["DEFAULT_PT_LIFE_GNAR"] = 272,["DEFAULT_PT_LIFE_REPL"] = 273,["DEFAULT_PT_LIFE_MYST"] = 274,["DEFAULT_PT_LIFE_LOTE"] = 275,
 ["DEFAULT_PT_LIFE_FRG2"] = 276,["DEFAULT_PT_LIFE_STAR"] = 277,["DEFAULT_PT_LIFE_FROG"] = 278,["DEFAULT_PT_LIFE_BRAN"] = 279,
+--walls
 ["DEFAULT_WL_ERASE"] = 280,["DEFAULT_WL_CNDTW"] = 281,["DEFAULT_WL_EWALL"] = 282,["DEFAULT_WL_DTECT"] = 283,["DEFAULT_WL_STRM"] = 284,
 ["DEFAULT_WL_FAN"] = 285,["DEFAULT_WL_LIQD"] = 286,["DEFAULT_WL_ABSRB"] = 287,["DEFAULT_WL_WALL"] = 288,["DEFAULT_WL_AIR"] = 289,["DEFAULT_WL_POWDR"] = 290,
 ["DEFAULT_WL_CNDTR"] = 291,["DEFAULT_WL_EHOLE"] = 292,["DEFAULT_WL_GAS"] = 293,["DEFAULT_WL_GRVTY"] = 294,["DEFAULT_WL_ENRGY"] = 295,
 ["DEFAULT_WL_NOAIR"] = 296,["DEFAULT_WL_ERASEA"] = 297,
-["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_AIR"] = 302,["DEFAULT_TOOL_VAC"] = 303,["DEFAULT_TOOL_PGRV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,["DEFAULT_UI_WIND"] = 306,
-["DEFAULT_DECOR_SET"] = 307,["DEFAULT_DECOR_ADD"] = 308,["DEFAULT_DECOR_SUB"] = 309,["DEFAULT_DECOR_MUL"] = 310,["DEFAULT_DECOR_DIV"] = 311,["DEFAULT_DECOR_SMDG"] = 312,["DEFAULT_DECOR_CLR"] = 313,["DEFAULT_DECOR_LIGH"] = 314, ["DEFAULT_DECOR_DARK"] = 315,
-["DEFAULT_UI_SAMPLE"] = 333,["DEFAULT_UI_SIGN"] = 334,["DEFAULT_UI_PROPERTY"] = 335,
+--special tools
+["DEFAULT_UI_SAMPLE"] = 298,["DEFAULT_UI_SIGN"] = 299,["DEFAULT_UI_PROPERTY"] = 300,["DEFAULT_UI_WIND"] = 301,
+--tools
+["DEFAULT_TOOL_HEAT"] = 302,["DEFAULT_TOOL_COOL"] = 303,["DEFAULT_TOOL_AIR"] = 304,["DEFAULT_TOOL_VAC"] = 305,["DEFAULT_TOOL_PGRV"] = 306,["DEFAULT_TOOL_NGRV"] = 307, ["DEFAULT_TOOL_MIX"] = 308,
+--decoration tools
+["DEFAULT_DECOR_SET"] = 309,["DEFAULT_DECOR_CLR"] = 310,["DEFAULT_DECOR_ADD"] = 311,["DEFAULT_DECOR_SUB"] = 312,["DEFAULT_DECOR_MUL"] = 313,["DEFAULT_DECOR_DIV"] = 314,["DEFAULT_DECOR_SMDG"] = 315,
+["DEFAULT_DECOR_LIGH"] = 316, ["DEFAULT_DECOR_DARK"] = 317
 }
 local golStart,golEnd=256,279
 local wallStart,wallEnd=280,297
-local toolStart,toolEnd=300,306
-local decoStart,decoEnd=307,315
-local function convertDecoTool(c)
-	return c
-end
-if jacobsmod then
-	convertDecoTool = function(c)
-		if c > decoStart and c <= decoStart+6 then
-			c =  decoStart + 1 + (c-decoStart)%6
-		end
-		return c
-	end
-end
+local toolStart,toolEnd=302,308
+local decoStart,decoEnd=309,317
 local gravList= {[0]="Vertical",[1]="Off",[2]="Radial"}
 local airList= {[0]="On",[1]="Pressure Off",[2]="Velocity Off",[3]="Off",[4]="No Update"}
 local noFlood = {[15]=true,[55]=true,[87]=true,[128]=true,[158]=true,[284]=true}
@@ -851,8 +845,8 @@ local createOverride = {
 	[88] = function(rx,ry,c) local tmp=rx*4+ry*4+7 if tmp>300 then tmp=300 end return rx,ry,c+bit.lshift(tmp,8) end, --TESC
 	[128] = function(rx,ry,c) return 0,0,c end, --STKM2
 	[158] = function(rx,ry,c) return 0,0,c end, -- FIGH
-	[284] = function(rx,ry,c) return 0,0,c end, -- Streamline
-	}
+	[284] = function(rx,ry,c) return 0,0,c end -- Streamline
+}
 
 --Functions that do stuff in powdertoy
 local function createPartsAny(x,y,rx,ry,c,brush,user)
@@ -867,7 +861,7 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
 			local r,g,b,a = unpackDeco(user.dcolour)
-			sim.decoBrush(x,y,rx,ry,r,g,b,a,convertDecoTool(c)-decoStart,brush)
+			sim.decoBrush(x,y,rx,ry,r,g,b,a,c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -889,7 +883,7 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 			if c>=toolStart then local str=1.0 if user.drawtype==4 then if user.shift then str=10.0 elseif user.alt then str=0.1 end end sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush,str) end
 		elseif c<= decoEnd then
 			local r,g,b,a = unpackDeco(user.dcolour)
-			sim.decoLine(x1,y1,x2,y2,rx,ry,r,g,b,a,convertDecoTool(c)-decoStart,brush)
+			sim.decoLine(x1,y1,x2,y2,rx,ry,r,g,b,a,c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -910,7 +904,7 @@ local function createBoxAny(x1,y1,x2,y2,c,user)
 			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
 		elseif c<= decoEnd then
 			local r,g,b,a = unpackDeco(user.dcolour)
-			sim.decoBox(x1,y1,x2,y2,r,g,b,a,convertDecoTool(c)-decoStart)
+			sim.decoBox(x1,y1,x2,y2,r,g,b,a,c-decoStart)
 		end
 		return
 	elseif c>=golStart then
