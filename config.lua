@@ -1,6 +1,6 @@
 local config={}
 config.bindhost="*"
-config.bindport=34403
+config.bindport=34404
 config.versionmajormin=91
 config.versionminormin=4
 config.versionmajormax=91
