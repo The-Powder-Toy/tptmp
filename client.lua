@@ -164,7 +164,8 @@ function getBytes(_,amt)
 		local s,r,e = con.socket:receive(amt-rec)
 		if not s then 
 			if r~="timeout" then
-				return false,"Error while getting bytes"
+				disconnected(r)
+				return false,r
 			end
 			rec = rec + #e
 			final = final..e
@@ -172,7 +173,10 @@ function getBytes(_,amt)
 			final = final..s
 			break
 		end
-		if socket.gettime()-timeout>4 then return false,"Byte send took too long" end
+		if socket.gettime()-timeout>4 then
+			disconnected("Byte send took too long")
+			return false,"Byte send took too long"
+		end
 	end
 	--print("Received "..amt.." bytes in "..(socket.gettime()-timeout))
 	return true,final

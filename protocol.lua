@@ -313,7 +313,9 @@ local function makeMeta(typ,p,offset,bits)
 end
 local function T_read(self,socket)
 	for i,v in ipairs(self) do
-		self[i] = getByte()
+		if i <= self.max then
+			self[i] = getByte()
+		end
 	end
 	--String data is held in the table just after size
 	if self.str then
