@@ -23,7 +23,7 @@ local succ,err=pcall(function()
 	local config=dofile"config.lua"
 	dofile"protocol.lua"
 	local succ,err=socket.bind(config.bindhost,config.bindport,10)
-	local crackbotServer=socket.bind("localhost",34404,1)--socket.tcp()
+	local crackbotServer=socket.bind("127.0.0.1",34406,1)
 	crackbot = nil
 	crackbotServer:settimeout(0)
 	
@@ -361,7 +361,7 @@ local succ,err=pcall(function()
 		--TODO: Implement some kind of disconnect hook
 	end
 	local function runLua(msg)
-		local e,err = loadstring(msg)
+		local e,err = load(msg, "crackbotcommand")
 		if e then
 			--debug.sethook(infhook,"l")
 			local s,r = pcall(e)
