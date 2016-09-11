@@ -34,11 +34,7 @@ function commandHooks.shelp(client, msg, msgsplit)
 end
 
 function commandHooks.online(client, msg, msgsplit)
-	--if client.nick ~= "feynman" then
-		serverMsg(client, "There are "..countTable(clients).." clients in "..countTable(rooms).." rooms.")
-	--else
-	--	serverMsg(client, "There are over 9000 clients in over 9000 rooms")
-	--end
+	serverMsg(client, "There are "..countTable(clients).." clients in "..countTable(rooms).." rooms.")
 	return true
 end
 

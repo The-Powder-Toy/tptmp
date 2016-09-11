@@ -287,6 +287,7 @@ local function setValue(self,data)
 end
 local function setValueStr(self,data)
 	self.strsize = #data
+	if self.strsize >= 256^self.max then self.strsize = 256^self.max-1 end
 	self[self.max+1] = data:sub(1,self.strsize)
 	setValue(self,self.strsize)
 end

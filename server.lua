@@ -46,6 +46,20 @@ local succ,err=pcall(function()
 		if front then table.insert(dataHooks[cmd],front,f)
 		else table.insert(dataHooks[cmd],f) end
 	end
+	function removeHook(cmd,f)
+		if not protoNames[cmd] then error("Invalid protocol "..cmd) end
+		cmd = type(cmd)=="string" and protoNames[cmd] or cmd
+		if not dataHooks[cmd] then return end
+		for i,v in pairs(dataHooks[cmd]) do
+			if v == f then
+				table.remove(dataHooks[cmd], i)
+				if #dataHooks[cmd] == 0 then
+					dataHooks[cmd] = nil
+				end
+				return
+			end
+		end
+	end
 	function dataHookCount(cmd) return dataHooks[protoNames[cmd]] and #dataHooks[protoNames[cmd]] or nil end
 	bans={}
 	stabbed={}
@@ -330,18 +344,15 @@ local succ,err=pcall(function()
 		while 1 do
 			local cmd=getByte()
 			
-			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,P.Disconnect.reason("Bad protocol sent")) disconnect("Bad Protocol")  break end
+			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,P.Disconnect.reason("Bad protocol sent")) disconnect(id, "Bad Protocol") break end
 			local prot = protocolArray(cmd):readData(client.socket)
 			
 			--print("Got "..protoNames[cmd].." from "..client.nick.." "..prot:tostring())
-			--We should, uhm, try calling protocol hooks here, maybe
 			if dataHooks[cmd] then
 				for i,v in ipairs(dataHooks[cmd]) do
 					--Hooks can return true to stop future hooks
 					if v(client,id,prot) then break end
 				end
-			else
-				print("No hooks for "..protoNames[cmd])
 			end
 		end
 	end
@@ -358,7 +369,13 @@ local succ,err=pcall(function()
 			print"nothing to leave"
 		end
 		clients[id]=nil
-		--TODO: Implement some kind of disconnect hook
+		--special Disconnect hook, can't cancel this
+		local cmd = protoNames["Disconnect"]
+		if dataHooks[cmd] then
+			for i,v in ipairs(dataHooks[cmd]) do
+				if v(client,id,P.Disconnect.reason(err)) then break end
+			end
+		end
 	end
 	local function runLua(msg)
 		local e,err = load(msg, "crackbotcommand")

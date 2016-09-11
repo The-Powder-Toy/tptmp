@@ -1,7 +1,16 @@
 commandHooks = {}
+local secondaryHooks = {}
+local currentHook = nil
 local unpack = unpack or table.unpack
 --Load all hooks in hooks/ here (copied from Crackbot)
 function loadhook(name)
+	currentHook = name
+	if secondaryHooks[currentHook] then
+		for i,v in ipairs(secondaryHooks[currentHook]) do
+			removeHook(v["name"], v["func"])
+		end
+	end
+	secondaryHooks[currentHook] = {}
 	local succ,err = pcall(dofile, "hooks/"..name)
 	local ret = ""
 	if not succ then
@@ -10,22 +19,26 @@ function loadhook(name)
 		ret = "Loaded hooks/"..name
 	end
 	print(ret)
+	currentHook = nil
 	return ret
 end
 function addSecondaryHook(f, cmd)
-	addHook(cmd,function(client,id,prot) 
-			local s,e = pcall(f,client,id,prot) 
-			if not s then
-				if crackbot then
-					crackbot:send("Hook error: "..e.."\n")
-				else
-					print("Hook error: "..e)
-				end
-			elseif e then
-				return true
-			end 
+	local function h(client,id,prot)
+		local s,e = pcall(f,client,id,prot)
+		if not s then
+			if crackbot then
+				crackbot:send("Hook error: "..e.."\n")
+			else
+				print("Hook error: "..e)
+			end
+		elseif e then
+			return true
 		end
-	,dataHookCount(cmd))
+	end
+	addHook(cmd, h, dataHookCount(cmd))
+	if currentHook then
+		table.insert(secondaryHooks[currentHook], {["name"]=cmd, ["func"]=h})
+	end
 end
 
 function loadallhooks()
