@@ -1050,6 +1050,11 @@ function addHook(cmd,f,front)
 	if front then table.insert(dataHooks[cmd],front,f)
 	else table.insert(dataHooks[cmd],f) end
 end
+addHook("Disconnect", function(data, uid)
+	local reason = data.reason()
+	disconnected("Disconnected: "..reason)
+	return true
+end)
 addHook("New_Nick",function(data, uid)
 	username = data.nick()
 	chatwindow:addline("You were assigned the name "..username,255,255,50)
@@ -1277,7 +1282,7 @@ local function connectThink()
 	if not con.connected then return end
 	if not con.socket then disconnected("No Socket") return end
 	--read all messages
-	while 1 do
+	while con.connected do
 		local cmd,r = getByte()
 		if cmd then
 			if not protoNames[cmd] then _print("Unknown Protocol "..cmd) disconnected("Unknown Proto") break end
