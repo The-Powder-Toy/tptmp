@@ -1052,7 +1052,7 @@ function addHook(cmd,f,front)
 end
 addHook("Disconnect", function(data, uid)
 	local reason = data.reason()
-	disconnected("Disconnected: "..reason)
+	disconnected(reason)
 	return true
 end)
 addHook("New_Nick",function(data, uid)

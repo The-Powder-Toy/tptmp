@@ -39,19 +39,23 @@ local succ,err=pcall(function()
 	local _noIDProt, noIDProt = {2,3,4,8,9,13,14,15,22,23,24,25,128,129}, {}
 	for i,v in ipairs(_editSim) do editSim[v]=true end for i,v in ipairs(_noIDProt) do noIDProt[v]=true end
 	local dataHooks={}
-	function addHook(cmd,f,front)
+	function addHook(cmd,f,priority)
 		if not protoNames[cmd] then error("Invalid protocol "..cmd) end
 		cmd = type(cmd)=="string" and protoNames[cmd] or cmd
 		dataHooks[cmd] = dataHooks[cmd] or {}
-		if front then table.insert(dataHooks[cmd],front,f)
-		else table.insert(dataHooks[cmd],f) end
+		priority = priority or 10
+		local pos = 0
+		for i,v in ipairs(dataHooks[cmd]) do
+			if v["priority"] < priority then pos = i end
+		end
+		table.insert(dataHooks[cmd],pos+1,{["f"]=f,["priority"]=priority})
 	end
 	function removeHook(cmd,f)
 		if not protoNames[cmd] then error("Invalid protocol "..cmd) end
 		cmd = type(cmd)=="string" and protoNames[cmd] or cmd
 		if not dataHooks[cmd] then return end
 		for i,v in pairs(dataHooks[cmd]) do
-			if v == f then
+			if v["f"] == f then
 				table.remove(dataHooks[cmd], i)
 				if #dataHooks[cmd] == 0 then
 					dataHooks[cmd] = nil
@@ -233,7 +237,7 @@ local succ,err=pcall(function()
 			message = message..": "..reason
 		end
 		local client = clients[victim]
-		serverMsg(client, message, 255, 50, 50)
+		sendProtocol(client.socket,P.Disconnect.reason(message))
 		print(moderator.." has kicked "..client.nick.." from "..client.room.." ("..reason..")")
 		serverMsgExcept(client.room, client.nick, moderator.." has kicked "..client.nick.." from "..client.room.." ("..reason..")")
 		disconnect(victim, "kicked by "..moderator..": "..reason)
@@ -344,14 +348,14 @@ local succ,err=pcall(function()
 		while 1 do
 			local cmd=getByte()
 			
-			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,P.Disconnect.reason("Bad protocol sent")) disconnect(id, "Bad Protocol") break end
+			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,P.Disconnect.reason("Disconnected: Bad protocol sent")) disconnect(id, "Bad Protocol") break end
 			local prot = protocolArray(cmd):readData(client.socket)
 			
 			--print("Got "..protoNames[cmd].." from "..client.nick.." "..prot:tostring())
 			if dataHooks[cmd] then
 				for i,v in ipairs(dataHooks[cmd]) do
 					--Hooks can return true to stop future hooks
-					if v(client,id,prot) then break end
+					if v["f"](client,id,prot) then break end
 				end
 			end
 		end
@@ -373,7 +377,7 @@ local succ,err=pcall(function()
 		local cmd = protoNames["Disconnect"]
 		if dataHooks[cmd] then
 			for i,v in ipairs(dataHooks[cmd]) do
-				if v(client,id,P.Disconnect.reason(err)) then break end
+				if v["f"](client,id,P.Disconnect.reason(err)) then break end
 			end
 		end
 	end
@@ -426,7 +430,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "Invalid room name "..room)
 			return true
 		end
-	end)
+	end, 1)
 	addHook("Join_Chan",function(client, id, data)
 		if client.room ~= data.chan() then
 			leave(client.room,id)
@@ -443,7 +447,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "Message too long, not sent")
 		else return end
 		return true
-	end)
+	end, 1)
 	addHook("User_Chat",function(client, id, data)
 		print("<"..client.nick.."> "..data.msg())
 		sendroomexcept(client.room,id,data)
@@ -458,7 +462,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "Message too long, not sent")
 		else return end
 		return true
-	end)
+	end, 1)
 	addHook("User_Me",function(client, id, data)
 		print("* "..client.nick.." "..data.msg())
 		sendroomexcept(client.room,id,data)
@@ -475,7 +479,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "You can't kick people from here")
 		else return end
 		return true
-	end)
+	end, 1)
 	addHook("User_Kick",function(client, id, data)
 		modaction(client, 21, data.nick(), kick, client.nick, data.reason())
 	end)
@@ -487,7 +491,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "You can't do that to yourself!")
 		else return end
 		return true
-	end)
+	end, 1)
 	addHook("Set_User_Mode",function(client, id, data)
 		local nick = data.nick()
 		--Fix these weird modaction functions, should be using ID, need register system first?

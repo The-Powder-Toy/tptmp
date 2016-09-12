@@ -22,7 +22,7 @@ function loadhook(name)
 	currentHook = nil
 	return ret
 end
-function addSecondaryHook(f, cmd)
+function addSecondaryHook(f, cmd, priority)
 	local function h(client,id,prot)
 		local s,e = pcall(f,client,id,prot)
 		if not s then
@@ -35,7 +35,8 @@ function addSecondaryHook(f, cmd)
 			return true
 		end
 	end
-	addHook(cmd, h, dataHookCount(cmd))
+	priority = priority or 5
+	addHook(cmd, h, priority)
 	if currentHook then
 		table.insert(secondaryHooks[currentHook], {["name"]=cmd, ["func"]=h})
 	end
