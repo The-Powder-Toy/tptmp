@@ -174,7 +174,7 @@ local succ,err=pcall(function()
 			--print("asking "..rooms[room][1].." to provide sync")
 			--clients[rooms[room][1]].socket:send("\128"..string.char(id))
 			for i,v in ipairs(rooms[room]) do
-				if clients[v].nick and clients[v].nick:find("%[CHAT%]") ~= 1 then
+				if clients[v].nick and clients[v].nick:find("*") ~= 1 then
 					print("asking "..clients[v].nick.." to provide sync")
 					clients[v].socket:send("\128"..string.char(id))
 					return
@@ -226,7 +226,7 @@ local succ,err=pcall(function()
 			disconnect(id,"Bad script version "..scriptver)
 			return
 		end
-		if not client.nick:match("^[%w%-%_]+$") then
+		if not client.nick:match("^%*?[%w%-%_]+$") then
 			client.socket:send("\0Bad Nickname!\0")
 			disconnect(id,"Bad nickname")
 			return
