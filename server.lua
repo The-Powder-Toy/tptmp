@@ -22,7 +22,7 @@ local succ,err=pcall(function()
 	local socket=require"socket"
 	local config=dofile"config.lua"
 	local succ,err=socket.bind(config.bindhost,config.bindport,10)
-	local crackbotServer=socket.bind("localhost",34404,1)--socket.tcp()
+	local crackbotServer=socket.bind("localhost",34405,1)--socket.tcp()
 	crackbot = nil
 	crackbotServer:settimeout(0)
 	
@@ -37,6 +37,8 @@ local succ,err=pcall(function()
 	clients={}
 	rooms={}
 	
+	askedforsync = {}
+
 	dofile("serverhooks.lua")
 	
 	-- nonblockingly read a null-terminated string
@@ -177,6 +179,7 @@ local succ,err=pcall(function()
 				if clients[v].nick and clients[v].nick:find("%[CHAT%]") ~= 1 then
 					print("asking "..clients[v].nick.." to provide sync")
 					clients[v].socket:send("\128"..string.char(id))
+					askedforsync[id] = v
 					return
 				end
 			end
@@ -205,6 +208,12 @@ local succ,err=pcall(function()
 	function handler(id,client)
 		local major,minor,scriptver=byte(),byte(),byte()
 		client.nick=nullstr()
+		if #client.nick > 32 then
+			client.socket:send("\0Nick too long!\0")
+			client.nick = client.nick:sub(1,480)
+			disconnect(id,"Nick too long")
+			return
+		end
 		for k,v in pairs(bans) do
 			if client.host:match(v) then
 				client.socket:send("\0You are banned\0")
@@ -229,11 +238,6 @@ local succ,err=pcall(function()
 		if not client.nick:match("^[%w%-%_]+$") then
 			client.socket:send("\0Bad Nickname!\0")
 			disconnect(id,"Bad nickname")
-			return
-		end
-		if #client.nick > 32 then
-			client.socket:send("\0Nick too long!\0")
-			disconnect(id,"Nick too long")
 			return
 		end
 		for k,v in pairs(clients) do
@@ -434,20 +438,38 @@ local succ,err=pcall(function()
 				local i=byte()
 				local b1,b2,b3=byte(),byte(),byte()
 				local sz=b1*65536+b2*256+b3
-				print(client.nick.." provided sync for "..(clients[i] and clients[i].nick or "UNKOWN")..", it was "..sz.." bytes")
-				local s,stm = bytes(client.socket,sz)
-				if s then
-					clients[i].socket:settimeout(8)
-					clients[i].socket:send("\129"..string.char(b1,b2,b3)..stm)
-					clients[i].socket:settimeout(0)
+				if not clients[i] then
+					disconnect(i, "Error, your client doesn't exist?")
 				else
-					disconnect(id,stm)
-				end				
+					print(client.nick.." provided sync for "..clients[i].nick..", it was "..sz.." bytes")
+					local s,stm = bytes(client.socket,sz)
+					if s then
+						clients[i].socket:settimeout(8)
+						clients[i].socket:send("\129"..string.char(b1,b2,b3)..stm)
+						clients[i].socket:settimeout(0)
+					else
+						disconnect(id,stm)
+					end
+				end
 			--special mode sync sent to specific user (called from 128)
 			elseif cmd==130 then
 				local i=byte()
+				--if not askedforsync[i] or askedforsync[i] ~= id then
+				--	serverMsg(client, "invalid data recieved")
+				--	disconnect(id, "invalid 130 protocol (not requested)"..tostring(askedforsync[i])..","..tostring(i)..","..tostring(id))
+				--end
 				if clients[i] then
-					clients[i].socket:send(char()..string.char(id)..char())
+					local prot=char()
+					local _validprots, validprots = {49,53,54,56,57,58,59,68}, {}
+					for ii,v in ipairs(_validprots) do validprots[v] = true end
+					if not validprots[string.byte(prot)] then
+						serverMsg(client, "invalid data recieved")
+						disconnect(id, "invalid 130 protocol")
+					end
+					clients[i].socket:send(prot..string.char(id)..char())
+					if string.byte(prot) == 68 then
+						askedforsync[i] = nil
+					end
 				end
 			end
 		end

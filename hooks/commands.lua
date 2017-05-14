@@ -1,3 +1,4 @@
+blocklist = blocklist or {}
 
 local helptext = {
 ["slist"] = "(slist): Prints a list of server side commands.",
@@ -8,6 +9,9 @@ local helptext = {
 ["seen"] = "(seen <user>): Tells you the amount of time since a user was last online.",
 ["motd"] = "(motd <motd>): Sets the motd for a channel, if you were the first to join.",
 ["invite"] = "(invite <user>): Invites a user to a channel and sends a message asking them to join.",
+["uninvite"] = "(uninvite <user>): Remove an invite.",
+["block"] = "(block <user>): Stop seeing private messages from user.",
+["unblock"] = "(unblock <user>): See private messages from user again.",
 ["private"] = "(private): Toggles a channel's private status. Use /invite to invite users."
 }
 
@@ -34,11 +38,7 @@ function commandHooks.shelp(client, msg, msgsplit)
 end
 
 function commandHooks.online(client, msg, msgsplit)
-	--if client.nick ~= "feynman" then
-		serverMsg(client, "There are "..countTable(clients).." clients in "..countTable(rooms).." rooms.")
-	--else
-	--	serverMsg(client, "There are over 9000 clients in over 9000 rooms")
-	--end
+	serverMsg(client, "There are "..countTable(clients).." clients in "..countTable(rooms).." rooms.")
 	return true
 end
 
@@ -53,15 +53,23 @@ function commandHooks.names(client, msg, msgsplit)
 end
 
 function commandHooks.msg(client, msg, msgsplit)
-	if #msgsplit == 0 then return true end
+	if #msgsplit == 0 then
+		commandHooks.shelp(client, "msg", {"msg"})
+		return true
+	end
 	local to = msgsplit[1]
 	local message = msg:sub(#msgsplit[1]+2)
 	local sent = false
 	for k, otherclient in pairs(clients) do
 		if otherclient.nick == to then
-			serverMsg(otherclient, client.nick.." whispers: "..message)
-			serverMsg(client, "Message sent.")
-			sent = true
+			if (blocklist[client.nick] or {})[to] or (blocklist[to] or {})[client.nick] then
+				serverMsg(client, "You can't send messages to this player.")
+				sent = true
+			else
+				serverMsg(otherclient, client.nick.." whispers: "..message)
+				serverMsg(client, "Message sent.")
+				sent = true
+			end
 		end
 	end
 	if not sent then
@@ -70,6 +78,45 @@ function commandHooks.msg(client, msg, msgsplit)
 	return true
 end
 commandHooks.whisper, commandHooks.w = commandHooks.msg, commandHooks.msg
+
+function commandHooks.block(client, msg, msgsplit)
+	if #msgsplit == 0 then
+		commandHooks.shelp(client, "block", {"block"})
+		return true
+	end
+	local block = msgsplit[1]
+	if block == client.nick then
+		serverMsg(client, "You can't block yourself")
+		return true
+	end
+
+	blocklist[client.nick] = blocklist[client.nick] or {}
+	blocklist[client.nick][block] = true
+	serverMsg(client, "Now blocking private messages from "..block)
+
+	return true
+end
+
+function commandHooks.unblock(client, msg, msgsplit)
+	if #msgsplit == 0 then
+		commandHooks.shelp(client, "unblock", {"unblock"})
+		return true
+	end
+	local unblock = msgsplit[1]
+
+	blocklist[client.nick] = blocklist[client.nick] or {}
+	blocklist[client.nick][unblock] = nil
+	serverMsg(client, "Now allowing private messages from "..unblock)
+
+	return true
+end
+
+--To prevent abuse of names, and forgetting, lets reset blocks on quit, maybe change to a timer later, a few days?
+function serverHooks.block(client, cmd, msg)
+	if cmd == -2 then
+		blocklist[client.nick] = {}
+	end
+end
 
 local function timestr(t)
 	local seconds, minutes, hours, days

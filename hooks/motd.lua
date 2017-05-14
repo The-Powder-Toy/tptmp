@@ -5,7 +5,8 @@ function serverHooks.motd(client, cmd, msg)
 		if motd and motd[client.room] then
 			serverMsg(client, "[MOTD] "..motd[client.room])
 		elseif client.nick and client.room == "null" then
-			serverMsg(client, "[MOTD] BREAKING NEWS! "..client.nick.." has joined the room.")
+			--serverMsg(client, "[MOTD] BREAKING NEWS! "..client.nick.." has joined the room.")
+			serverMsg(client, "Welcome to TPTMP! Use /join to join a private channel")
 			return
 		end
 	end
