@@ -23,7 +23,7 @@ local succ,err=pcall(function()
 	local config=dofile"config.lua"
 	dofile"protocol.lua"
 	local succ,err=socket.bind(config.bindhost,config.bindport,10)
-	local crackbotServer=socket.bind("localhost",34404,1)--socket.tcp()
+	local crackbotServer=socket.bind("127.0.0.1",34406,1)
 	crackbot = nil
 	crackbotServer:settimeout(0)
 	
@@ -39,12 +39,30 @@ local succ,err=pcall(function()
 	local _noIDProt, noIDProt = {2,3,4,8,9,13,14,15,22,23,24,25,128,129}, {}
 	for i,v in ipairs(_editSim) do editSim[v]=true end for i,v in ipairs(_noIDProt) do noIDProt[v]=true end
 	local dataHooks={}
-	function addHook(cmd,f,front)
+	function addHook(cmd,f,priority)
 		if not protoNames[cmd] then error("Invalid protocol "..cmd) end
 		cmd = type(cmd)=="string" and protoNames[cmd] or cmd
 		dataHooks[cmd] = dataHooks[cmd] or {}
-		if front then table.insert(dataHooks[cmd],front,f)
-		else table.insert(dataHooks[cmd],f) end
+		priority = priority or 10
+		local pos = 0
+		for i,v in ipairs(dataHooks[cmd]) do
+			if v["priority"] < priority then pos = i end
+		end
+		table.insert(dataHooks[cmd],pos+1,{["f"]=f,["priority"]=priority})
+	end
+	function removeHook(cmd,f)
+		if not protoNames[cmd] then error("Invalid protocol "..cmd) end
+		cmd = type(cmd)=="string" and protoNames[cmd] or cmd
+		if not dataHooks[cmd] then return end
+		for i,v in pairs(dataHooks[cmd]) do
+			if v["f"] == f then
+				table.remove(dataHooks[cmd], i)
+				if #dataHooks[cmd] == 0 then
+					dataHooks[cmd] = nil
+				end
+				return
+			end
+		end
 	end
 	function dataHookCount(cmd) return dataHooks[protoNames[cmd]] and #dataHooks[protoNames[cmd]] or nil end
 	bans={}
@@ -110,15 +128,17 @@ local succ,err=pcall(function()
 	end
 	-- send to all users on room except given one (usually self)
 	function sendroomexcept(room,uid,data)
+		if not rooms[room] then return end
 		for _,id in ipairs(rooms[room]) do
-			if id~=uid then
+			if id~=uid and clients[id] and clients[id].socket then
 				sendProtocol(clients[id].socket,data,uid)
 			end
 		end
 	end
 	function sendroomexceptLarge(room,uid,data)
+		if not rooms[room] then return end
 		for _,id in ipairs(rooms[room]) do
-			if id~=uid then
+			if id~=uid and clients[id] and clients[id].socket then
 				clients[id].socket:settimeout(8)
 				sendProtocol(clients[id].socket,data,uid)
 				clients[id].socket:settimeout(0)
@@ -128,8 +148,11 @@ local succ,err=pcall(function()
 
 	-- leave a room
 	function leave(room,uid)
-		--print(clients[uid].nick.." left "..room)
-		sendroomexcept(room,uid,P.User_Leave)
+		--print((clients[uid] and clients[uid].nick or "UNKNOWN").." left "..room)
+		if clients[uid] then
+			sendroomexcept(room,uid,P.User_Leave)
+		end
+		if not rooms[room] then return end
 		for i,id in ipairs(rooms[room]) do
 			if id==uid then
 				table.remove(rooms[room],i)
@@ -151,6 +174,18 @@ local succ,err=pcall(function()
 			--print("Created room '"..room.."'")
 		end
 		client.room=room
+
+		-- check for major errors that should never happen but will break the server entirely if they do
+		for _,uid in ipairs(rooms[room]) do
+			if not clients[uid] then
+				crackbot:send("ERROR: client "..uid.." in room "..room.." doesn't exist, removing\n")
+				leave(room, uid)
+				if not rooms[room] then
+					rooms[room]={}
+					print("Re-created room '"..room.."' due to error")
+				end
+			end
+		end
 
 		-- Confirm the changed channel back to new user
 		sendProtocol(client.socket,P.Chan_Name.chan(room))
@@ -202,7 +237,7 @@ local succ,err=pcall(function()
 			message = message..": "..reason
 		end
 		local client = clients[victim]
-		serverMsg(client, message, 255, 50, 50)
+		sendProtocol(client.socket,P.Disconnect.reason(message))
 		print(moderator.." has kicked "..client.nick.." from "..client.room.." ("..reason..")")
 		serverMsgExcept(client.room, client.nick, moderator.." has kicked "..client.nick.." from "..client.room.." ("..reason..")")
 		disconnect(victim, "kicked by "..moderator..": "..reason)
@@ -257,8 +292,13 @@ local succ,err=pcall(function()
 				disconnect(id,"Banned user")
 			end
 		end
-		if initial.minor()~=config.versionminor or initial.major()~=config.versionmajor then
-			sendProtocol(client.socket,P.Disconnect.reason("Your version mismatched (requires "..config.versionmajor.."."..config.versionminor..")"))
+		if initial.major() < config.versionmajormin or (initial.major() == config.versionmajormin and initial.minor() < config.versionminormin) then
+			sendProtocol(client.socket,P.Disconnect.reason("Your version is out of date (requires at least "..config.versionmajormin.."."..config.versionminormin..")"))
+			disconnect(id,"Bad version "..initial.major().."."..initial.minor())
+			return
+		end
+		if initial.major() > config.versionmajormax or (initial.major() == config.versionmajormax and initial.minor() > config.versionminormax) then
+			sendProtocol(client.socket,P.Disconnect.reason("Your version is too new (requires at most "..config.versionmajormax.."."..config.versionminormax..")"))
 			disconnect(id,"Bad version "..initial.major().."."..initial.minor())
 			return
 		end
@@ -308,18 +348,15 @@ local succ,err=pcall(function()
 		while 1 do
 			local cmd=getByte()
 			
-			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,P.Disconnect.reason("Bad protocol sent")) disconnect("Bad Protocol")  break end
+			if not protoNames[cmd] then print("Unknown Protocol! DIE") sendProtocol(client.socket,P.Disconnect.reason("Disconnected: Bad protocol sent")) disconnect(id, "Bad Protocol") break end
 			local prot = protocolArray(cmd):readData(client.socket)
 			
 			--print("Got "..protoNames[cmd].." from "..client.nick.." "..prot:tostring())
-			--We should, uhm, try calling protocol hooks here, maybe
 			if dataHooks[cmd] then
 				for i,v in ipairs(dataHooks[cmd]) do
 					--Hooks can return true to stop future hooks
-					if v(client,id,prot) then break end
+					if v["f"](client,id,prot) then break end
 				end
-			else
-				print("No hooks for "..protoNames[cmd])
 			end
 		end
 	end
@@ -336,10 +373,16 @@ local succ,err=pcall(function()
 			print"nothing to leave"
 		end
 		clients[id]=nil
-		--TODO: Implement some kind of disconnect hook
+		--special Disconnect hook, can't cancel this
+		local cmd = protoNames["Disconnect"]
+		if dataHooks[cmd] then
+			for i,v in ipairs(dataHooks[cmd]) do
+				if v["f"](client,id,P.Disconnect.reason(err)) then break end
+			end
+		end
 	end
 	local function runLua(msg)
-		local e,err = loadstring(msg)
+		local e,err = load(msg, "crackbotcommand")
 		if e then
 			--debug.sethook(infhook,"l")
 			local s,r = pcall(e)
@@ -379,7 +422,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "Invalid room name "..room)
 			return true
 		end
-	end)
+	end, 1)
 	addHook("Join_Chan",function(client, id, data)
 		if client.room ~= data.chan() then
 			leave(client.room,id)
@@ -396,7 +439,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "Message too long, not sent")
 		else return end
 		return true
-	end)
+	end, 1)
 	addHook("User_Chat",function(client, id, data)
 		print("<"..client.nick.."> "..data.msg())
 		sendroomexcept(client.room,id,data)
@@ -411,7 +454,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "Message too long, not sent")
 		else return end
 		return true
-	end)
+	end, 1)
 	addHook("User_Me",function(client, id, data)
 		print("* "..client.nick.." "..data.msg())
 		sendroomexcept(client.room,id,data)
@@ -428,7 +471,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "You can't kick people from here")
 		else return end
 		return true
-	end)
+	end, 1)
 	addHook("User_Kick",function(client, id, data)
 		modaction(client, 21, data.nick(), kick, client.nick, data.reason())
 	end)
@@ -440,7 +483,7 @@ local succ,err=pcall(function()
 			serverMsg(client, "You can't do that to yourself!")
 		else return end
 		return true
-	end)
+	end, 1)
 	addHook("Set_User_Mode",function(client, id, data)
 		local nick = data.nick()
 		--Fix these weird modaction functions, should be using ID, need register system first?
@@ -556,27 +599,41 @@ local succ,err=pcall(function()
 		elseif conn then
 			conn:settimeout(0)
 			local host,port=conn:getpeername()
-			print("New connection: "..(host or"?")..":"..(port or"?"))
-			-- look for free IDs
-			local hasid
-			for i=0,255 do
-				if not clients[i] then
-					clients[i]={socket=conn,host=host,port=port,lastping=os.time(),coro=coroutine.create(handler)}
-					ret, err = coroutine.resume(clients[i].coro,i,clients[i])
-					if not ret then
-						print(err)
-						conn:close()
-					end
-					hasid=i
-					break
+			-- prevent abuse with too many open connections
+			local thisip = 0
+			for k,v in pairs(clients) do
+				if host == v.host then
+					thisip = thisip + 1
 				end
 			end
-			if hasid then
-				print("Assigned ID is "..hasid)
-			else
-				sendProtocol(conn,P.Disconnect.reason("Server has too many users"))
-				print"No user IDs left"
+			if thisip >= 4 then
+				sendProtocol(conn,P.Disconnect.reason("There are too many connections open from this ip"))
+				print("Too many connections from this ip: "..host)
 				conn:close()
+			else
+				print("New connection: "..(host or"?")..":"..(port or"?"))
+
+				-- look for free IDs
+				local hasid
+				for i=0,255 do
+					if not clients[i] then
+						clients[i]={socket=conn,host=host,port=port,lastping=os.time(),coro=coroutine.create(handler)}
+						coret, coerr = coroutine.resume(clients[i].coro,i,clients[i])
+						if not coret then
+							print("ERROR! "..coerr)
+							conn:close()
+						end
+						hasid=i
+						break
+					end
+				end
+				if hasid then
+					print("Assigned ID is "..hasid)
+				else
+					sendProtocol(conn,P.Disconnect.reason("Server has too many users"))
+					print("No user IDs left")
+					conn:close()
+				end
 			end
 			anything=true
 		end
@@ -589,10 +646,13 @@ local succ,err=pcall(function()
 				local c,err=client.socket:receive(1)
 				while c do
 					anything=true
-					ret, err = coroutine.resume(client.coro,c)
-					if not ret then
-						print(err)
-						disconnect(id,"server error")
+					if coroutine.status(client.coro) == "dead" then
+						serverMsg(client, "The server errored while handling your connection")
+						disconnect(id, "SERVER ERROR")
+					end
+					coret, coerr = coroutine.resume(client.coro,c)
+					if not coret then
+						print("ERROR! "..coerr)
 					end
 					if not clients[id] then
 						err=nil

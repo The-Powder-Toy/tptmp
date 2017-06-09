@@ -287,6 +287,7 @@ local function setValue(self,data)
 end
 local function setValueStr(self,data)
 	self.strsize = #data
+	if self.strsize >= 256^self.max then self.strsize = 256^self.max-1 end
 	self[self.max+1] = data:sub(1,self.strsize)
 	setValue(self,self.strsize)
 end
@@ -313,7 +314,9 @@ local function makeMeta(typ,p,offset,bits)
 end
 local function T_read(self,socket)
 	for i,v in ipairs(self) do
-		self[i] = getByte()
+		if i <= self.max then
+			self[i] = getByte()
+		end
 	end
 	--String data is held in the table just after size
 	if self.str then

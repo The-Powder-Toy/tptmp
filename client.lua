@@ -45,6 +45,7 @@ if MANAGER or MANAGER_EXISTS then
 	using_manager = true
 	_print = MANAGER and MANAGER.print or MANAGER_PRINT
 end
+local type = type -- people like to overwrite this function with a global a lot
 
 local get_name = tpt.get_name
 local hooks_enabled = false
@@ -164,7 +165,8 @@ function getBytes(_,amt)
 		local s,r,e = con.socket:receive(amt-rec)
 		if not s then 
 			if r~="timeout" then
-				return false,"Error while getting bytes"
+				disconnected(r)
+				return false,r
 			end
 			rec = rec + #e
 			final = final..e
@@ -172,7 +174,10 @@ function getBytes(_,amt)
 			final = final..s
 			break
 		end
-		if socket.gettime()-timeout>4 then return false,"Byte send took too long" end
+		if socket.gettime()-timeout>4 then
+			disconnected("Byte send took too long")
+			return false,"Byte send took too long"
+		end
 	end
 	--print("Received "..amt.." bytes in "..(socket.gettime()-timeout))
 	return true,final
@@ -763,7 +768,18 @@ end
 local infoText = newFadeText("",150,245,370,255,255,255,true)
 local cmodeText = newFadeText("",120,250,180,255,255,255,true)
 
-local showbutton = ui_button.new(613,using_manager and 119 or 136,14,14,function(self) 
+local function getypos()
+	local ypos = 136
+	if jacobsmod and tpt.oldmenu and tpt.oldmenu()==1 then
+		ypos = gfx.HEIGHT-32
+	elseif tpt.num_menus then
+		ypos = gfx.HEIGHT-32-16*tpt.num_menus()-(not jacobsmod and 16 or 0)
+	end
+	if using_manager then ypos = ypos - 17 end
+	return ypos
+end
+local jacobsmod_old_menu_check = false
+local showbutton = ui_button.new(gfx.WIDTH-16,getypos(),14,14,function(self) 
 	if using_manager and not MANAGER.hidden then _print("minimize the manager before opening TPTMP") return end 
 	if not hooks_enabled then TPTMP.enableMultiplayer() end 
 	L.chatHidden=(not TPTMP.chatHidden) TPTMP.chatHidden=L.chatHidden L.flashChat=false
@@ -802,29 +818,23 @@ local eleNameTable = {
 ["DEFAULT_PT_LIFE_LLIF"] = 276,["DEFAULT_PT_LIFE_STAN"] = 267,["DEFAULT_PT_LIFE_SEED"] = 268,["DEFAULT_PT_LIFE_MAZE"] = 269,["DEFAULT_PT_LIFE_COAG"] = 270,
 ["DEFAULT_PT_LIFE_WALL"] = 271,["DEFAULT_PT_LIFE_GNAR"] = 272,["DEFAULT_PT_LIFE_REPL"] = 273,["DEFAULT_PT_LIFE_MYST"] = 274,["DEFAULT_PT_LIFE_LOTE"] = 275,
 ["DEFAULT_PT_LIFE_FRG2"] = 276,["DEFAULT_PT_LIFE_STAR"] = 277,["DEFAULT_PT_LIFE_FROG"] = 278,["DEFAULT_PT_LIFE_BRAN"] = 279,
+--walls
 ["DEFAULT_WL_ERASE"] = 280,["DEFAULT_WL_CNDTW"] = 281,["DEFAULT_WL_EWALL"] = 282,["DEFAULT_WL_DTECT"] = 283,["DEFAULT_WL_STRM"] = 284,
 ["DEFAULT_WL_FAN"] = 285,["DEFAULT_WL_LIQD"] = 286,["DEFAULT_WL_ABSRB"] = 287,["DEFAULT_WL_WALL"] = 288,["DEFAULT_WL_AIR"] = 289,["DEFAULT_WL_POWDR"] = 290,
 ["DEFAULT_WL_CNDTR"] = 291,["DEFAULT_WL_EHOLE"] = 292,["DEFAULT_WL_GAS"] = 293,["DEFAULT_WL_GRVTY"] = 294,["DEFAULT_WL_ENRGY"] = 295,
 ["DEFAULT_WL_NOAIR"] = 296,["DEFAULT_WL_ERASEA"] = 297,
-["DEFAULT_TOOL_HEAT"] = 300,["DEFAULT_TOOL_COOL"] = 301,["DEFAULT_TOOL_AIR"] = 302,["DEFAULT_TOOL_VAC"] = 303,["DEFAULT_TOOL_PGRV"] = 304,["DEFAULT_TOOL_NGRV"] = 305,["DEFAULT_UI_WIND"] = 306,
-["DEFAULT_DECOR_SET"] = 307,["DEFAULT_DECOR_ADD"] = 308,["DEFAULT_DECOR_SUB"] = 309,["DEFAULT_DECOR_MUL"] = 310,["DEFAULT_DECOR_DIV"] = 311,["DEFAULT_DECOR_SMDG"] = 312,["DEFAULT_DECOR_CLR"] = 313,["DEFAULT_DECOR_LIGH"] = 314, ["DEFAULT_DECOR_DARK"] = 315,
-["DEFAULT_UI_SAMPLE"] = 333,["DEFAULT_UI_SIGN"] = 334,["DEFAULT_UI_PROPERTY"] = 335,
+--special tools
+["DEFAULT_UI_SAMPLE"] = 298,["DEFAULT_UI_SIGN"] = 299,["DEFAULT_UI_PROPERTY"] = 300,["DEFAULT_UI_WIND"] = 301,
+--tools
+["DEFAULT_TOOL_HEAT"] = 302,["DEFAULT_TOOL_COOL"] = 303,["DEFAULT_TOOL_AIR"] = 304,["DEFAULT_TOOL_VAC"] = 305,["DEFAULT_TOOL_PGRV"] = 306,["DEFAULT_TOOL_NGRV"] = 307, ["DEFAULT_TOOL_MIX"] = 308,
+--decoration tools
+["DEFAULT_DECOR_SET"] = 309,["DEFAULT_DECOR_CLR"] = 310,["DEFAULT_DECOR_ADD"] = 311,["DEFAULT_DECOR_SUB"] = 312,["DEFAULT_DECOR_MUL"] = 313,["DEFAULT_DECOR_DIV"] = 314,["DEFAULT_DECOR_SMDG"] = 315,
+["DEFAULT_DECOR_LIGH"] = 316, ["DEFAULT_DECOR_DARK"] = 317
 }
 local golStart,golEnd=256,279
 local wallStart,wallEnd=280,297
-local toolStart,toolEnd=300,306
-local decoStart,decoEnd=307,315
-local function convertDecoTool(c)
-	return c
-end
-if jacobsmod then
-	convertDecoTool = function(c)
-		if c > decoStart and c <= decoStart+6 then
-			c =  decoStart + 1 + (c-decoStart)%6
-		end
-		return c
-	end
-end
+local toolStart,toolEnd=302,308
+local decoStart,decoEnd=309,317
 local gravList= {[0]="Vertical",[1]="Off",[2]="Radial"}
 local airList= {[0]="On",[1]="Pressure Off",[2]="Velocity Off",[3]="Off",[4]="No Update"}
 local noFlood = {[15]=true,[55]=true,[87]=true,[128]=true,[158]=true,[284]=true}
@@ -835,8 +845,8 @@ local createOverride = {
 	[88] = function(rx,ry,c) local tmp=rx*4+ry*4+7 if tmp>300 then tmp=300 end return rx,ry,c+bit.lshift(tmp,8) end, --TESC
 	[128] = function(rx,ry,c) return 0,0,c end, --STKM2
 	[158] = function(rx,ry,c) return 0,0,c end, -- FIGH
-	[284] = function(rx,ry,c) return 0,0,c end, -- Streamline
-	}
+	[284] = function(rx,ry,c) return 0,0,c end -- Streamline
+}
 
 --Functions that do stuff in powdertoy
 local function createPartsAny(x,y,rx,ry,c,brush,user)
@@ -851,7 +861,7 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 			if c>=toolStart then sim.toolBrush(x,y,rx,ry,c-toolStart,brush) end
 		elseif c<= decoEnd then
 			local r,g,b,a = unpackDeco(user.dcolour)
-			sim.decoBrush(x,y,rx,ry,r,g,b,a,convertDecoTool(c)-decoStart,brush)
+			sim.decoBrush(x,y,rx,ry,r,g,b,a,c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -873,7 +883,7 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 			if c>=toolStart then local str=1.0 if user.drawtype==4 then if user.shift then str=10.0 elseif user.alt then str=0.1 end end sim.toolLine(x1,y1,x2,y2,rx,ry,c-toolStart,brush,str) end
 		elseif c<= decoEnd then
 			local r,g,b,a = unpackDeco(user.dcolour)
-			sim.decoLine(x1,y1,x2,y2,rx,ry,r,g,b,a,convertDecoTool(c)-decoStart,brush)
+			sim.decoLine(x1,y1,x2,y2,rx,ry,r,g,b,a,c-decoStart,brush)
 		end
 		return
 	elseif c>=golStart then
@@ -894,7 +904,7 @@ local function createBoxAny(x1,y1,x2,y2,c,user)
 			if c>=toolStart then sim.toolBox(x1,y1,x2,y2,c-toolStart) end
 		elseif c<= decoEnd then
 			local r,g,b,a = unpackDeco(user.dcolour)
-			sim.decoBox(x1,y1,x2,y2,r,g,b,a,convertDecoTool(c)-decoStart)
+			sim.decoBox(x1,y1,x2,y2,r,g,b,a,c-decoStart)
 		end
 		return
 	elseif c>=golStart then
@@ -1040,6 +1050,11 @@ function addHook(cmd,f,front)
 	if front then table.insert(dataHooks[cmd],front,f)
 	else table.insert(dataHooks[cmd],f) end
 end
+addHook("Disconnect", function(data, uid)
+	local reason = data.reason()
+	disconnected(reason)
+	return true
+end)
 addHook("New_Nick",function(data, uid)
 	username = data.nick()
 	chatwindow:addline("You were assigned the name "..username,255,255,50)
@@ -1267,7 +1282,7 @@ local function connectThink()
 	if not con.connected then return end
 	if not con.socket then disconnected("No Socket") return end
 	--read all messages
-	while 1 do
+	while con.connected do
 		local cmd,r = getByte()
 		if cmd then
 			if not protoNames[cmd] then _print("Unknown Protocol "..cmd) disconnected("Unknown Proto") break end
@@ -1490,6 +1505,7 @@ end
 local pressedKeys, tickHooks, ticker = nil, {}, 0
 local function step()
 	local mx, my = tpt.mousex, tpt.mousey
+	if jacobsmod_old_menu_check then showbutton:onmove(0, getypos()-showbutton.y) end
 	if not L.chatHidden then chatwindow:process(mx, my,0,0,0) chatwindow:draw() end
 	showbutton:process(mx, my,0,0,0)
 	showbutton:draw()
@@ -1525,14 +1541,14 @@ local tpt_buttons = {
 	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() sendProtocol(P.Clear_Sim) L.lastSave=nil end},
 	["opts"] = {x1=581, y1=408, x2=595, y2=422, f=function() L.checkOpt=true end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
-	["pause"] = {x1=613, y1=408, x2=627, y2=422, f=function() sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end},
-	["deco"] = {x1=613, y1=33, x2=627, y2=47, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) end},
-	["newt"] = {x1=613, y1=49, x2=627, y2=63, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.NGrav_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end},
-	["ambh"] = {x1=613, y1=65, x2=627, y2=79, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Ambient_State.state(bit.bxor(tpt.ambient_heat(),1))) end},
+	["pause"] = {x1=gfx.WIDTH-16, y1=408, x2=gfx.WIDTH-2, y2=422, f=function() sendProtocol(P.Pause_State.state(bit.bxor(tpt.set_pause(),1))) end},
+	["deco"] = {x1=gfx.WIDTH-16, y1=33, x2=gfx.WIDTH-2, y2=47, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) end},
+	["newt"] = {x1=gfx.WIDTH-16, y1=49, x2=gfx.WIDTH-2, y2=63, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.NGrav_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end},
+	["ambh"] = {x1=gfx.WIDTH-16, y1=65, x2=gfx.WIDTH-2, y2=79, f=function() if jacobsmod and (L.tabs or L.ctrl) then return end sendProtocol(P.Ambient_State.state(bit.bxor(tpt.ambient_heat(),1))) end},
 }
 if jacobsmod then
-	tpt_buttons["tab"] = {x1=613, y1=1, x2=627, y2=15, f=function() L.tabs = not L.tabs end}
-	tpt_buttons["tabs"] = {x1=613, y1=17, x2=627, y2=147, f=function() if L.tabs or L.ctrl then L.sendScreen = true end end}
+	tpt_buttons["tab"] = {x1=gfx.WIDTH-16, y1=1, x2=gfx.WIDTH-2, y2=15, f=function() L.tabs = not L.tabs end}
+	tpt_buttons["tabs"] = {x1=gfx.WIDTH-16, y1=17, x2=gfx.WIDTH-2, y2=147, f=function() if L.tabs or L.ctrl then L.sendScreen = true end end}
 	tpt_buttons["opts"] = {x1=465, y1=408, x2=479, y2=422, f=function() L.checkOpt=true end}
 	tpt_buttons["clear"] = {x1=481, y1=408, x2=497, y2=422, f=function() sendProtocol(P.Clear_Sim) L.lastSave=nil end}
 	tpt_buttons["disp"] = {x1=595, y1=408, x2=611, y2=422,f=function() L.checkRen=2 L.pModes=getViewModes() end}
@@ -1714,7 +1730,7 @@ local keypressfuncs = {
 	[61] = function() if L.ctrl then sendProtocol(P.Clear_Spark) else sendProtocol(P.Clear_Press) end end,
 
 	--`, console
-	[96] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false end end,
+	[96] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false else jacobsmod_old_menu_check = true end end,
 
 	--b , deco, pauses sim
 	[98] = function() if L.ctrl then sendProtocol(P.Deco_State.state(bit.bxor(tpt.decorations_enable(),1))) else sendProtocol(P.Pause_State.state(1)) sendProtocol(P.Deco_State.state(1)) end end,
@@ -1744,7 +1760,7 @@ local keypressfuncs = {
 	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else sendProtocol(P.Deco_State.state(bit.bxor(tpt.newtonian_gravity(),1))) end end,
 
 	--O, old menu in jacobs mod
-	[111] = function() if jacobsmod and not L.ctrl then if tpt.oldmenu()==0 and showbutton.y < 150 then return false elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end end,
+	[111] = function() if jacobsmod and not L.ctrl then jacobsmod_old_menu_check = true end end,
 
 	--R , for stamp rotate, Reload
 	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then sendProtocol(P.Reload_Sim) end end,
@@ -1815,7 +1831,7 @@ local keyunpressfuncs = {
 local function keyclicky(key,nkey,modifier,event)
 	--print(nkey, string.byte(key), modifier, event)
 	if not hooks_enabled then
-		if jacobsmod and bit.band(modifier, 0xC0) == 0 and key == 'o' and event == 1 then if tpt.oldmenu()==0 and showbutton.y < 150 then showbutton:onmove(0, 256) elseif showbutton.y > 150 then showbutton:onmove(0, -256) end end
+		if jacobsmod and bit.band(modifier, 0xC0) == 0 and (key == 'o' or nkey == 96) and event == 1 then jacobsmod_old_menu_check = true end
 		return
 	end
 	if chatwindow.inputbox.focus then
