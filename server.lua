@@ -20,7 +20,7 @@ local succ,err=pcall(function()
 
 	-- init server socket
 	local socket=require"socket"
-	local config=dofile"config.lua"
+	config=dofile"config.lua"
 	local succ,err=socket.bind(config.bindhost,config.bindport,10)
 	local crackbotServer=socket.bind("localhost",34405,1)--socket.tcp()
 	crackbot = nil
@@ -115,7 +115,7 @@ local succ,err=pcall(function()
 		for i,id in ipairs(rooms[room]) do
 			if id==uid then
 				table.remove(rooms[room],i)
-				break
+				--break
 			end
 		end
 		if #rooms[room]==0 then

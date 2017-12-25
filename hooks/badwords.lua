@@ -1,4 +1,4 @@
-badwords = {"fuck", "fag", "rapes", "nigger", "assh", "bitch"}
+badwords = {"fuck", "fvck", "fag", "rapes", "nigger", "assho", "bitch", "retard", "cunt", "discord"}
 
 function serverHooks.badwords(client, cmd, msg)
 	if cmd==19 or cmd==20 then
