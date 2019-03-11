@@ -340,44 +340,92 @@ new=function(x,y,w,h)
 		self.cursor = string.len(history)
 		self.t:update(history, self.cursor)
 	end
-	function intext:textprocess(key,nkey,modifier,event)
-		if event~=1 then return end
+	function intext:keypress(key, scan, rep, shift, ctrl, alt)
 		if not self.focus then
-			if nkey==13 then self:setfocus(true) return true end
+			if key == 13 then
+				self:setfocus(true)
+			end
 			return
 		end
-		if nkey==27 then self:setfocus(false) return true end
-		if nkey==13 then if socket.gettime() < self.ratelimit then return true end local text=self.t.text if text == "" then self:setfocus(false) return true else self.cursor=0 self.t.text="" self:addhistory(text) self.line=#self.history+1 self.currentline = "" self.ratelimit=socket.gettime()+1 return text end end --enter
-		if nkey==273 then if socket.gettime() < self.ratelimit then return true end self:moveline(-1) return true end --up
-		if nkey==274 then self:moveline(1) return true end --down
-		if nkey==275 then self:movecursor(1) self.t:update(nil,self.cursor) return true end --right
-		if nkey==276 then self:movecursor(-1) self.t:update(nil,self.cursor) return true end --left
-		local modi = (modifier%1024)
+		-- Esc
+		if key == 27 then
+			self:setfocus(false)
+		-- Enter
+		elseif key == 13 and not rep then
+			if socket.gettime() < self.ratelimit then
+				return
+			end
+			local text = self.t.text
+			if text == "" then
+				self:setfocus(false)
+			else
+				self.cursor = 0
+				self.t.text = ""
+				self:addhistory(text)
+				self.line = #self.history + 1
+				self.currentline = ""
+				self.ratelimit = socket.gettime() + 1
+				return text
+			end
+		-- Up
+		elseif key == 1073741906 then
+			if socket.gettime() < self.ratelimit then
+				return
+			end
+			self:moveline(-1)
+		-- Down
+		elseif key == 1073741905 then
+			self:moveline(1)
+		-- Right
+		elseif key == 1073741903 then
+			self:movecursor(1)
+			self.t:update(nil, self.cursor)
+		-- Left
+		elseif key == 1073741904 then
+			self:movecursor(-1)
+			self.t:update(nil, self.cursor)
+		end
+
 		local newstr
-		if nkey==8 and self.cursor > 0 then newstr=self.t.text:sub(1,self.cursor-1) .. self.t.text:sub(self.cursor+1) self:movecursor(-1) --back
-		elseif nkey==127 then newstr=self.t.text:sub(1,self.cursor) .. self.t.text:sub(self.cursor+2) --delete
-		elseif nkey==9 then --tab complete
-			local nickstart,nickend,nick = self.t.text:sub(1,self.cursor+1):find("([^%s%c]+)"..(self.cursor == #self.t.text and "" or " ").."$")
+		-- Backspace
+		if key == 8 then
+			if self.cursor > 0 then
+				newstr = self.t.text:sub(1,self.cursor-1) .. self.t.text:sub(self.cursor+1)
+				self:movecursor(-1)
+			end
+		-- Delete
+		elseif key == 127 then
+			newstr=self.t.text:sub(1,self.cursor) .. self.t.text:sub(self.cursor+2)
+		-- Tab
+		elseif key == 9 then
+			local nickstart, nickend, nick = self.t.text:sub(1,self.cursor+1):find("([^%s%c]+)"..(self.cursor == #self.t.text and "" or " ").."$")
 			if con.members and nick then
-				for k,v in pairs(con.members) do
-					if v.name:sub(1,#nick) == nick then
-						nick = v.name if nickstart == 1 then nick = nick..":" end newstr = self.t.text:sub(1,nickstart-1)..nick.." "..self.t.text:sub(nickend+1,#self.t.text) self.cursor = nickstart+#nick
+				for k, v in pairs(con.members) do
+					if v.name:sub(1, #nick) == nick then
+						nick = v.name
+						if nickstart == 1 then
+							nick = nick .. ":"
+						end
+						newstr = self.t.text:sub(1,nickstart-1)..nick.." "..self.t.text:sub(nickend+1, #self.t.text)
+						self.cursor = nickstart + #nick
 					end
 				end
 			end
-		else
-			if nkey<32 or nkey>=127 then return true end --normal key
-			newstr = self.t.text:sub(1,self.cursor) .. key .. self.t.text:sub(self.cursor+1)
-			self.currentline = newstr
-			self.t:update(newstr,self.cursor+1)
-			self:movecursor(1)
-			return true
 		end
 		if newstr then
 			self.t:update(newstr,self.cursor)
-			return true
 		end
-		--some actual text processing, lol
+	end
+	function intext:textinput(text)
+		if not self.focus then
+			return
+		end
+		-- TPT font has no unicode characters at the moment, nor does it have a good enough api to support them
+		if #text > 1 or string.byte(text) < 20 or string.byte(text) > 126 then return end
+		newstr = self.t.text:sub(1, self.cursor) .. text .. self.t.text:sub(self.cursor + 1)
+		self.currentline = newstr
+		self.t:update(newstr, self.cursor + 1)
+		self:movecursor(1)
 	end
 	return intext
 end
@@ -624,12 +672,10 @@ new=function(x,y,w,h)
 		end
 	end
 	}
-	function chat:textprocess(key,nkey,modifier,event)
+	function chat:keypress(key, scan, rep, shift, ctrl, alt)
 		if L.chatHidden then return nil end
-		local text = self.inputbox:textprocess(key,nkey,modifier,event)
-		if type(text)=="boolean" then return text end
+		local text = self.inputbox:keypress(key, scan, rep, shift, ctrl, alt)
 		if text and text~="" then
-
 			local cmd = text:match("^/([^%s]+)")
 			if cmd then
 				local msg=text:sub(#cmd+3)
@@ -648,6 +694,13 @@ new=function(x,y,w,h)
 				self:addline("Not connected to server!",255,50,50)
 			end
 		end
+		if self.inputbox.focus then
+			return true
+		end
+	end
+	function chat:textinput(text)
+		if L.chatHidden then return end
+		self.inputbox:textinput(text)
 	end
 	return chat
 end
@@ -1173,15 +1226,12 @@ local dataCmds = {
 		local saveID = cByte()*65536+cByte()*256+cByte()
 		L.lastSave=saveID
 		sim.loadSave(saveID,1)
-		L.browseMode=3
 	end,
 	--Reload sim(from a stamp right now, no args)
 	[70] = function()
 		local id = cByte()
-		sim.clearSim()
-		if not sim.loadStamp("stamps/tmp.stm",0,0) then
-			infoText:reset("Error reloading save from "..con.members[id].name)
-		end
+		sim.reloadSave()
+		infoText:reset(con.members[id].name.." reloaded the save")
 	end,
 	--A request to sync a player, from server, send screen, and various settings
 	[128] = function()
@@ -1321,31 +1371,18 @@ local function sendStuff()
 	end
 
 	--Tell others to open this save ID, or send screen if opened local browser
-	if jacobsmod and L.browseMode and L.browseMode > 3 then
-		--hacky hack
-		L.browseMode = L.browseMode - 3
-	elseif L.browseMode==1 then
+	if L.browseMode==1 then
 		--loaded online save
 		local id=sim.getSaveID()
 		if L.lastSave~=id then
 			L.lastSave=id
-			--save a backup for the reload button
-			local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
-			os.remove("stamps/tmp.stm") os.rename(fullName,"stamps/tmp.stm")
 			conSend(69,string.char(math.floor(id/65536),math.floor(id/256)%256,id%256))
-			deleteStamp(stampName)
 		end
 		L.browseMode=nil
 	elseif L.browseMode==2 then
 		--loaded local save (should probably clear sim first instead?)
 		L.sendScreen=true
 		L.browseMode=nil
-	elseif L.browseMode==3 and L.lastSave==sim.getSaveID() then
-		L.browseMode=nil
-		--save this as a stamp for reloading (unless an api function exists to do this)
-		local stampName,fullName = saveStamp(0,0,sim.XRES-1,sim.YRES-1)
-		os.remove("stamps/tmp.stm") os.rename(fullName,"stamps/tmp.stm")
-		deleteStamp(stampName)
 	end
 
 	--Send screen (or an area for known size) for stamps
@@ -1416,14 +1453,6 @@ local function step()
 	if jacobsmod_old_menu_check then showbutton:onmove(0, getypos()-showbutton.y) end
 	if not L.chatHidden then chatwindow:draw() else showbutton:draw() end
 	if hooks_enabled then
-		if pressedKeys and pressedKeys["repeat"] < socket.gettime() then
-			if pressedKeys["repeat"] < socket.gettime()-.05 then
-				pressedKeys = nil
-			else
-				chatwindow:textprocess(pressedKeys["key"],pressedKeys["nkey"],pressedKeys["modifier"],pressedKeys["event"])
-				pressedKeys["repeat"] = socket.gettime()+.065
-			end
-		end
 		drawStuff()
 		sendStuff()
 		if L.pauseNextFrame then L.pauseNextFrame=false tpt.set_pause(1) end
@@ -1435,7 +1464,19 @@ end
 --some button locations that emulate tpt, return false will disable button
 local tpt_buttons = {
 	["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end},
-	["rload"] = {x1=19, y1=408, x2=35, y2=422, f=function() if L.lastSave then if L.ctrl then infoText:reset("If you re-opened the save, please type /sync") else conSend(70) end else infoText:reset("Reloading local saves is not synced currently. Type /sync") end end},
+	["rload"] = {x1=19, y1=408, x2=35, y2=422, f=function()
+		if L.lastSave then
+			if L.ctrl then
+				infoText:reset("If you re-opened the save, please type /sync")
+			else
+				conSend(70)
+				infoText:reset("Sent sync")
+			end
+		else
+			--[[infoText:reset("Reloading local saves is not synced currently. Type /sync")]]
+			L.sendScreen = true
+		end
+	end},
 	["clear"] = {x1=470, y1=408, x2=486, y2=422, f=function() conSend(63) L.lastSave=nil end},
 	["opts"] = {x1=581, y1=408, x2=595, y2=422, f=function() L.checkOpt=true end},
 	["disp"] = {x1=597, y1=408, x2=611, y2=422, f=function() L.checkRen=true L.pModes=getViewModes() end},
@@ -1450,7 +1491,7 @@ if jacobsmod then
 	tpt_buttons["opts"] = {x1=465, y1=408, x2=479, y2=422, f=function() L.checkOpt=true end}
 	tpt_buttons["clear"] = {x1=481, y1=408, x2=497, y2=422, f=function() conSend(63) L.lastSave=nil end}
 	tpt_buttons["disp"] = {x1=595, y1=408, x2=611, y2=422,f=function() L.checkRen=2 L.pModes=getViewModes() end}
-	tpt_buttons["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=4 else L.browseMode=5 end L.lastSave=sim.getSaveID() end}
+	tpt_buttons["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end}
 end
 
 local function mouseclicky(mousex,mousey,button,event,wheel)
@@ -1568,15 +1609,9 @@ local function mouseclicky(mousex,mousey,button,event,wheel)
 	end
 end
 
-local keypressfuncs = {
+local keyFuncs = {
 	--TAB
 	[9] = function() if not jacobsmod or not L.ctrl then conSend(35) end end,
-
-	--ESC
-	[27] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
-
-	--space, pause toggle
-	[32] = function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
 
 	--View modes 0-9
 	[48] = function() conSend(48,"\10") end,
@@ -1590,134 +1625,200 @@ local keypressfuncs = {
 	[56] = function() conSend(48,"\7") end,
 	[57] = function() conSend(48,"\8") end,
 
-	--semicolon / ins / del for replace mode
-	[59] = function() if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end conSend(38, L.replacemode) end,
-	[277] = function() L.replacemode = bit.bxor(L.replacemode, 1) conSend(38, L.replacemode) end,
+	-- ins / del for replace mode
+	[1073741897] = function() L.replacemode = bit.bxor(L.replacemode, 1) conSend(38, L.replacemode) end,
 	[127] = function() L.replacemode = bit.bxor(L.replacemode, 2) conSend(38, L.replacemode) end,
-
-	--= key, pressure/spark reset
-	[61] = function() if L.ctrl then conSend(60) else conSend(61) end end,
-
-	--`, console
-	[96] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false else jacobsmod_old_menu_check = true end end,
-
-	--b , deco, pauses sim
-	[98] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
-
-	--c , copy
-	[99] = function() if L.ctrl then L.stamp=true L.copying=true L.stampx = -1 L.stampy = -1 end end,
-
-	--d key, debug, api broken right now
-	--[100] = function() conSend(55) end,
-
-	--F , frame step
-	[102] = function() if not jacobsmod or not L.ctrl then conSend(50) end end,
-
-	--H , HUD and intro text
-	[104] = function() if L.ctrl and jacobsmod then return false end end,
-
-	--I , invert pressure
-	[105] = function() conSend(62) end,
-
-	--K , stamp menu, abort our known stamp, who knows what they picked, send full screen?
-	[107] = function() L.lastStamp={data=nil,w=0,h=0} L.placeStamp=true end,
-
-	--L , last Stamp
-	[108] = function() if L.lastStamp then L.placeStamp=true end end,
-
-	--N , newtonian gravity or new save
-	[110] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
-
-	--O, old menu in jacobs mod
-	[111] = function() if jacobsmod and not L.ctrl then jacobsmod_old_menu_check = true end end,
-
-	--R , for stamp rotate
-	[114] = function() if L.placeStamp then L.smoved=true if L.shift then return end L.rotate=not L.rotate elseif L.ctrl then conSend(70) end end,
-
-	--S, stamp
-	[115] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true L.stampx = -1 L.stampy = -1 end,
-
-	--T, tabs
-	[116] = function() if jacobsmod then L.tabs = not L.tabs end end,
-
-	--U, ambient heat toggle
-	[117] = function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end,
-
-	--V, paste the copystamp
-	[118] = function() if L.ctrl and L.lastCopy then L.placeStamp=true L.copying=true end end,
-
-	--X, cut a copystamp and clear
-	[120] = function() if L.ctrl then L.stamp=true L.copying=1 L.stampx = -1 L.stampy = -1 end end,
-
-	--W,Y (grav mode, air mode)
-	[119] = function() if L.lastStick2 and not L.ctrl then return end conSend(58,string.char((sim.gravityMode()+1)%3)) return true end,
-	[121] = function() conSend(59,string.char((sim.airMode()+1)%5)) return true end,
-	--Z
-	[122] = function() myZ=true L.skipClick=true end,
 
 	--Arrows for stamp adjust
 	[273] = function() if L.placeStamp then L.smoved=true end end,
 	[274] = function() if L.placeStamp then L.smoved=true end end,
 	[275] = function() if L.placeStamp then L.smoved=true end end,
-	[276] = function() if L.placeStamp then L.smoved=true end end,
+	[276] = function() if L.placeStamp then L.smoved=true end end
+}
+
+local scanFuncs = {
+	--`, console
+	[53] = function() if not L.shift and con.connected then infoText:reset("Console does not sync, use shift+` to open instead") return false else jacobsmod_old_menu_check = true end end,
+
+	--b, deco, pauses sim
+	[5] = function() if L.ctrl then conSend(51,tpt.decorations_enable()==0 and "\1" or "\0") else conSend(49,"\1") conSend(51,"\1") end end,
+
+	--c, copy
+	[6] = function() if L.ctrl then L.stamp=true L.copying=true L.stampx = -1 L.stampy = -1 end end,
+
+	--d key, debug, api broken right now
+	--[7] = function() conSend(55) end,
+
+	--F, frame step
+	[9] = function() if not jacobsmod or not L.ctrl then conSend(50) end end,
+
+	--H, HUD and intro text
+	[11] = function() if L.ctrl and jacobsmod then return false end end,
+
+	--I, invert pressure
+	[12] = function() conSend(62) end,
+
+	--K, stamp menu, abort our known stamp, who knows what they picked, send full screen?
+	[14] = function() L.lastStamp={data=nil,w=0,h=0} L.placeStamp=true end,
+
+	--L, last Stamp
+	[15] = function() if L.lastStamp then L.placeStamp=true end end,
+
+	--N, newtonian gravity or new save
+	[17] = function() if jacobsmod and L.ctrl then L.sendScreen=2 L.lastSave=nil else conSend(54,tpt.newtonian_gravity()==0 and "\1" or "\0") end end,
+
+	--O, old menu in jacobs mod
+	[18] = function() if jacobsmod and not L.ctrl then jacobsmod_old_menu_check = true end end,
+
+	--R, for stamp rotate or save reload
+	[21] = function()
+		if L.placeStamp then
+			L.smoved = true
+			if L.shift then
+				return
+			end
+			L.rotate = not L.rotate
+		elseif L.ctrl then
+			if L.lastSave then
+				conSend(70)
+				infoText:reset("Sent reload command") 
+			else
+				L.sendScreen = true
+				infoText:reset("Send sync") 
+			end
+		end
+	end,
+
+	--S, stamp
+	[22] = function() if (L.lastStick2 and not L.ctrl) or (jacobsmod and L.ctrl) then return end L.stamp=true L.stampx = -1 L.stampy = -1 end,
+
+	--T, tabs
+	[23] = function() if jacobsmod then L.tabs = not L.tabs end end,
+
+	--U, ambient heat toggle
+	[24] = function() conSend(53,tpt.ambient_heat()==0 and "\1" or "\0") end,
+
+	--V, paste the copystamp
+	[25] = function() if L.ctrl and L.lastCopy then L.placeStamp=true L.copying=true end end,
+
+	--W, gravity mode
+	[26] = function() if L.lastStick2 and not L.ctrl then return end conSend(58,string.char((sim.gravityMode()+1)%3)) return true end,
+
+	--X, cut a copystamp and clear
+	[27] = function() if L.ctrl then L.stamp=true L.copying=1 L.stampx = -1 L.stampy = -1 end end,
+
+	--Y, air mode
+	[28] = function() conSend(59,string.char((sim.airMode()+1)%5)) return true end,
+
+	--Z
+	[29] = function() myZ=true L.skipClick=true end,
+
+	--ESC
+	[41] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
+
+	--space, pause toggle
+	[44] = function() conSend(49,tpt.set_pause()==0 and "\1" or "\0") end,
+
+	--= key, pressure/spark reset
+	[46] = function() if L.ctrl then conSend(60) else conSend(61) end end,
+
+	--;, replace mode or specific delete
+	[59] = function() if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end conSend(38, L.replacemode) end,
 
 	--F1 , intro text
-	[282] = function() if jacobsmod then return false end end,
+	[58] = function() if jacobsmod then return false end end,
 
 	--F5 , save reload
-	[286] = function() conSend(70) end,
-
-	--SHIFT,CTRL,ALT
-	[303] = function() L.shift=true conSend(36,string.char(17)) end,
-	[304] = function() L.shift=true conSend(36,string.char(17)) end,
-	[305] = function() L.ctrl=true conSend(36,string.char(1)) end,
-	[306] = function() L.ctrl=true conSend(36,string.char(1)) end,
-	[307] = function() L.alt=true conSend(36,string.char(33)) end,
-	[308] = function() L.alt=true conSend(36,string.char(33)) end,
+	[62] = function()
+		if L.lastSave then
+			conSend(70)
+			infoText:reset("Sent reload command") 
+		else
+			L.sendScreen = true
+			infoText:reset("Sent sync") 
+		end
+	end,
 }
-local keyunpressfuncs = {
+local scanUnpressFuncs = {
 	--Z
-	[122] = function() myZ=false L.skipClick=false if L.alt then L.skipClick=true end end,
-	--SHIFT,CTRL,ALT
-	[303] = function() L.shift=false conSend(36,string.char(16)) end,
-	[304] = function() L.shift=false conSend(36,string.char(16)) end,
-	[305] = function() L.ctrl=false conSend(36,string.char(0)) end,
-	[306] = function() L.ctrl=false conSend(36,string.char(0)) end,
-	[307] = function() L.alt=false conSend(36,string.char(32)) end,
-	[308] = function() L.alt=false conSend(36,string.char(32)) end,
+	[29] = function() myZ=false L.skipClick=false if L.alt then L.skipClick=true end end,
 }
-local function keyclicky(key,nkey,modifier,event)
-	if not hooks_enabled then
-		if jacobsmod and bit.band(modifier, 0xC0) == 0 and (key == 'o' or nkey == 96) and event == 1 then jacobsmod_old_menu_check = true end
-		return
-	end
-	if chatwindow.inputbox.focus then
-		if event == 1 and nkey~=13 and nkey~=27 then
-			pressedKeys = {["repeat"] = socket.gettime()+.6, ["key"] = key, ["nkey"] = nkey, ["modifier"] = modifier, ["event"] = event}
-		elseif event == 2 and pressedKeys and nkey == pressedKeys["nkey"] then
-			pressedKeys = nil
-		end
-	end
-	local check = chatwindow:textprocess(key,nkey,modifier,event)
-	if type(check)=="boolean" then return not check end
-	--_print(nkey)
-	local ret
-	if event==1 then
-		if keypressfuncs[nkey] then
-			ret = keypressfuncs[nkey]()
-		end
-	elseif event==2 then
-		if keyunpressfuncs[nkey] then
-			ret = keyunpressfuncs[nkey]()
-		end
-	end
-	if ret~= nil then return ret end
-end
 
+local function keypress(key, scan, rep, shift, ctrl, alt)
+	if shift and not L.shift then
+		L.shift = true
+		conSend(36, string.char(17))
+	end
+	if ctrl and not L.ctrl then
+		L.ctrl = true
+		conSend(36, string.char(1))
+	end
+	if alt and not L.alt then
+		L.alt = true
+		conSend(36, string.char(33))
+	end
+
+	local check = chatwindow:keypress(key, scan, rep, shift, ctrl, alt)
+	if type(check) == "boolean" then
+		return not check
+	end
+	if scanFuncs[scan] then
+		ret = scanFuncs[scan]()
+		if ret ~= nil then
+			return ret
+		end
+	elseif keyFuncs[key] then
+		ret = keyFuncs[key]()
+		if ret ~= nil then
+			return ret
+		end
+	end
+end
+local function keyrelease(key, scan, rep, shift, ctrl, alt)
+	if not shift and L.shift then
+		L.shift = false
+		conSend(36, string.char(16))
+	end
+	if not ctrl and L.ctrl then
+		L.ctrl = false
+		conSend(36, string.char(0))
+	end
+	if not alt and L.alt then
+		L.alt = false
+		conSend(36, string.char(32))
+	end
+
+	if scanUnpressFuncs[scan] then
+		ret = scanUnpressFuncs[scan]()
+		if ret~= nil then
+			return ret
+		end
+	end
+end
+local function textinput(text)
+	chatwindow:textinput(text)
+end
+local function blur()
+	if L.shift then
+		L.shift = false
+		conSend(36, string.char(16))
+	end
+	if L.ctrl then
+		L.ctrl = false
+		conSend(36, string.char(0))
+	end
+	if L.alt then
+		L.alt = false
+		conSend(36, string.char(32))
+	end
+end
 function TPTMP.disableMultiplayer()
-	tpt.unregister_step(step)
+	evt.unregister(evt.tick, step)
 	tpt.unregister_mouseclick(mouseclicky)
-	tpt.unregister_keypress(keyclicky)
+	evt.unregister(evt.keypress, keypress)
+	evt.unregister(evt.keyrelease, keyrelease)
+	evt.unregister(evt.textinput, textinput)
+	evt.unregister(evt.blur, blur)
 	TPTMP = nil
 	disconnected("TPTMP unloaded")
 end
@@ -1733,6 +1834,9 @@ function TPTMP.enableMultiplayer()
 end
 TPTMP.con = con
 TPTMP.chatHidden = true
-tpt.register_step(step)
+evt.register(evt.tick, step)
 tpt.register_mouseclick(mouseclicky)
-tpt.register_keypress(keyclicky)
+evt.register(evt.keypress, keypress)
+evt.register(evt.keyrelease, keyrelease)
+evt.register(evt.textinput, textinput)
+evt.register(evt.blur, blur)
