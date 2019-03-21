@@ -222,7 +222,6 @@ new = function(text,x,y,r,g,b)
 		if x then self.x=self.x+x end
 		if y then self.y=self.y+y end
 	end)
-	function txt:process() return false end
 	return txt
 end,
 --Scrolls while holding mouse over
@@ -281,17 +280,15 @@ newscroll = function(text,x,y,vis,force,r,g,b)
 	txt:drawadd(function(self,x,y)
 		tpt.drawtext(x or self.x,y or self.y, self.text:sub(self.start,self.last) ,self.r,self.g,self.b)
 	end)
-	function txt:process(mx,my,button,event,wheel)
-		if event==3 then
-			local newlast = math.floor((mx-self.x)/self.ppl)+self.minlast
-			if newlast<self.minlast then newlast=self.minlast end
-			if newlast>0 and newlast~=self.last then
-				local newstart=1
-				while tpt.textwidth(self.text:sub(newstart,newlast))>= self.visible do
-					newstart=newstart+1
-				end
-				self.start=newstart self.last=newlast
+	function txt:mouseMove(mx,my,dX,dY)
+		local newlast = math.floor((mx-self.x)/self.ppl)+self.minlast
+		if newlast<self.minlast then newlast=self.minlast end
+		if newlast>0 and newlast~=self.last then
+			local newstart=1
+			while tpt.textwidth(self.text:sub(newstart,newlast))>= self.visible do
+				newstart=newstart+1
 			end
+			self.start=newstart self.last=newlast
 		end
 	end
 	return txt
@@ -462,7 +459,7 @@ new = function(x,y,h,t,m)
 		if x then self.x=self.x+x end
 		if y then self.y=self.y+y end
 	end)
-	function bar:process(mx,my,button,event,wheel)
+	function bar:mouseWheel(mx,my,wheel)
 		if wheel~=0 and not hidden_mode then
 			if self.total > self.numshown then
 				local previous = self.pos
@@ -472,8 +469,6 @@ new = function(x,y,h,t,m)
 				end
 			end
 		end
-		--possibly click the bar and drag?
-		return false
 	end
 	return bar
 end
@@ -484,11 +479,10 @@ new = function(x,y,w,h,f,text)
 	b.f=f
 	b.t=ui_text.new(text,x+2,y+2)
 	b.drawbox=false
-	b.almostselected=false
-	b.invert=true
+	b.clicked = false
+	b.invert = false
 	b:drawadd(function(self)
-		if self.invert and self.almostselected then
-			self.almostselected=false
+		if self.clicked or self.invert then
 			tpt.fillrect(self.x,self.y,self.w,self.h)
 			local tr=self.t.r local tg=self.t.g local tb=self.t.b
 			b.t:setcolor(0,0,0)
@@ -501,11 +495,22 @@ new = function(x,y,w,h,f,text)
 	b:moveadd(function(self,x,y)
 		self.t:onmove(x,y)
 	end)
-	function b:process(mx,my,button,event,wheel)
-		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then return false end
-		if event==3 then self.almostselected=true end
-		if event==2 then self:f() end
-		return true
+	function b:mouseDown(mouseX, mouseY, button, reason)
+		if mouseX >= self.x and mouseX <= self.x2 and mouseY >= self.y and mouseY <= self.y2 then
+			self.clicked = true
+			return true
+		end
+	end
+	function b:mouseMove(mouseX, mouseY, dX, dY)
+		if not (mouseX >= self.x and mouseX <= self.x2 and mouseY >= self.y and mouseY <= self.y2) then
+			self.clicked = false
+		end
+	end
+	function b:mouseUp(mouseX, mouseY, button, reason)
+		if self.clicked and mouseX >= self.x and mouseX <= self.x2 and mouseY >= self.y and mouseY <= self.y2 then
+			self:f()
+			return true
+		end
 	end
 	return b
 end
@@ -571,7 +576,54 @@ new=function(x,y,w,h)
 		if L.chatHidden and not noflash then L.flashChat=true end
 	end
 	chat:addline("TPTMP v"..versionstring..": Type '/connect' to join server, or /list for a list of commands.",200,200,200,true)
-	function chat:process(mx,my,button,event,wheel)
+	function chat:mouseDown(mouseX, mouseY, button)
+		if L.chatHidden then return false end
+		self.minimize:mouseDown(mouseX, mouseY, button)
+		
+		local selectedLine = math.floor((mouseY - self.y) / 10)
+		-- Mouse outside chat window, defocus it
+		if mouseX < self.x or mouseX > self.x2 or mouseY < self.y or mouseY > self.y2 then
+			self.inputbox:setfocus(false)
+			return false
+		end
+
+		-- header was grabbed, enable window movement
+		if selectedLine == 0 then
+			self.moving = true
+			self.lastx = mx
+			self.lasty = my
+			self.relx = mouseX - self.x
+			self.rely = mouseY - self.y
+			return true
+		-- Textbox clicked
+		elseif selectedLine == self.shown_lines + 1 then
+			self.inputbox:setfocus(true)
+			return true
+		end
+
+		-- At this point we know chatbox is selected, ensure window is focused then block mouse events
+		if not self.inputbox.focus then
+			self.inputbox:setfocus(true)
+		end
+		return true
+	end
+	function chat:mouseMove(mouseX, mouseY, dX, dY)
+		if self.moving and mouseX >= 0 and mouseX < sim.XRES and mouseY >= 0 and mouseY < sim.YRES then
+			self:onmove(dX, dY)
+		end
+		self.minimize:mouseMove(mouseX, mouseY, dX, dY)
+	end
+	function chat:mouseUp(mouseX, mouseY, button, reason)
+		self.minimize:mouseUp(mouseX, mouseY, button, reason)
+		if self.moving then
+			self.moving = false
+			return true
+		end
+	end
+	function chat:mouseWheel(mouseX, mouseY, wheel)
+		self.scrollbar:mouseWheel(mouseX, mouseY, wheel)
+	end
+	--[[function chat:process(mx,my,button,event,wheel)
 		if L.chatHidden then return false end
 		self.minimize:process(mx,my,button,event,wheel)
 		if self.moving and event==3 then
@@ -594,7 +646,7 @@ new=function(x,y,w,h)
 		if event==1 and which==self.shown_lines+1 then self.inputbox:setfocus(true) return true elseif self.inputbox.focus then return true end --trigger input_box
 		if which>0 and which<self.shown_lines+1 and self.lines[which+self.scrollbar.pos] then self.lines[which+self.scrollbar.pos]:process(mx,my,button,event,wheel) end
 		return event==1
-	end
+	end]]
 	--commands for chat window
 	chatcommands = {
 	connect = function(self,msg,args)
@@ -892,34 +944,38 @@ local function playerMouseClick(id,btn,ev)
 	elseif btn==2 then
 		user.rbtn,user.lbtn = false,false
 		createE,checkBut=user.selecteda,user.abtn
-	elseif btn==4 then
+	elseif btn==3 then
 		user.lbtn,user.abtn = false,false
 		createE,checkBut=user.selectedr,user.rbtn
 	else return end
 
-	if user.mousex>=sim.XRES or user.mousey>=sim.YRES then user.drawtype=false return end
+	--if user.mousex>=sim.XRES or user.mousey>=sim.YRES then user.drawtype=false return end
 
 	if ev==1 then
-		user.pmx,user.pmy = user.mousex,user.mousey
-		if not user.drawtype then
-			--left box
-			if user.ctrl and not user.shift then user.drawtype = 2 return end
-			--left line
-			if user.shift and not user.ctrl then user.drawtype = 1 return end
-			--floodfill
-			if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,createE,-1,-1,user) user.drawtype = 3 return end
-			--an alt click
-			if user.alt then return end
-			user.drawtype=4 --normal hold
+		if user.mousex >= 0 and user.mousey >= 0 and user.mousex < sim.XRES and user.mousey < sim.YRES then
+			user.pmx,user.pmy = user.mousex,user.mousey
+			if not user.drawtype then
+				--left box
+				if user.ctrl and not user.shift then user.drawtype = 2 return end
+				--left line
+				if user.shift and not user.ctrl then user.drawtype = 1 return end
+				--floodfill
+				if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,createE,-1,-1,user) user.drawtype = 3 return end
+				--an alt click
+				if user.alt then return end
+				user.drawtype=4 --normal hold
+			end
+			createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,user)
 		end
-		createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,user)
 	elseif ev==2 and checkBut and user.drawtype then
+		local releaseX, releaseY = user.mousex, user.mousey
+		
 		if user.drawtype==2 then
-			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
-			createBoxAny(user.mousex,user.mousey,user.pmx,user.pmy,createE,user)
+			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,releaseX,releaseY) end
+			createBoxAny(releaseX,releaseY,user.pmx,user.pmy,createE,user)
 		else
 			if user.alt then user.mousex,user.mousey = lineSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
-			createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
+			createLineAny(releaseX,releaseY,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
 		end
 		user.drawtype=false
 		user.pmx,user.pmy = user.mousex,user.mousey
@@ -1025,7 +1081,7 @@ local dataCmds = {
 			con.members[id].lbtn=ev
 		elseif btn==2 then
 			con.members[id].abtn=ev
-		elseif btn==4 then
+		elseif btn==3 then
 			con.members[id].rbtn=ev
 		end
 	end,
@@ -1335,13 +1391,13 @@ end
 local function sendStuff()
 	if not con.connected then return end
 	--mouse position every frame, not exactly needed, might be better/more accurate from clicks
-	local nmx,nmy = tpt.mousex,tpt.mousey
-	if nmx<sim.XRES and nmy<sim.YRES then nmx,nmy = sim.adjustCoords(nmx,nmy) end
-	if L.mousex~= nmx or L.mousey~= nmy then
+	--local nmx,nmy = tpt.mousex,tpt.mousey
+	--if nmx<sim.XRES and nmy<sim.YRES then nmx,nmy = sim.adjustCoords(nmx,nmy) end
+	--[[if L.mousex~= nmx or L.mousey~= nmy then
 		L.mousex,L.mousey = nmx,nmy
 		local b1,b2,b3 = math.floor(L.mousex/16),((L.mousex%16)*16)+math.floor(L.mousey/256),(L.mousey%256)
 		conSend(32,string.char(b1,b2,b3))
-	end
+	end]]
 	if tpt.brushx > 255 then tpt.brushx = 255 end
 	if tpt.brushy > 255 then tpt.brushy = 255 end
 	local nbx,nby = tpt.brushx,tpt.brushy
@@ -1494,118 +1550,197 @@ if jacobsmod then
 	tpt_buttons["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end}
 end
 
-local function mouseclicky(mousex,mousey,button,event,wheel)
-	if button >= 8 then return end
-	if L.chatHidden then showbutton:process(mousex,mousey,button,event,wheel) if not hooks_enabled then return true end end
-	if L.stamp and button>0 and button~=2 then
-		if event==1 and button==1 and L.stampx == -1 then
-			--initial stamp coords
-			L.stampx,L.stampy = mousex,mousey
-		elseif event==2 then
-			if L.skipClick then L.skipClick=false return true end
-			--stamp has been saved, make our own copy
-			if button==1 then
-				--save stamp ourself for data, delete it
-				local sx,sy = mousex,mousey
-				if sx<L.stampx then L.stampx,sx=sx,L.stampx end
-				if sy<L.stampy then L.stampy,sy=sy,L.stampy end
-				--cheap cut hook to send a clear
-				if L.copying==1 then
-					--maybe this is ctrl+x? 67 is clear area
-					conSend(67,string.char(math.floor(L.stampx/16),((L.stampx%16)*16)+math.floor(L.stampy/256),(L.stampy%256),math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)))
-				end
-				local w,h = sx-L.stampx,sy-L.stampy
-				local stampName,fullName = saveStamp(L.stampx,L.stampy,w,h)
-				sx,sy,L.stampx,L.stampy = math.ceil((sx+1)/4)*4,math.ceil((sy+1)/4)*4,math.floor(L.stampx/4)*4,math.floor(L.stampy/4)*4
-				w,h = sx-L.stampx, sy-L.stampy
-				local f = assert(io.open(fullName,"rb"))
-				if L.copying then L.lastCopy = {data=f:read"*a",w=w,h=h} else L.lastStamp = {data=f:read"*a",w=w,h=h} end
-				f:close()
-				deleteStamp(stampName)
-			end
-			L.stamp=false
-			L.copying=false
-		end
-		return true
-	elseif L.placeStamp and button>0 and button~=2 then
-		if event==2 then
-			if L.skipClick then L.skipClick=false return true end
-			if button==1 then
-				local stm
-				if L.copying then stm=L.lastCopy else stm=L.lastStamp end
-				if stm then
-					if not stm.data then
-						--unknown stamp, send full screen on next step, how can we read last created stamp, timestamps on files?
-						L.sendScreen = (jacobsmod and 2 or true)
-					else
-						--send the stamp
-						if L.smoved then
-							--moved from arrows or rotate, send area next frame
-							L.placeStamp=false
-							L.sendScreen=true
-							return true
-						end
-						local sx,sy = mousex-math.floor(stm.w/2),mousey-math.floor((stm.h)/2)
-						if sx<0 then sx=0 end
-						if sy<0 then sy=0 end
-						if sx+stm.w>sim.XRES-1 then sx=sim.XRES-stm.w end
-						if sy+stm.h>sim.YRES-1 then sy=sim.YRES-stm.h end
-						local b1,b2,b3 = math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)
-						local d = #stm.data
-						conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..stm.data)
-					end
-				end
-			end
-			L.placeStamp=false
-			L.copying=false
-		end
-		return true
+local function sendMouseUpdate(mouseX, mouseY)
+	if L.isDrawing then
+		mouseX, mouseY = sim.adjustCoords(mouseX, mouseY)	
+	else
+		if mouseX < 0 then mouseX = 0 end
+		if mouseY < 0 then mouseY = 0 end
+		if mouseX > gfx.WIDTH then mouseX = gfx.WIDTH end
+		if mouseY > gfx.HEIGHT then mouseY = gfx.HEIGHT end
 	end
 
-	if button > 0 and L.skipClick then L.skipClick=false return true end
-	if chatwindow:process(mousex,mousey,button,event,wheel) then return false end
-	if mousex<sim.XRES and mousey<sim.YRES then mousex,mousey = sim.adjustCoords(mousex,mousey) end
+	if L.mousex ~= mouseX or L.mousey ~= mouseY then
+		local b1, b2, b3 = math.floor(mouseX / 16), ((mouseX % 16) * 16) + math.floor(mouseY / 256), (mouseY % 256)
+		conSend(32, string.char(b1, b2, b3))
+		L.mousex = mouseX
+		L.mousey = mouseY
+	end
+end
 
-	local obut,oevnt = L.mButt,L.mEvent
-	if button~=obut or event~=oevnt then
-		L.mButt,L.mEvent = button,event
-		--More accurate mouse from here (because this runs BEFORE step function, it would draw old coords)
-		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
-		conSend(32,string.char(b1,b2,b3))
-		L.mousex,L.mousey = mousex,mousey
-		conSend(33,string.char(L.mButt*16+L.mEvent))
-	elseif L.mEvent==3 and (L.mousex~=mousex or L.mousey~=mousey) then
-		local b1,b2,b3 = math.floor(mousex/16),((mousex%16)*16)+math.floor(mousey/256),(mousey%256)
-		conSend(32,string.char(b1,b2,b3))
-		L.mousex,L.mousey = mousex,mousey
+local function mouseDown(mouseX, mouseY, button)
+	if L.chatHidden then
+		showbutton:mouseDown(mouseX, mouseY, button)
+		if not hooks_enabled then
+			return true
+		end
+	end
+	if L.stamp and button == 1 then
+		L.stampx, L.stampy = mousex, mousey
+	end
+	if L.skipClick then
+		L.skipClick = false
+		return true
+	end
+	if chatwindow:mouseDown(mouseX, mouseY, button) then
+		return false
 	end
 
-	--Click inside button first
+	sendMouseUpdate(mouseX, mouseY)
+	local obut, oevnt = L.mButt, L.mEvent
+	if button ~= obut or 1 ~= oevnt then
+		L.mButt, L.mEvent = button, 1
+		if mouseX >= 0 and mouseY >= 0 and mouseX < sim.XRES and mouseY < sim.YRES then
+			L.isDrawing = true
+		end
+		conSend(33, string.char(L.mButt * 16 + L.mEvent))
+	end
+	
+	-- Click inside button first
 	if button==1 then
-		if event==1 then
-			for k,v in pairs(tpt_buttons) do
-				if mousex>=v.x1 and mousex<=v.x2 and mousey>=v.y1 and mousey<=v.y2 then
-					v.downInside = true
+		for k, v in pairs(tpt_buttons) do
+			if mouseX >= v.x1 and mouseX <= v.x2 and mouseY >= v.y1 and mouseY <= v.y2 then
+				v.downInside = true
+			end
+		end
+	end
+end
+
+local function mouseUp(mouseX, mouseY, button, reason)
+	if L.chatHidden then
+		showbutton:mouseUp(mouseX, mouseY, button)
+		if not hooks_enabled then
+			return true
+		end
+	end
+	if L.stamp then
+		if L.skipClick then
+			L.skipClick = false
+			return true
+		end
+		--stamp has been saved, make our own copy
+		if button==1 then
+			--save stamp ourself for data, delete it
+			local sx,sy = mouseX, mouseY
+			if sx<L.stampx then L.stampx,sx=sx,L.stampx end
+			if sy<L.stampy then L.stampy,sy=sy,L.stampy end
+			--cheap cut hook to send a clear
+			if L.copying==1 then
+				--maybe this is ctrl+x? 67 is clear area
+				conSend(67,string.char(math.floor(L.stampx/16),((L.stampx%16)*16)+math.floor(L.stampy/256),(L.stampy%256),math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)))
+			end
+			local w,h = sx-L.stampx,sy-L.stampy
+			local stampName,fullName = saveStamp(L.stampx,L.stampy,w,h)
+			sx,sy,L.stampx,L.stampy = math.ceil((sx+1)/4)*4,math.ceil((sy+1)/4)*4,math.floor(L.stampx/4)*4,math.floor(L.stampy/4)*4
+			w,h = sx-L.stampx, sy-L.stampy
+			local f = assert(io.open(fullName,"rb"))
+			if L.copying then L.lastCopy = {data=f:read"*a",w=w,h=h} else L.lastStamp = {data=f:read"*a",w=w,h=h} end
+			f:close()
+			deleteStamp(stampName)
+		end
+		L.stamp=false
+		L.copying=false
+	end
+	if L.placeStamp then
+		if L.skipClick then
+			L.skipClick=false
+			return true
+		end
+		if button==1 then
+			local stm
+			if L.copying then stm=L.lastCopy else stm=L.lastStamp end
+			if stm then
+				if not stm.data then
+					--unknown stamp, send full screen on next step, how can we read last created stamp, timestamps on files?
+					L.sendScreen = (jacobsmod and 2 or true)
+				else
+					--send the stamp
+					if L.smoved then
+						--moved from arrows or rotate, send area next frame
+						L.placeStamp=false
+						L.sendScreen=true
+						return true
+					end
+					local sx,sy = mouseX-math.floor(stm.w/2),mouseY-math.floor((stm.h)/2)
+					if sx<0 then sx=0 end
+					if sy<0 then sy=0 end
+					if sx+stm.w>sim.XRES-1 then sx=sim.XRES-stm.w end
+					if sy+stm.h>sim.YRES-1 then sy=sim.YRES-stm.h end
+					local b1,b2,b3 = math.floor(sx/16),((sx%16)*16)+math.floor(sy/256),(sy%256)
+					local d = #stm.data
+					conSend(66,string.char(b1,b2,b3,math.floor(d/65536),math.floor(d/256)%256,d%256)..stm.data)
 				end
 			end
-		--Up inside the button we started with
-		elseif event==2 then
-			local ret = true
-			for k,v in pairs(tpt_buttons) do
-				if v.downInside and (mousex>=v.x1 and mousex<=v.x2 and mousey>=v.y1 and mousey<=v.y2) then
-					if v.f() == false then ret = false end
-				end
+		end
+		L.placeStamp=false
+		L.copying=false
+	end
+	
+	if L.skipClick then
+		L.skipClick = false
+		return true
+	end
+	if chatwindow:mouseUp(mouseX, mouseY, button, reason) then
+		return false
+	end
+
+	-- Ignore fake mouseups due to blur (don't send 0, 0 coordinate)
+	if reason == 1 then
+		return
+	end
+
+	sendMouseUpdate(mouseX, mouseY)
+	local obut, oevnt = L.mButt, L.mEvent
+	if button ~= obut or 2 ~= oevnt then
+		L.isDrawing = false
+		L.mButt, L.mEvent = button, 2
+		conSend(33, string.char(L.mButt * 16 + L.mEvent))
+	end
+
+	-- Up inside the button we started with
+	if button == 1 then
+		local ret = true
+		for k,v in pairs(tpt_buttons) do
+			if v.downInside and (mouseX>=v.x1 and mouseX<=v.x2 and mouseY>=v.y1 and mouseY<=v.y2) then
+				if v.f() == false then ret = false end
+			end
+			v.downInside = nil
+		end
+		return ret
+	end
+end
+
+local function mouseMove(mouseX, mouseY, dX, dY)
+	if L.chatHidden then
+		showbutton:mouseMove(mouseX, mouseY, dX, dY)
+		if not hooks_enabled then
+			return true
+		end
+	end
+	if chatwindow:mouseMove(mouseX, mouseY, dX, dY) then
+		return false
+	end
+
+	sendMouseUpdate(mouseX, mouseY)
+	local obut, oevnt = L.mButt, L.mEvent
+	if 3 ~= oevnt then
+		L.mEvent = 3
+		conSend(33, string.char(L.mButt * 16 + L.mEvent))
+	end
+
+	--Mouse hold, we MUST stay inside button or don't trigger on up
+	if button == 1 then
+		for k, v in pairs(tpt_buttons) do
+			if v.downInside and (mouseX < v.x1 or mouseX > v.x2 or mouseY < v.y1 or mouseY > v.y2) then
 				v.downInside = nil
 			end
-			return ret
-		--Mouse hold, we MUST stay inside button or don't trigger on up
-		elseif event==3 then
-			for k,v in pairs(tpt_buttons) do
-				if v.downInside and (mousex<v.x1 or mousex>v.x2 or mousey<v.y1 or mousey>v.y2) then
-					v.downInside = nil
-				end
-			end
 		end
+	end
+end
+
+local function mouseWheel(mouseX, mouseY, wheel)
+	if chatwindow:mouseWheel(mousex, mousey, wheel) then
+		return false
 	end
 end
 
@@ -1814,7 +1949,10 @@ local function blur()
 end
 function TPTMP.disableMultiplayer()
 	evt.unregister(evt.tick, step)
-	tpt.unregister_mouseclick(mouseclicky)
+	evt.unregister(evt.mousedown, mouseDown)
+	evt.unregister(evt.mouseup, mouseUp)
+	evt.unregister(evt.mousemove, mouseMove)
+	evt.unregister(evt.mousewheel, mouseQheel)
 	evt.unregister(evt.keypress, keypress)
 	evt.unregister(evt.keyrelease, keyrelease)
 	evt.unregister(evt.textinput, textinput)
@@ -1835,7 +1973,10 @@ end
 TPTMP.con = con
 TPTMP.chatHidden = true
 evt.register(evt.tick, step)
-tpt.register_mouseclick(mouseclicky)
+evt.register(evt.mousedown, mouseDown)
+evt.register(evt.mouseup, mouseUp)
+evt.register(evt.mousemove, mouseMove)
+evt.register(evt.mousewheel, mouseWheel)
 evt.register(evt.keypress, keypress)
 evt.register(evt.keyrelease, keyrelease)
 evt.register(evt.textinput, textinput)
