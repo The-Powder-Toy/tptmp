@@ -33,7 +33,7 @@ local hooks_enabled = false --hooks only enabled once you maximize the button
 local PORT = 34403 --Change 34403 to your desired port
 local KEYBOARD = 1 --only change if you have issues. Only other option right now is 2(finnish).
 --Local player vars we need to keep
-local L = {mousex=0, mousey=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, selrep=0, replacemode = 0, mButt=0, mEvent=0, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
+local L = {mousex=0, mousey=0, realMouseX=0, realMouseY=0, brushx=0, brushy=0, sell=1, sela=296, selr=0, selrep=0, replacemode = 0, mButt=0, mEvent=0, isDrawing=false, dcolour=0, stick2=false, chatHidden=true, flashChat=false,
 shift=false, alt=false, ctrl=false, tabs = false, z=false, skipClick=false, pauseNextFrame=false, copying=false, stamp=false, placeStamp=false, lastStamp=nil, lastCopy=nil, smoved=false, rotate=false, sendScreen=false}
 
 local tptversion = tpt.version.build
@@ -623,30 +623,6 @@ new=function(x,y,w,h)
 	function chat:mouseWheel(mouseX, mouseY, wheel)
 		self.scrollbar:mouseWheel(mouseX, mouseY, wheel)
 	end
-	--[[function chat:process(mx,my,button,event,wheel)
-		if L.chatHidden then return false end
-		self.minimize:process(mx,my,button,event,wheel)
-		if self.moving and event==3 then
-			local newx,newy = mx-self.relx,my-self.rely
-			local ax,ay = 0,0
-			if newx<0 then ax = newx end
-			if newy<0 then ay = newy end
-			if (newx+self.w)>=sim.XRES then ax = newx+self.w-sim.XRES end
-			if (newy+self.h)>=sim.YRES then ay = newy+self.h-sim.YRES end
-			self:onmove(mx-self.lastx-ax,my-self.lasty-ay)
-			self.lastx=mx-ax
-			self.lasty=my-ay
-			return true
-		end
-		local which = math.floor((my-self.y)/10)
-		if self.moving and event==2 then self.moving=false return true end
-		if mx<self.x or mx>self.x2 or my<self.y or my>self.y2 then if button == 0 then return false end self.inputbox:setfocus(false) return false elseif event==1 and which ~= 0 and not self.inputbox.focus then self.inputbox:setfocus(true) end
-		self.scrollbar:process(mx,my,button,event,wheel)
-		if event==1 and which==0 then self.moving=true self.lastx=mx self.lasty=my self.relx=mx-self.x self.rely=my-self.y return true end
-		if event==1 and which==self.shown_lines+1 then self.inputbox:setfocus(true) return true elseif self.inputbox.focus then return true end --trigger input_box
-		if which>0 and which<self.shown_lines+1 and self.lines[which+self.scrollbar.pos] then self.lines[which+self.scrollbar.pos]:process(mx,my,button,event,wheel) end
-		return event==1
-	end]]
 	--commands for chat window
 	chatcommands = {
 	connect = function(self,msg,args)
@@ -938,33 +914,47 @@ local function playerMouseClick(id,btn,ev)
 
 	--_print(tostring(btn)..tostring(ev))
 	if ev==0 then return end
-	if btn==1 then
-		user.rbtn,user.abtn = false,false
-		createE,checkBut=user.selectedl,user.lbtn
-	elseif btn==2 then
-		user.rbtn,user.lbtn = false,false
-		createE,checkBut=user.selecteda,user.abtn
-	elseif btn==3 then
-		user.lbtn,user.abtn = false,false
-		createE,checkBut=user.selectedr,user.rbtn
-	else return end
+	-- Mouse up event, TPT will "draw" whatever element was last clicked, even if we are releasing a different button
+	-- This covers the case where we start drawing a line with rmb, switch to lmb, but then release rmb. The lmb element is drawn
+	if ev == 2 then
+		if user.lbtn then
+			createE,checkBut=user.selectedl,user.lbtn
+		elseif user.abtn then
+			createE,checkBut=user.selecteda,user.abtn
+		elseif user.rbtn then
+			createE,checkBut=user.selectedr,user.rbtn
+		else
+			return
+		end
+	else
+		if btn==1 then
+			user.rbtn,user.abtn = false,false
+			createE,checkBut=user.selectedl,user.lbtn
+		elseif btn==2 then
+			user.rbtn,user.lbtn = false,false
+			createE,checkBut=user.selecteda,user.abtn
+		elseif btn==3 then
+			user.lbtn,user.abtn = false,false
+			createE,checkBut=user.selectedr,user.rbtn
+		else
+			return
+		end
+	end
 
 	--if user.mousex>=sim.XRES or user.mousey>=sim.YRES then user.drawtype=false return end
 
 	if ev==1 then
 		if user.mousex >= 0 and user.mousey >= 0 and user.mousex < sim.XRES and user.mousey < sim.YRES then
 			user.pmx,user.pmy = user.mousex,user.mousey
-			if not user.drawtype then
-				--left box
-				if user.ctrl and not user.shift then user.drawtype = 2 return end
-				--left line
-				if user.shift and not user.ctrl then user.drawtype = 1 return end
-				--floodfill
-				if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,createE,-1,-1,user) user.drawtype = 3 return end
-				--an alt click
-				if user.alt then return end
-				user.drawtype=4 --normal hold
-			end
+			--left box
+			if user.ctrl and not user.shift then user.drawtype = 2 return end
+			--left line
+			if user.shift and not user.ctrl then user.drawtype = 1 return end
+			--floodfill
+			if user.ctrl and user.shift then floodAny(user.mousex,user.mousey,createE,-1,-1,user) user.drawtype = 3 return end
+			--an alt click
+			if user.alt then return end
+			user.drawtype=4 --normal hold
 			createPartsAny(user.mousex,user.mousey,user.brushx,user.brushy,createE,user.brush,user)
 		end
 	elseif ev==2 and checkBut and user.drawtype then
@@ -993,12 +983,11 @@ local function playerMouseMove(id)
 		createE,checkBut=user.selecteda,user.abtn
 	else return end
 	if user.drawtype~=4 then if user.drawtype==3 then floodAny(user.mousex,user.mousey,createE,-1,-1,user) end return end
-	if checkBut==3 then
-		if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
-		if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
-		createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
-		user.pmx,user.pmy = user.mousex,user.mousey
-	end
+	
+	if user.mousex>=sim.XRES then user.mousex=sim.XRES-1 end
+	if user.mousey>=sim.YRES then user.mousey=sim.YRES-1 end
+	createLineAny(user.mousex,user.mousey,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
+	user.pmx,user.pmy = user.mousex,user.mousey
 end
 local function loadStamp(size,x,y,reset)
 	con.socket:settimeout(10)
@@ -1075,8 +1064,15 @@ local dataCmds = {
 		local id = cByte()
 		local d=cByte()
 		local btn,ev=math.floor(d/16),d%16
+		-- Fake mouseup due to either blur or zoom window
+		if btn == 0 then
+			local user = con.members[id]
+			user.lbtn, user.rbtn, user.abtn, user.drawtype = nil, nil, nil, nil
+			return
+		end
 		playerMouseClick(id,btn,ev)
 		if ev==0 then return end
+		if ev==2 then ev = nil end
 		if btn==1 then
 			con.members[id].lbtn=ev
 		elseif btn==2 then
@@ -1346,25 +1342,26 @@ local function drawStuff()
 			local brx,bry=user.brushx,user.brushy
 			local brush,drawBrush=user.brush,true
 			gfx.drawText(x,y,("%s %dx%d"):format(user.name,brx,bry),0,255,0,192)
-			if user.drawtype then
-				if user.drawtype==1 then
-					if user.alt then x,y = lineSnapCoords(user.pmx,user.pmy,x,y) end
-					tpt.drawline(user.pmx,user.pmy,x,y,0,255,0,128)
-				elseif user.drawtype==2 then
-					if user.alt then x,y = rectSnapCoords(user.pmx,user.pmy,x,y) end
-					local tpmx,tpmy = user.pmx,user.pmy
-					if tpmx>x then tpmx,x=x,tpmx end
-					if tpmy>y then tpmy,y=y,tpmy end
-					tpt.drawrect(tpmx,tpmy,x-tpmx,y-tpmy,0,255,0,128)
-					drawBrush=false
-				elseif user.drawtype==3 then
-					tpt.drawline(x,y,x+5,y,0,255,0,128)
-					tpt.drawline(x,y,x-5,y,0,255,0,128)
-					tpt.drawline(x,y,x,y+5,0,255,0,128)
-					tpt.drawline(x,y,x,y-5,0,255,0,128)
-					drawBrush=false
-				end
+
+			-- Draw player cursors
+			if user.drawtype==1 then
+				if user.alt then x,y = lineSnapCoords(user.pmx,user.pmy,x,y) end
+				tpt.drawline(user.pmx,user.pmy,x,y,0,255,0,128)
+			elseif user.drawtype==2 then
+				if user.alt then x,y = rectSnapCoords(user.pmx,user.pmy,x,y) end
+				local tpmx,tpmy = user.pmx,user.pmy
+				if tpmx>x then tpmx,x=x,tpmx end
+				if tpmy>y then tpmy,y=y,tpmy end
+				tpt.drawrect(tpmx,tpmy,x-tpmx,y-tpmy,0,255,0,128)
+				drawBrush=false
+			elseif user.drawtype==3 or (user.shift and user.ctrl) then
+				tpt.drawline(x,y,x+5,y,0,255,0,128)
+				tpt.drawline(x,y,x-5,y,0,255,0,128)
+				tpt.drawline(x,y,x,y+5,0,255,0,128)
+				tpt.drawline(x,y,x,y-5,0,255,0,128)
+				drawBrush=false
 			end
+
 			if drawBrush then
 				if brush==0 then
 					gfx.drawCircle(x,y,brx,bry,0,255,0,128)
@@ -1390,14 +1387,6 @@ end
 
 local function sendStuff()
 	if not con.connected then return end
-	--mouse position every frame, not exactly needed, might be better/more accurate from clicks
-	--local nmx,nmy = tpt.mousex,tpt.mousey
-	--if nmx<sim.XRES and nmy<sim.YRES then nmx,nmy = sim.adjustCoords(nmx,nmy) end
-	--[[if L.mousex~= nmx or L.mousey~= nmy then
-		L.mousex,L.mousey = nmx,nmy
-		local b1,b2,b3 = math.floor(L.mousex/16),((L.mousex%16)*16)+math.floor(L.mousey/256),(L.mousey%256)
-		conSend(32,string.char(b1,b2,b3))
-	end]]
 	if tpt.brushx > 255 then tpt.brushx = 255 end
 	if tpt.brushy > 255 then tpt.brushy = 255 end
 	local nbx,nby = tpt.brushx,tpt.brushy
@@ -1550,8 +1539,18 @@ if jacobsmod then
 	tpt_buttons["open"] = {x1=1, y1=408, x2=17, y2=422, f=function() if not L.ctrl then L.browseMode=1 else L.browseMode=2 end L.lastSave=sim.getSaveID() end}
 end
 
+local function inZoomWindow(x, y)
+	local snappedX, snappedY = x, y
+	-- When the mouse is outside the window, TPT will snap coords to simulation area then check for zoom window
+	if snappedX < 0 then snappedX = 0 elseif snappedX >= sim.XRES then snappedX = sim.XRES end
+	if snappedY < 0 then snappedY = 0 elseif snappedY >= sim.YRES then snappedY = sim.YRES end
+	local zoomX, zoomY = sim.adjustCoords(snappedX, snappedY)
+	return zoomX ~= x or zoomY ~= y
+end
+
 local function sendMouseUpdate(mouseX, mouseY)
-	if L.isDrawing then
+	L.realMouseX, L.realMouseY = mouseX, mouseY
+	if inZoomWindow(mouseX, mouseY) then
 		mouseX, mouseY = sim.adjustCoords(mouseX, mouseY)	
 	else
 		if mouseX < 0 then mouseX = 0 end
@@ -1563,8 +1562,7 @@ local function sendMouseUpdate(mouseX, mouseY)
 	if L.mousex ~= mouseX or L.mousey ~= mouseY then
 		local b1, b2, b3 = math.floor(mouseX / 16), ((mouseX % 16) * 16) + math.floor(mouseY / 256), (mouseY % 256)
 		conSend(32, string.char(b1, b2, b3))
-		L.mousex = mouseX
-		L.mousey = mouseY
+		L.mousex, L.mousey = mouseX, mouseY
 	end
 end
 
@@ -1685,7 +1683,12 @@ local function mouseUp(mouseX, mouseY, button, reason)
 	end
 
 	-- Ignore fake mouseups due to blur (don't send 0, 0 coordinate)
-	if reason == 1 then
+	-- Also ignore fake mouseups due to going into / outside of zoom window
+	-- In both cases, tell other clients we're no longer holding the mouse, without causing it to draw the line
+	if reason == 1 or reason == 2 then
+		L.mButt, L.mEvent = button, 2
+		L.isDrawing = false
+		conSend(33, string.char(0 * 16 + L.mEvent))
 		return
 	end
 
@@ -1721,11 +1724,13 @@ local function mouseMove(mouseX, mouseY, dX, dY)
 		return false
 	end
 
-	sendMouseUpdate(mouseX, mouseY)
-	local obut, oevnt = L.mButt, L.mEvent
-	if 3 ~= oevnt then
-		L.mEvent = 3
-		conSend(33, string.char(L.mButt * 16 + L.mEvent))
+	-- Always send mouse update, unless we're currently drawing and entered/exited the zoom window
+	-- TPT sends a fake mouseup event in this case, but the mouse move happens first so we need to stop it ourselves
+	local shouldBlockMove = L.isDrawing and not inZoomWindow(mouseX, mouseY) ~= inZoomWindow(L.realMouseX, L.realMouseY)
+	if shouldBlockMove then
+		L.isDrawing = false
+	else
+		sendMouseUpdate(mouseX, mouseY)
 	end
 
 	--Mouse hold, we MUST stay inside button or don't trigger on up
@@ -1739,7 +1744,7 @@ local function mouseMove(mouseX, mouseY, dX, dY)
 end
 
 local function mouseWheel(mouseX, mouseY, wheel)
-	if chatwindow:mouseWheel(mousex, mousey, wheel) then
+	if chatwindow.inputbox.focus and chatwindow:mouseWheel(mousex, mousey, wheel) then
 		return false
 	end
 end
@@ -1843,10 +1848,10 @@ local scanFuncs = {
 	[27] = function() if L.ctrl then L.stamp=true L.copying=1 L.stampx = -1 L.stampy = -1 end end,
 
 	--Y, air mode
-	[28] = function() conSend(59,string.char((sim.airMode()+1)%5)) return true end,
+	[28] = function() if L.ctrl then L.sendScreen = true else conSend(59,string.char((sim.airMode()+1)%5)) return true end end,
 
 	--Z
-	[29] = function() myZ=true L.skipClick=true end,
+	[29] = function() if L.ctrl then L.sendScreen = true else L.skipClick=true end end,
 
 	--ESC
 	[41] = function() if not L.chatHidden then L.chatHidden = true TPTMP.chatHidden = true return false end end,
@@ -1876,7 +1881,7 @@ local scanFuncs = {
 }
 local scanUnpressFuncs = {
 	--Z
-	[29] = function() myZ=false L.skipClick=false if L.alt then L.skipClick=true end end,
+	[29] = function() L.skipClick=false if L.alt then L.skipClick=true end end,
 }
 
 local function keypress(key, scan, rep, shift, ctrl, alt)
@@ -1897,6 +1902,9 @@ local function keypress(key, scan, rep, shift, ctrl, alt)
 	if type(check) == "boolean" then
 		return not check
 	end
+	
+	if rep then return end
+
 	if scanFuncs[scan] then
 		ret = scanFuncs[scan]()
 		if ret ~= nil then
@@ -1922,6 +1930,8 @@ local function keyrelease(key, scan, rep, shift, ctrl, alt)
 		L.alt = false
 		conSend(36, string.char(32))
 	end
+
+	if rep then return end
 
 	if scanUnpressFuncs[scan] then
 		ret = scanUnpressFuncs[scan]()
