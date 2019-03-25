@@ -777,14 +777,14 @@ local eleNameTable = {
 ["DEFAULT_WL_ERASE"] = 280,["DEFAULT_WL_CNDTW"] = 281,["DEFAULT_WL_EWALL"] = 282,["DEFAULT_WL_DTECT"] = 283,["DEFAULT_WL_STRM"] = 284,
 ["DEFAULT_WL_FAN"] = 285,["DEFAULT_WL_LIQD"] = 286,["DEFAULT_WL_ABSRB"] = 287,["DEFAULT_WL_WALL"] = 288,["DEFAULT_WL_AIR"] = 289,["DEFAULT_WL_POWDR"] = 290,
 ["DEFAULT_WL_CNDTR"] = 291,["DEFAULT_WL_EHOLE"] = 292,["DEFAULT_WL_GAS"] = 293,["DEFAULT_WL_GRVTY"] = 294,["DEFAULT_WL_ENRGY"] = 295,
-["DEFAULT_WL_NOAIR"] = 296,["DEFAULT_WL_ERASEA"] = 297,
+["DEFAULT_WL_NOAIR"] = 296,["DEFAULT_WL_ERASEA"] = 297,["DEFAULT_WL_STASIS"] = 298,
 --special tools
-["DEFAULT_UI_SAMPLE"] = 298,["DEFAULT_UI_SIGN"] = 299,["DEFAULT_UI_PROPERTY"] = 300,["DEFAULT_UI_WIND"] = 301,
+["DEFAULT_UI_SAMPLE"] = 299,["DEFAULT_UI_SIGN"] = 300,["DEFAULT_UI_PROPERTY"] = 301,["DEFAULT_UI_WIND"] = 302,
 --tools
-["DEFAULT_TOOL_HEAT"] = 302,["DEFAULT_TOOL_COOL"] = 303,["DEFAULT_TOOL_AIR"] = 304,["DEFAULT_TOOL_VAC"] = 305,["DEFAULT_TOOL_PGRV"] = 306,["DEFAULT_TOOL_NGRV"] = 307, ["DEFAULT_TOOL_MIX"] = 308,
+["DEFAULT_TOOL_HEAT"] = 303,["DEFAULT_TOOL_COOL"] = 304,["DEFAULT_TOOL_AIR"] = 305,["DEFAULT_TOOL_VAC"] = 306,["DEFAULT_TOOL_PGRV"] = 307,["DEFAULT_TOOL_NGRV"] = 308, ["DEFAULT_TOOL_MIX"] = 309,
 --decoration tools
-["DEFAULT_DECOR_SET"] = 309,["DEFAULT_DECOR_CLR"] = 310,["DEFAULT_DECOR_ADD"] = 311,["DEFAULT_DECOR_SUB"] = 312,["DEFAULT_DECOR_MUL"] = 313,["DEFAULT_DECOR_DIV"] = 314,["DEFAULT_DECOR_SMDG"] = 315,
-["DEFAULT_DECOR_LIGH"] = 316, ["DEFAULT_DECOR_DARK"] = 317
+["DEFAULT_DECOR_SET"] = 310,["DEFAULT_DECOR_CLR"] = 311,["DEFAULT_DECOR_ADD"] = 312,["DEFAULT_DECOR_SUB"] = 313,["DEFAULT_DECOR_MUL"] = 314,["DEFAULT_DECOR_DIV"] = 315,["DEFAULT_DECOR_SMDG"] = 316,
+["DEFAULT_DECOR_LIGH"] = 317, ["DEFAULT_DECOR_DARK"] = 318
 }
 local gravList= {[0]="Vertical",[1]="Off",[2]="Radial"}
 local airList= {[0]="On",[1]="Pressure Off",[2]="Velocity Off",[3]="Off",[4]="No Update"}
@@ -797,9 +797,9 @@ local createOverride = {
 	[128] = function(rx,ry,c) return 0,0,c end,
 	[158] = function(rx,ry,c) return 0,0,c end}
 local golStart,golEnd=256,279
-local wallStart,wallEnd=280,297
-local toolStart,toolEnd=302,308
-local decoStart,decoEnd=309,317
+local wallStart,wallEnd=280,298
+local toolStart,toolEnd=303,309
+local decoStart,decoEnd=310,318
 
 --Functions that do stuff in powdertoy
 local function createPartsAny(x,y,rx,ry,c,brush,user)
@@ -814,7 +814,7 @@ local function createPartsAny(x,y,rx,ry,c,brush,user)
 		end
 		return
 	elseif c>=golStart then
-		c = 78+(c-golStart)*256
+		c = 78+(c-golStart)*bit.lshift(1, sim.PMAPBITS)
 	end
 	if createOverride[c] then
 		rx,ry,c = createOverride[c](rx,ry,c)
@@ -835,7 +835,7 @@ local function createLineAny(x1,y1,x2,y2,rx,ry,c,brush,user)
 		end
 		return
 	elseif c>=golStart then
-		c = 78+(c-golStart)*256
+		c = 78+(c-golStart)*bit.lshift(1, sim.PMAPBITS)
 	end
 	if createOverride[c] then
 		rx,ry,c = createOverride[c](rx,ry,c)
@@ -854,7 +854,7 @@ local function createBoxAny(x1,y1,x2,y2,c,user)
 		end
 		return
 	elseif c>=golStart then
-		c = 78+(c-golStart)*256
+		c = 78+(c-golStart)*bit.lshift(1, sim.PMAPBITS)
 	end
 	if createOverride[c] then
 		_,_,c = createOverride[c](user.brushx,user.brushy,c)
@@ -870,7 +870,7 @@ local function floodAny(x,y,c,cm,bm,user)
 		--other tools shouldn't flood
 		return
 	elseif c>=golStart then --GoL adjust
-		c = 78+(c-golStart)*256
+		c = 78+(c-golStart)*bit.lshift(1, sim.PMAPBITS)
 	end
 	if createOverride[c] then
 		_,_,c = createOverride[c](user.brushx,user.brushy,c)
@@ -1146,7 +1146,6 @@ local dataCmds = {
 		tpt.set_pause(0)
 		L.pauseNextFrame=true
 	end,
-
 	--deco mode, (1 byte state)
 	[51] = function()
 		local id = cByte()
@@ -1398,16 +1397,32 @@ local function sendStuff()
 	local nsell,nsela,nselr,nselrep = elements[tpt.selectedl] or eleNameTable[tpt.selectedl],elements[tpt.selecteda] or eleNameTable[tpt.selecteda],elements[tpt.selectedr] or eleNameTable[tpt.selectedr],elements[tpt.selectedreplace] or eleNameTable[tpt.selectedreplace]
 	if L.sell~=nsell then
 		L.sell=nsell
-		conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
+		if nsell == nil then
+			_print("Unsupported wall/tool "..tpt.selectedl)
+		else
+			conSend(37,string.char(math.floor(L.sell/256),L.sell%256))
+		end
 	elseif L.sela~=nsela then
 		L.sela=nsela
-		conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
+		if nsela == nil then
+			_print("Unsupported wall/tool "..tpt.selecteda)
+		else
+			conSend(37,string.char(math.floor(64 + L.sela/256),L.sela%256))
+		end
 	elseif L.selr~=nselr then
 		L.selr=nselr
-		conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
+		if nselr == nil then
+			_print("Unsupported wall/tool "..tpt.selectedr)
+		else
+			conSend(37,string.char(math.floor(128 + L.selr/256),L.selr%256))
+		end
 	elseif L.selrep~=nselrep then
 		L.selrep=nselrep
-		conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
+		if nselrep == nil then
+			_print("Unsupported wall/tool "..tpt.selectedreplace)
+		else
+			conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
+		end
 	end
 	local ncol = sim.decoColour()
 	if L.dcolour~=ncol then
