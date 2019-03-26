@@ -65,7 +65,6 @@ local function conSend(cmd,msg,endNull)
 	msg = msg or ""
 	if endNull then msg = msg.."\0" end
 	if cmd then msg = string.char(cmd)..msg end
-	--print("sent "..msg)
 	con.socket:settimeout(10)
 	con.socket:send(msg)
 	con.socket:settimeout(0)
@@ -202,8 +201,8 @@ new = function(x,y,w,h,r,g,b)
 	function box:setbackground(r,g,b,a) self.br=r self.bg=g self.bb=b self.ba=a end
 	box.drawbox=true
 	box.drawbackground=false
-	box:drawadd(function(self) if self.drawbackground then tpt.fillrect(self.x,self.y,self.w,self.h,self.br,self.bg,self.bb,self.ba) end
-								if self.drawbox then tpt.drawrect(self.x,self.y,self.w,self.h,self.r,self.g,self.b) end end)
+	box:drawadd(function(self) if self.drawbackground then gfx.fillRect(self.x,self.y,self.w+1,self.h+1,self.br,self.bg,self.bb,self.ba) end
+								if self.drawbox then gfx.drawRect(self.x,self.y,self.w+1,self.h+1,self.r,self.g,self.b) end end)
 	box:moveadd(function(self,x,y)
 		if x then self.x=self.x+x self.x2=self.x2+x end
 		if y then self.y=self.y+y self.y2=self.y2+y end
@@ -217,7 +216,7 @@ new = function(text,x,y,r,g,b)
 	txt.text = text
 	txt.x=x or 0 txt.y=y or 0 txt.r=r or 255 txt.g=g or 255 txt.b=b or 255
 	function txt:setcolor(r,g,b) self.r=r self.g=g self.b=b end
-	txt:drawadd(function(self,x,y) tpt.drawtext(x or self.x,y or self.y,self.text,self.r,self.g,self.b) end)
+	txt:drawadd(function(self,x,y) gfx.drawText(x or self.x,y or self.y,self.text,self.r,self.g,self.b) end)
 	txt:moveadd(function(self,x,y)
 		if x then self.x=self.x+x end
 		if y then self.y=self.y+y end
@@ -278,7 +277,7 @@ newscroll = function(text,x,y,vis,force,r,g,b)
 	end
 	txt.drawlist={} --reset draw
 	txt:drawadd(function(self,x,y)
-		tpt.drawtext(x or self.x,y or self.y, self.text:sub(self.start,self.last) ,self.r,self.g,self.b)
+		gfx.drawText(x or self.x,y or self.y, self.text:sub(self.start,self.last) ,self.r,self.g,self.b)
 	end)
 	function txt:mouseMove(mx,my,dX,dY)
 		local newlast = math.floor((mx-self.x)/self.ppl)+self.minlast
@@ -307,7 +306,7 @@ new=function(x,y,w,h)
 	intext.ratelimit = 0
 	intext:drawadd(function(self)
 		local cursoradjust=tpt.textwidth(self.t.text:sub(self.t.start,self.cursor))+2
-		tpt.drawline(self.x+cursoradjust,self.y,self.x+cursoradjust,self.y+10,255,255,255)
+		gfx.drawLine(self.x+cursoradjust,self.y,self.x+cursoradjust,self.y+10,255,255,255)
 		self.t:draw()
 	end)
 	intext:moveadd(function(self,x,y) self.t:onmove(x,y) end)
@@ -452,7 +451,7 @@ new = function(x,y,h,t,m)
 	end
 	bar:drawadd(function(self)
 		if self.total > self.numshown then
-			tpt.drawline(self.x,self.y+self.soffset,self.x,self.y+self.soffset+self.length)
+			gfx.drawLine(self.x,self.y+self.soffset,self.x,self.y+self.soffset+self.length)
 		end
 	end)
 	bar:moveadd(function(self,x,y)
@@ -532,11 +531,11 @@ new=function(x,y,w,h)
 	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true TPTMP.chatHidden=true end,">>")
 	chat:drawadd(function(self)
 		if self.w > 175 and jacobsmod then
-			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer, by cracker64")/2,self.y+2,"TPT Multiplayer, by cracker64")
+			gfx.drawText(self.x+self.w/2-tpt.textwidth("TPT Multiplayer, by cracker64")/2,self.y+2,"TPT Multiplayer, by cracker64")
 		elseif self.w > 100 then
-			tpt.drawtext(self.x+self.w/2-tpt.textwidth("TPT Multiplayer")/2,self.y+2,"TPT Multiplayer")
+			gfx.drawText(self.x+self.w/2-tpt.textwidth("TPT Multiplayer")/2,self.y+2,"TPT Multiplayer")
 		end
-		tpt.drawline(self.x+1,self.y+10,self.x2-1,self.y+10,120,120,120)
+		gfx.drawLine(self.x+1,self.y+10,self.x2-1,self.y+10,120,120,120)
 		self.scrollbar:draw()
 		local count=0
 		for i,line in ipairs(self.lines) do
@@ -588,7 +587,7 @@ new=function(x,y,w,h)
 		end
 
 		-- header was grabbed, enable window movement
-		if selectedLine == 0 then
+		if selectedLine == 0 and mouseX < self.minimize.x then
 			self.moving = true
 			self.lastx = mx
 			self.lasty = my
@@ -608,7 +607,18 @@ new=function(x,y,w,h)
 		return true
 	end
 	function chat:mouseMove(mouseX, mouseY, dX, dY)
-		if self.moving and mouseX >= 0 and mouseX < sim.XRES and mouseY >= 0 and mouseY < sim.YRES then
+		if self.moving then
+			local newx, newy = self.x + dX, self.y + dY
+			if newx < 0 then dX = dX - newx end
+			if newy < 0 then dY = dY - newy end
+			if (newx + self.w) >= sim.XRES then dX = dX - (newx + self.w - sim.XRES) end
+			if (newy + self.h) >= sim.YRES then dY = dY - (newy + self.h - sim.YRES) end
+
+			if dX < 0 and mouseX > self.relx + self.x then dX = 0 end
+			if dX > 0 and mouseX < self.relx + self.x then dX = 0 end
+			if dY < 0 and mouseY > self.rely + self.y then dY = 0 end
+			if dY > 0 and mouseY < self.rely + self.y then dY = 0 end
+			
 			self:onmove(dX, dY)
 		end
 		self.minimize:mouseMove(mouseX, mouseY, dX, dY)
@@ -1345,19 +1355,19 @@ local function drawStuff()
 			-- Draw player cursors
 			if user.drawtype==1 then
 				if user.alt then x,y = lineSnapCoords(user.pmx,user.pmy,x,y) end
-				tpt.drawline(user.pmx,user.pmy,x,y,0,255,0,128)
+				gfx.drawLine(user.pmx,user.pmy,x,y,0,255,0,128)
 			elseif user.drawtype==2 then
 				if user.alt then x,y = rectSnapCoords(user.pmx,user.pmy,x,y) end
 				local tpmx,tpmy = user.pmx,user.pmy
 				if tpmx>x then tpmx,x=x,tpmx end
 				if tpmy>y then tpmy,y=y,tpmy end
-				tpt.drawrect(tpmx,tpmy,x-tpmx,y-tpmy,0,255,0,128)
+				gfx.drawRect(tpmx,tpmy,x-tpmx+1,y-tpmy+1,0,255,0,128)
 				drawBrush=false
 			elseif user.drawtype==3 or (user.shift and user.ctrl) then
-				tpt.drawline(x,y,x+5,y,0,255,0,128)
-				tpt.drawline(x,y,x-5,y,0,255,0,128)
-				tpt.drawline(x,y,x,y+5,0,255,0,128)
-				tpt.drawline(x,y,x,y-5,0,255,0,128)
+				gfx.drawLine(x,y,x+5,y,0,255,0,128)
+				gfx.drawLine(x,y,x-5,y,0,255,0,128)
+				gfx.drawLine(x,y,x,y+5,0,255,0,128)
+				gfx.drawLine(x,y,x,y-5,0,255,0,128)
 				drawBrush=false
 			end
 
@@ -1377,7 +1387,7 @@ local function drawStuff()
 	for k,v in pairs(fadeText) do
 		if v.ticks > 0 then
 			local a = math.floor(255*(v.ticks/v.max))
-			tpt.drawtext(v.x,v.y,v.text,v.r,v.g,v.b,a)
+			gfx.drawText(v.x,v.y,v.text,v.r,v.g,v.b,a)
 			v.ticks = v.ticks-1
 		else if not v.keep then table.remove(fadeText,k) end
 		end
