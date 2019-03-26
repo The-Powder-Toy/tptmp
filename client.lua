@@ -904,6 +904,9 @@ local function rectSnapCoords(x1,y1,x2,y2)
 	ny = math.floor(lineMag*math.sin(snapAngle)+y1+0.5);
 	return nx,ny
 end
+local function wallSnapCoords(x, y)
+	return math.floor(x / 4) * 4, math.floor(y / 4) * 4
+end
 local renModes = {[0xff00f270]=1,[-16715152]=1,[0x0400f381]=2,[0xf382]=4,[0xf388]=8,[0xf384]=16,[0xfff380]=32,[1]=0xff00f270,[2]=0x0400f381,[4]=0xf382,[8]=0xf388,[16]=0xf384,[32]=0xfff380}
 local function getViewModes()
 	local t={0,0,0}
@@ -973,7 +976,7 @@ local function playerMouseClick(id,btn,ev)
 		if user.drawtype==2 then
 			if user.alt then user.mousex,user.mousey = rectSnapCoords(user.pmx,user.pmy,releaseX,releaseY) end
 			createBoxAny(releaseX,releaseY,user.pmx,user.pmy,createE,user)
-		else
+		elseif user.drawtype ~= 3 then
 			if user.alt then user.mousex,user.mousey = lineSnapCoords(user.pmx,user.pmy,user.mousex,user.mousey) end
 			createLineAny(releaseX,releaseY,user.pmx,user.pmy,user.brushx,user.brushy,createE,user.brush,user)
 		end
@@ -1372,7 +1375,14 @@ local function drawStuff()
 			end
 
 			if drawBrush then
-				if brush==0 then
+				if user.selectedl >= wallStart and user.selectedl <= wallEnd then
+					local blockX, blockY = wallSnapCoords(x, y)
+					local blockRadX, blockRadY = wallSnapCoords(brx, bry)
+					
+					local x1, y1 = blockX - blockRadX, blockY - blockRadY
+					local x2, y2 = blockX + blockRadX + 3, blockY + blockRadY + 3
+					gfx.drawRect(x1, y1, x2 - x1, y2 - y1)
+				elseif brush==0 then
 					gfx.drawCircle(x,y,brx,bry,0,255,0,128)
 				elseif brush==1 then
 					gfx.drawRect(x-brx,y-bry,brx*2+1,bry*2+1,0,255,0,128)
@@ -1565,6 +1575,9 @@ if jacobsmod then
 end
 
 local function inZoomWindow(x, y)
+	if not L.isDrawing and (x < 0 or x >= sim.XRES or y < 0 or y >= sim.YRES) then
+		return false
+	end
 	local snappedX, snappedY = x, y
 	-- When the mouse is outside the window, TPT will snap coords to simulation area then check for zoom window
 	if snappedX < 0 then snappedX = 0 elseif snappedX >= sim.XRES then snappedX = sim.XRES end
@@ -1576,6 +1589,7 @@ end
 local function sendMouseUpdate(mouseX, mouseY)
 	L.realMouseX, L.realMouseY = mouseX, mouseY
 	if inZoomWindow(mouseX, mouseY) then
+		print(mouseX, mouseY)
 		mouseX, mouseY = sim.adjustCoords(mouseX, mouseY)	
 	else
 		if mouseX < 0 then mouseX = 0 end
