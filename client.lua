@@ -1,7 +1,7 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
 
-local versionstring = "0.91"
+local versionstring = "0.100"
 
 --TODO's
 --FIGH,STKM,STK2,LIGH need a few more creation adjustments
@@ -15,8 +15,8 @@ local versionstring = "0.91"
 --Changes from jacob, including: Support jacobsMod, keyrepeat
 --Support replace mode
 
-if TPTMP then if TPTMP.version <= 3 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
-TPTMP = {["version"] = 3, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
+if TPTMP then if TPTMP.version <= 4 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
+TPTMP = {["version"] = 4, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not sim.clearRect then error"Tpt version not supported" end
 local using_manager = false
