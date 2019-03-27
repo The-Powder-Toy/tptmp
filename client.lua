@@ -1507,6 +1507,7 @@ local function sendStuff()
 	--Send option menu settings
 	if L.checkOpt then
 		L.checkOpt=false
+		conSend(49,string.char(tpt.set_pause()))
 		conSend(56,string.char(tpt.heat()))
 		conSend(53,string.char(tpt.ambient_heat()))
 		conSend(54,string.char(tpt.newtonian_gravity()))
@@ -1554,6 +1555,7 @@ local tpt_buttons = {
 			end
 		else
 			--[[infoText:reset("Reloading local saves is not synced currently. Type /sync")]]
+			L.checkOpt = true
 			L.sendScreen = true
 		end
 	end},
