@@ -1591,7 +1591,6 @@ end
 local function sendMouseUpdate(mouseX, mouseY)
 	L.realMouseX, L.realMouseY = mouseX, mouseY
 	if inZoomWindow(mouseX, mouseY) then
-		print(mouseX, mouseY)
 		mouseX, mouseY = sim.adjustCoords(mouseX, mouseY)	
 	else
 		if mouseX < 0 then mouseX = 0 end
