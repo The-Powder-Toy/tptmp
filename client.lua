@@ -1,7 +1,7 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
 
-local versionstring = "0.100"
+local versionstring = "0.101"
 
 --TODO's
 --FIGH,STKM,STK2,LIGH need a few more creation adjustments
