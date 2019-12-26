@@ -306,7 +306,7 @@ new=function(x,y,w,h)
 	intext.ratelimit = 0
 	intext:drawadd(function(self)
 		local cursoradjust=tpt.textwidth(self.t.text:sub(self.t.start,self.cursor))+2
-		gfx.drawLine(self.x+cursoradjust,self.y,self.x+cursoradjust,self.y+10,255,255,255)
+		if self.cursor > 0 then gfx.drawLine(self.x+cursoradjust,self.y,self.x+cursoradjust,self.y+10,255,255,255) end
 		self.t:draw()
 	end)
 	intext:moveadd(function(self,x,y) self.t:onmove(x,y) end)
