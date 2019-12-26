@@ -676,6 +676,8 @@ new=function(x,y,w,h)
 		elseif args[1] == "me" then self:addline("(/me <message>) -- say something in 3rd person") -- send a raw command
 		elseif args[1] == "kick" then self:addline("(/kick <nick> <reason>) -- kick a user, only works if you have been in a channel the longest")
 		elseif args[1] == "size" then self:addline("(/size <width> <height>) -- sets the size of the chat window")
+		elseif args[1] == "clear" then self:addline("(/clear, no arguments) -- clears the chat")
+		else self:addline('No such a command')
 		end
 	end,
 	list = function(self,msg,args)
@@ -708,6 +710,9 @@ new=function(x,y,w,h)
 				MANAGER.savesetting("tptmp", "height", h)
 			end
 		end
+	end,
+	clear = function(self, msg, args)
+		chatwindow.lines = {}
 	end
 	}
 	function chat:keypress(key, scan, rep, shift, ctrl, alt)
