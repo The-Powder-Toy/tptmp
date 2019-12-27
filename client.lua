@@ -407,6 +407,14 @@ new=function(x,y,w,h)
 					end
 				end
 			end
+		-- CTRL+C
+		elseif key == 99 and ctrl then
+			tpt.set_clipboard(self.t.text)
+			tpt.log('Copied to clipboard')
+		-- CTRL+V
+		elseif key == 118 and ctrl then
+			self.cursor = #(self.t.text..tpt.get_clipboard())
+			self.t:update(self.t.text..tpt.get_clipboard(), self.cursor)
 		end
 		if newstr then
 			self.t:update(newstr,self.cursor)
@@ -584,6 +592,11 @@ new=function(x,y,w,h)
 		if mouseX < self.x or mouseX > self.x2 or mouseY < self.y or mouseY > self.y2 then
 			self.inputbox:setfocus(false)
 			return false
+		end
+
+		if button == 3 and selectedLine ~= 0 and selectedLine ~= self.shown_lines+1 and self.lines[self.scrollbar.pos+selectedLine] then
+			tpt.set_clipboard(self.lines[self.scrollbar.pos+selectedLine].text)
+			tpt.log('Copied to clipboard')
 		end
 
 		-- header was grabbed, enable window movement
