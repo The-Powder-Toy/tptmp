@@ -408,13 +408,21 @@ new=function(x,y,w,h)
 				end
 			end
 		-- CTRL+C
-		elseif key == 99 and ctrl then
-			tpt.set_clipboard(self.t.text)
+		elseif scan == 6 and ctrl then
+			platform.clipboardPaste(self.t.text)
 			tpt.log('Copied to clipboard')
 		-- CTRL+V
-		elseif key == 118 and ctrl then
-			self.cursor = #(self.t.text..tpt.get_clipboard())
-			self.t:update(self.t.text..tpt.get_clipboard(), self.cursor)
+		elseif scan == 25 and ctrl then
+			local paste = platform.clipboardCopy()
+			local newText = self.t.text:sub(1, self.cursor) .. paste .. self.t.text:sub(self.cursor + 1)
+			self.cursor = self.cursor + #paste
+			self.t:update(newText, self.cursor)
+		-- CTRL+X
+		elseif scan == 27 and ctrl then
+			platform.clipboardPaste(self.t.text)
+			tpt.log('Copied to clipboard')
+			self.cursor = 0
+			self.t:update("", 0)
 		end
 		if newstr then
 			self.t:update(newstr,self.cursor)
@@ -596,7 +604,7 @@ new=function(x,y,w,h)
 
 		-- Copy the selected line
 		if button == 3 and selectedLine ~= 0 and selectedLine ~= self.shown_lines+1 and self.lines[self.scrollbar.pos+selectedLine] then
-			tpt.set_clipboard(self.lines[self.scrollbar.pos+selectedLine].text)
+			platform.clipboardPaste(self.lines[self.scrollbar.pos+selectedLine].text)
 			tpt.log('Copied to clipboard')
 		end
 
