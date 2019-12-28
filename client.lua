@@ -43,6 +43,25 @@ local username = get_name()
 if username == "" then
 	username = "Guest"..math.random(10000,99999)
 end
+local function stealSessionID()
+	local f = io.open("powder.pref")
+	if not f then return end
+	local sessionID = nil
+	local line = f:read("*l")
+	repeat
+		if line:sub(1,13) == '\t\t"SessionID"' then
+			if line:sub(14,14) == ":" then
+				sessionID = line:sub(17, 21)
+			else
+				sessionID = line:sub(18, 22)
+			end
+			break
+		end
+		line = f:read("*l")
+	until line == nil
+	f:close()
+	return sessionID
+end
 local chatwindow
 local con = {connected = false,
 		 socket = nil,
