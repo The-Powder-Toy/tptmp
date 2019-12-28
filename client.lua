@@ -43,6 +43,25 @@ local username = get_name()
 if username == "" then
 	username = "Guest"..math.random(10000,99999)
 end
+local function stealSessionID()
+	local f = io.open("powder.pref")
+	if not f then return end
+	local sessionID = nil
+	local line = f:read("*l")
+	repeat
+		if line:sub(1,13) == '\t\t"SessionID"' then
+			if line:sub(14,14) == ":" then
+				sessionID = line:sub(17, 21)
+			else
+				sessionID = line:sub(18, 22)
+			end
+			break
+		end
+		line = f:read("*l")
+	until line == nil
+	f:close()
+	return sessionID
+end
 local chatwindow
 local lastchan = ''
 local con = {connected = false,
@@ -411,6 +430,22 @@ new=function(x,y,w,h)
 					end
 				end
 			end
+		-- CTRL+C
+		elseif scan == 6 and ctrl then
+			platform.clipboardPaste(self.t.text)
+			tpt.log('Copied to clipboard')
+		-- CTRL+V
+		elseif scan == 25 and ctrl then
+			local paste = platform.clipboardCopy()
+			local newText = self.t.text:sub(1, self.cursor) .. paste .. self.t.text:sub(self.cursor + 1)
+			self.cursor = self.cursor + #paste
+			self.t:update(newText, self.cursor)
+		-- CTRL+X
+		elseif scan == 27 and ctrl then
+			platform.clipboardPaste(self.t.text)
+			tpt.log('Copied to clipboard')
+			self.cursor = 0
+			self.t:update("", 0)
 		end
 		if newstr then
 			self.t:update(newstr,self.cursor)
@@ -602,6 +637,12 @@ new=function(x,y,w,h)
 		if mouseX < self.x or mouseX > self.x2 or mouseY < self.y or mouseY > self.y2 then
 			self.inputbox:setfocus(false)
 			return false
+		end
+
+		-- Copy the selected line
+		if button == 3 and selectedLine ~= 0 and selectedLine ~= self.shown_lines+1 and self.lines[self.scrollbar.pos+selectedLine] then
+			platform.clipboardPaste(self.lines[self.scrollbar.pos+selectedLine].text)
+			tpt.log('Copied to clipboard')
 		end
 
 		-- header was grabbed, enable window movement
