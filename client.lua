@@ -63,6 +63,7 @@ local function stealSessionID()
 	return sessionID
 end
 local chatwindow
+local lastchan = ''
 local con = {connected = false,
 		 socket = nil,
 		 members = nil,
@@ -78,6 +79,7 @@ local function disconnected(reason)
 	end
 	con.connected = false
 	con.members = {}
+	lastchan = ''
 end
 local function conSend(cmd,msg,endNull)
 	if not con.connected then return false,"Not connected" end
@@ -98,6 +100,7 @@ local function joinChannel(chan)
 	conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
 	conSend(38,L.replacemode)
 	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
+	lastchan = chan
 end
 local function connectToServer(ip,port,nick)
 	if con.connected then return false,"Already connected" end
@@ -144,6 +147,7 @@ local function connectToServer(ip,port,nick)
 	conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
 	conSend(38,L.replacemode)
 	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
+	lastchan = 'null'
 	return true
 end
 --get up to a null (\0)
@@ -565,11 +569,18 @@ new=function(x,y,w,h)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
 	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true TPTMP.chatHidden=true end,">>")
 	chat:drawadd(function(self)
-		if self.w > 175 and jacobsmod then
-			gfx.drawText(self.x+self.w/2-tpt.textwidth("TPT Multiplayer, by cracker64")/2,self.y+2,"TPT Multiplayer, by cracker64")
-		elseif self.w > 100 then
-			gfx.drawText(self.x+self.w/2-tpt.textwidth("TPT Multiplayer")/2,self.y+2,"TPT Multiplayer")
-		end
+		gfx.drawText(self.x2-tpt.textwidth("TPT Multiplayer")-17,self.y+2,"TPT Multiplayer")
+		self.minimize.t.y = self.y+1 -- aligns the minimize button vertically
+		-- channel displayed in the left top corner
+		if lastchan == 'null' then gfx.drawText(self.x+2,self.y+2,'lobby',200,200,0)
+		elseif tpt.textwidth(lastchan) > self.w-tpt.textwidth("TPT Multiplayer")-22 then
+			local newchan = lastchan
+			while tpt.textwidth(newchan) > self.w-tpt.textwidth("TPT Multiplayer")-22 do
+				newchan = newchan:sub(1,#newchan-1)
+			end
+			newchan = newchan:sub(1,#newchan-3)..'...'
+			gfx.drawText(self.x+2,self.y+2,newchan,0,200,200)
+		else gfx.drawText(self.x+2,self.y+2,lastchan,0,200,200) end
 		gfx.drawLine(self.x+1,self.y+10,self.x2-1,self.y+10,120,120,120)
 		self.scrollbar:draw()
 		local count=0
@@ -718,6 +729,7 @@ new=function(x,y,w,h)
 		elseif args[1] == "kick" then self:addline("(/kick <nick> <reason>) -- kick a user, only works if you have been in a channel the longest")
 		elseif args[1] == "size" then self:addline("(/size <width> <height>) -- sets the size of the chat window")
 		elseif args[1] == "clear" then self:addline("(/clear, no arguments) -- clears the chat")
+		elseif args[1] == "lobby" then self:addline("(/lobby, no arguments) -- joins the lobby")
 		end
 	end,
 	list = function(self,msg,args)
@@ -753,6 +765,9 @@ new=function(x,y,w,h)
 	end,
 	clear = function(self, msg, args)
 		chatwindow.lines = {}
+	end,
+	lobby = function(self, msg, args)
+		joinChannel('null')
 	end
 	}
 	function chat:keypress(key, scan, rep, shift, ctrl, alt)
