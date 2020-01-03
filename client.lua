@@ -43,6 +43,40 @@ local username = get_name()
 if username == "" then
 	username = "Guest"..math.random(10000,99999)
 end
+
+local useAutocompletion = true
+if using_manager then
+	if MANAGER.getsetting('tptmp', 'autocomplete') == 'false' then
+		useAutocompletion = false
+	else
+		MANAGER.savesetting('tptmp', 'autocomplete', 'true')
+	end
+end
+
+function isIn(tab, val)
+    for index, value in ipairs(tab) do
+        if value == val then
+            return true
+        end
+    end
+    return false
+end
+
+function string:split(sep)
+	local sep, fields = sep or ":", {}
+	local pattern = string.format("([^%s]+)", sep)
+	self:gsub(pattern, function(c) fields[#fields+1] = c end)
+	return fields
+end
+
+function reverse(arr)
+	temparr = {}
+	for i = #arr, 1, -1 do
+		table.insert(temparr, arr[i])
+	end
+	return temparr
+end
+
 local function stealSessionID()
 	local f = io.open("powder.pref")
 	if not f then return end
@@ -316,6 +350,9 @@ newscroll = function(text,x,y,vis,force,r,g,b)
 	return txt
 end
 }
+local selected = 1
+local autocompleteON = false
+local autocompleteSuggestion = ''
 ui_inputbox = {
 new=function(x,y,w,h)
 	local intext=ui_box.new(x,y,w,h)
@@ -371,30 +408,43 @@ new=function(x,y,w,h)
 			self:setfocus(false)
 		-- Enter
 		elseif key == 13 and not rep then
-			if socket.gettime() < self.ratelimit then
-				return
-			end
-			local text = self.t.text
-			if text == "" then
-				self:setfocus(false)
+			if autocompleteON == true then
+				self.cursor = #autocompleteSuggestion
+				self.t:update(autocompleteSuggestion, self.cursor)
 			else
-				self.cursor = 0
-				self.t.text = ""
-				self:addhistory(text)
-				self.line = #self.history + 1
-				self.currentline = ""
-				self.ratelimit = socket.gettime() + 1
-				return text
+				if socket.gettime() < self.ratelimit then
+					return
+				end
+				local text = self.t.text
+				if text == "" then
+					self:setfocus(false)
+				else
+					self.cursor = 0
+					self.t.text = ""
+					self:addhistory(text)
+					self.line = #self.history + 1
+					self.currentline = ""
+					self.ratelimit = socket.gettime() + 1
+					return text
+				end
 			end
 		-- Up
 		elseif key == 1073741906 then
-			if socket.gettime() < self.ratelimit then
-				return
+			if autocompleteON == true then
+				selected = selected-1
+			else
+				if socket.gettime() < self.ratelimit then
+					return
+				end
+				self:moveline(-1)
 			end
-			self:moveline(-1)
 		-- Down
 		elseif key == 1073741905 then
-			self:moveline(1)
+			if autocompleteON == true then
+				selected = selected+1
+			else
+				self:moveline(1)
+			end
 		-- Right
 		elseif key == 1073741903 then
 			self:movecursor(1)
@@ -553,6 +603,11 @@ new = function(x,y,w,h,f,text)
 	return b
 end
 }
+local onlines = {}
+local autocompleteX = 0
+local autocompleteY = 0
+local autocompleteX2 = 0
+local autocompleteY2 = 0
 ui_chatbox = {
 new=function(x,y,w,h)
 	local chat=ui_box.new(x,y,w,h)
@@ -598,6 +653,96 @@ new=function(x,y,w,h)
 				count = count+1
 			end
 		end
+		-- AUTOCOMPLETE SYSTEM
+		if useAutocompletion then
+			local text = self.inputbox.t.text
+			if text:find(' ') then 
+				sample = text:reverse():find(' ')
+			else
+				sample = #text+1
+			end
+			local word = text:reverse():sub(1, sample-1):reverse()
+			local pattern=''
+			for i=1, #word do
+				pattern = pattern..'['..word:sub(i,i):upper()..','..word:sub(i,i):lower()..']'
+			end 
+			local pattern = pattern..'.*'
+			local pattern1 = '^'..pattern..':'
+			local pattern2 = '^'..pattern..' has joined'
+			local pattern3 = '^'..pattern..' has left'
+			local results = {}
+			if #word > 2 then
+				for i, v in ipairs(self.lines) do
+					v = v.text
+					local found
+					if v:match(pattern1) ~= nil then
+						found = v:match(pattern1)
+						found = found:gsub(':', '')
+						if found:find(' ') then
+							found = found:sub(1,found:find(' ')-1)
+						end
+					elseif v:match(pattern2) ~= nil then
+						found = v:match(pattern2)
+						found = found:gsub(' has joined', '')
+					elseif v:match(pattern3) ~= nil then
+						found = v:match(pattern3)
+						found = found:gsub(' has left', '')
+					end
+					if found and found ~= word and found ~= 'Online' and found ~= 'TPTMP' then
+						table.insert(results, found)
+					end
+				end
+			end
+
+			if #word > 2 then
+				for i,v in ipairs(onlines) do
+					if v:match(pattern) and v:match(pattern) ~= word then
+						table.insert(results, v)
+					end
+				end
+			end
+
+			local tempTable = {}
+			for i,v in ipairs(results) do
+				if not isIn(tempTable, v) then table.insert(tempTable, v) end
+			end
+			results = tempTable
+			
+			local longestN = 0
+			local longestS = ''
+			for i,v in ipairs(results) do
+				if #v > longestN then
+					longestN = #v
+					longestS = v
+				end
+			end
+
+			autocompleteON = #results > 0 and self.inputbox.cursor == #text
+			
+			if selected > #results then selected = #results end
+			if selected < 1 then selected = 1 end
+			
+			if autocompleteON then
+				local autocompleteBoxPos = self.x+tpt.textwidth(text:sub(self.inputbox.t.start))
+				if autocompleteBoxPos > self.x2-tpt.textwidth(longestS)-4 then
+					autocompleteBoxPos = self.x2-tpt.textwidth(longestS)-4
+				end
+				autocompleteX = autocompleteBoxPos
+				autocompleteY = self.y2
+				autocompleteX2 = autocompleteBoxPos+tpt.textwidth(longestS)+5
+				autocompleteY2 = self.y2+10*#results+2
+				gfx.drawRect(autocompleteBoxPos,self.y2,tpt.textwidth(longestS)+5,10*#results+2)
+				gfx.fillRect(autocompleteBoxPos+1,self.y2,tpt.textwidth(longestS)+3,10*#results+1, 10,10,10,235)
+				if #results > 1 then
+					gfx.fillRect(autocompleteBoxPos+1, self.y2+10*selected-9, tpt.textwidth(longestS)+3, 10, 100,100,100)
+				end
+				for i,v in ipairs(results) do
+					gfx.drawText(autocompleteBoxPos+2,self.y2+10*i-8, v)
+				end
+				autocompleteSuggestion = text:sub(1,-#word-1)..results[selected]
+			end
+		end
+		-- end AUTOCOMPLETE SYSTEM
 		self.inputbox:draw()
 		self.minimize:draw()
 	end)
@@ -611,6 +756,10 @@ new=function(x,y,w,h)
 	end)
 	function chat:addline(line,r,g,b,noflash)
 		if not line or line=="" then return end --No blank lines
+		if line:match('^Online: ') then
+			tempLine = line:gsub('Online: ', '')
+			onlines = tempLine:split(' ') 
+		end
 		local linebreak,lastspace = 0,nil
 		for i=0,#line do
 			local width = tpt.textwidth(line:sub(linebreak,i+1))
@@ -738,6 +887,7 @@ new=function(x,y,w,h)
 		elseif args[1] == "size" then self:addline("(/size <width> <height>) -- sets the size of the chat window")
 		elseif args[1] == "clear" then self:addline("(/clear, no arguments) -- clears the chat")
 		elseif args[1] == "lobby" then self:addline("(/lobby, no arguments) -- joins the lobby")
+		elseif args[1] == "autocomplete" then self:addline("(/autocomplete, <on/off>) -- enables or disables autocompletion")
 		end
 	end,
 	list = function(self,msg,args)
@@ -776,6 +926,17 @@ new=function(x,y,w,h)
 	end,
 	lobby = function(self, msg, args)
 		joinChannel('null')
+	end,
+	autocomplete = function(self, msg, args)
+		if args[1] == 'on' then
+			useAutocompletion = true
+			if using_manager then MANAGER.savesetting('tptmp', 'autocomplete', 'true') end
+			self:addline("Autocomplete enabled",0,255,50)
+		elseif args[1] == 'off' then
+			useAutocompletion = false
+			if using_manager then MANAGER.savesetting('tptmp', 'autocomplete', 'false') end
+			self:addline("Autocomplete disabled",0,255,50)
+		end
 	end
 	}
 	function chat:keypress(key, scan, rep, shift, ctrl, alt)
