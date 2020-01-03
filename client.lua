@@ -569,18 +569,26 @@ new=function(x,y,w,h)
 	chat.inputbox = ui_inputbox.new(x,chat.y2-10,w,10)
 	chat.minimize = ui_button.new(chat.x2-15,chat.y,15,10,function() chat.moving=false chat.inputbox:setfocus(false) L.chatHidden=true TPTMP.chatHidden=true end,">>")
 	chat:drawadd(function(self)
-		gfx.drawText(self.x2-tpt.textwidth("TPT Multiplayer")-17,self.y+2,"TPT Multiplayer")
+		local header_pos = self.x+self.w/2-tpt.textwidth("TPT Multiplayer")/2
+		local lastchan_width = tpt.textwidth(lastchan)
 		self.minimize.t.y = self.y+1 -- aligns the minimize button vertically
 		-- channel displayed in the left top corner
-		if lastchan == 'null' then gfx.drawText(self.x+2,self.y+2,'lobby',200,200,0)
-		elseif tpt.textwidth(lastchan) > self.w-tpt.textwidth("TPT Multiplayer")-22 then
-			local newchan = lastchan
-			while tpt.textwidth(newchan) > self.w-tpt.textwidth("TPT Multiplayer")-22 do
-				newchan = newchan:sub(1,#newchan-1)
+		if lastchan == 'null' then
+			gfx.drawText(self.x+2,self.y+2,'lobby',200,200,0)
+		else
+			if lastchan_width > self.w - 5 then
+				while tpt.textwidth(lastchan) > self.w - 5 do
+					lastchan = lastchan:sub(1, #lastchan-1)
+				end
+				lastchan = lastchan:sub(1, #lastchan-3) .. '...'
+				gfx.drawText(self.x+2,self.y+2,lastchan,0,200,200)
 			end
-			newchan = newchan:sub(1,#newchan-3)..'...'
-			gfx.drawText(self.x+2,self.y+2,newchan,0,200,200)
-		else gfx.drawText(self.x+2,self.y+2,lastchan,0,200,200) end
+			gfx.drawText(self.x+2,self.y+2,lastchan,0,200,200)
+		end
+		if lastchan_width < header_pos - self.x - 15 then
+			gfx.drawText(header_pos,self.y+2,"TPT Multiplayer")
+		end
+		
 		gfx.drawLine(self.x+1,self.y+10,self.x2-1,self.y+10,120,120,120)
 		self.scrollbar:draw()
 		local count=0
@@ -2096,3 +2104,4 @@ evt.register(evt.keypress, keypress)
 evt.register(evt.keyrelease, keyrelease)
 evt.register(evt.textinput, textinput)
 evt.register(evt.blur, blur)
+
