@@ -408,21 +408,21 @@ new=function(x,y,w,h)
 			self:setfocus(false)
 		-- Enter
 		elseif key == 13 and not rep then
-				if socket.gettime() < self.ratelimit then
-					return
-				end
-				local text = self.t.text
-				if text == "" then
-					self:setfocus(false)
-				else
-					self.cursor = 0
-					self.t.text = ""
-					self:addhistory(text)
-					self.line = #self.history + 1
-					self.currentline = ""
-					self.ratelimit = socket.gettime() + 1
-					return text
-				end
+			if socket.gettime() < self.ratelimit then
+				return
+			end
+			local text = self.t.text
+			if text == "" then
+				self:setfocus(false)
+			else
+				self.cursor = 0
+				self.t.text = ""
+				self:addhistory(text)
+				self.line = #self.history + 1
+				self.currentline = ""
+				self.ratelimit = socket.gettime() + 1
+				return text
+			end
 		-- Up
 		elseif key == 1073741906 then
 			if autocompleteON == true then
