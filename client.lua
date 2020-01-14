@@ -408,10 +408,6 @@ new=function(x,y,w,h)
 			self:setfocus(false)
 		-- Enter
 		elseif key == 13 and not rep then
-			if autocompleteON == true then
-				self.cursor = #autocompleteSuggestion
-				self.t:update(autocompleteSuggestion, self.cursor)
-			else
 				if socket.gettime() < self.ratelimit then
 					return
 				end
@@ -427,7 +423,6 @@ new=function(x,y,w,h)
 					self.ratelimit = socket.gettime() + 1
 					return text
 				end
-			end
 		-- Up
 		elseif key == 1073741906 then
 			if autocompleteON == true then
@@ -467,18 +462,9 @@ new=function(x,y,w,h)
 			newstr=self.t.text:sub(1,self.cursor) .. self.t.text:sub(self.cursor+2)
 		-- Tab
 		elseif key == 9 then
-			local nickstart, nickend, nick = self.t.text:sub(1,self.cursor+1):find("([^%s%c]+)"..(self.cursor == #self.t.text and "" or " ").."$")
-			if con.members and nick then
-				for k, v in pairs(con.members) do
-					if v.name:sub(1, #nick) == nick then
-						nick = v.name
-						if nickstart == 1 then
-							nick = nick .. ":"
-						end
-						newstr = self.t.text:sub(1,nickstart-1)..nick.." "..self.t.text:sub(nickend+1, #self.t.text)
-						self.cursor = nickstart + #nick
-					end
-				end
+			if autocompleteON == true then
+				self.cursor = #autocompleteSuggestion
+				self.t:update(autocompleteSuggestion, self.cursor)
 			end
 		-- CTRL+C
 		elseif scan == 6 and ctrl then
