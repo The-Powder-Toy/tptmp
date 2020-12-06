@@ -1,7 +1,7 @@
 #!/usr/bin/lua
 local server
 WINDOWS = package.config:sub(1,1) == "\\"
-local succ,err=pcall(function()
+xpcall(function()
 	if not WINDOWS then
 		local f=io.open".tptmp.pid"
 		if f then
@@ -607,9 +607,10 @@ local succ,err=pcall(function()
 		end
 	end
 -------- END OF SERVER BODY
+end, function(err)
+	if not err:match"interrupted!$" then
+		io.stderr:write("*** CRASH! "..err,"\n")
+		io.stderr:write(debug.traceback(),"\n")
+	end
 end)
 os.remove".tptmp.pid"
-if not succ and not err:match"interrupted!$" then
-	io.stderr:write("*** CRASH! "..err,"\n")
-	io.stderr:write(debug.traceback(),"\n")
-end
