@@ -19,13 +19,104 @@ xpcall(function()
 -------- SERVER BODY
 
 	-- init server socket
-	local socket=require"socket"
+	local socket = require("socket")
+	local http = require("socket.http")
+	local ssl = require("ssl")
+	local ltn12 = require("ltn12")
+	local cjson = require("cjson")
+	math.randomseed(os.time())
+
 	config=dofile"config.lua"
+
+	local function authenticate(client, token)
+		local buf = {}
+		local url = "https://powdertoy.co.uk/Browse/Comments.json?ID=" .. config.authsave .. "&Count=20"
+		local https = url:find("^https://") and true
+		local ok, code = http.request({
+			url = url,
+			create = function()
+				local proxy = {}
+				local real = socket.tcp()
+				local function forward(name)
+					proxy[name] = function(self, ...)
+						return real[name](real, ...)
+					end
+				end
+				forward("close")
+				function proxy:connect(host)
+					local ok, err = real:connect(host, https and 443 or 80)
+					if not ok then
+						if err ~= "timeout" then
+							print(client.nick .. ": authenticate: failed to connect to authentication endpoint: " .. err)
+							return nil, err
+						end
+						coroutine.yield(real)
+					end
+					if https then
+						real, err = ssl.wrap(real, {
+							mode = "client",
+							protocol = "tlsv1_2",
+						})
+						if not real then
+							print(client.nick .. ": authenticate: ssl.wrap failed: " .. err)
+							return nil, err
+						end
+						ok, err = real:dohandshake()
+						if not ok then
+							print(client.nick .. ": authenticate: dohandshake failed: " .. err)
+							return nil, err
+						end
+					end
+					return 1
+				end
+				forward("getpeername")
+				forward("getsockname")
+				forward("getstats")
+				forward("setoption")
+				forward("setstats")
+				forward("settimeout")
+				forward("shutdown")
+				forward("receive")
+				forward("send")
+				return proxy
+			end,
+			sink = ltn12.sink.table(buf),
+		})
+		if not ok then
+			print(client.nick .. ": authenticate: http.request failed: " .. code)
+			return
+		end
+		if not ok then
+			print(client.nick .. ": authenticate: non-200 status code: " .. code)
+			return
+		end
+		local ok, jsonData = pcall(cjson.decode, table.concat(buf))
+		if not ok then
+			print(client.nick .. ": authenticate: bad json")
+			return
+		end
+		local ok = false
+		for ix = 1, #jsonData do
+			if jsonData[ix].Text == token then
+				if client.nick ~= jsonData[ix].Username then
+					print(client.nick .. ": authenticate: renamed to " .. jsonData[ix].Username)
+					client.nick = jsonData[ix].Username
+				end
+				ok = true
+				break
+			end
+		end
+		if not ok then
+			print(client.nick .. ": authenticate: invalid token")
+			return
+		end
+		return true
+	end
+
 	local succ,err=socket.bind(config.bindhost,config.bindport,10)
 	local crackbotServer=socket.bind("localhost",34405,1)--socket.tcp()
 	crackbot = nil
 	crackbotServer:settimeout(0)
-	
 	if not succ then
 		error("Could not bind: "..err)
 	end
@@ -252,6 +343,24 @@ xpcall(function()
 		client.selection={"\0\1","\64\0","\128\0","\192\0"}
 		client.replacemode="0"
 		client.deco="\0\0\0\0"
+		if config.authsave then
+			local token_buf = {}
+			for i_token = 1, 20 do
+				table.insert(token_buf, math.random(0, 9))
+			end
+			local token = table.concat(token_buf)
+			client.socket:send("\3" .. config.authsave .. "\0" .. token .. "\0")
+			print("authentication token sent to " .. client.nick)
+			byte()
+			print("checking authentication token for " .. client.nick)
+			local ok = authenticate(client, token)
+			if not ok then
+				client.socket:send("\0Authentication failed; you shouldn't be seeing this\0")
+				disconnect(id,"Authentication failed")
+				return
+			end
+			client.socket:send("\4" .. client.nick .. "\0")
+		end
 		print(client.nick.." done identifying")
 		client.socket:send"\1"
 		join("null",id)
@@ -578,9 +687,23 @@ xpcall(function()
 			if client.lastping+config.pingtimeout<os.time() then
 				disconnect(id,"ping timeout")
 			else
-				local c,err=client.socket:receive(1)
-				while c do
-					anything=true
+				local c,err
+				while true do
+					if client.waitforconnect then
+						local _, writeable = socket.select({}, { client.waitforconnect }, 0)
+						if not writeable[client.waitforconnect] then
+							err = "timeout"
+							break
+						end
+						client.waitforconnect = nil
+						anything=true
+					else
+						c,err=client.socket:receive(1)
+						if not c then
+							break
+						end
+						anything=true
+					end
 					if coroutine.status(client.coro) == "dead" then
 						serverMsg(client, "The server errored while handling your connection")
 						disconnect(id, "SERVER ERROR")
@@ -588,12 +711,13 @@ xpcall(function()
 					coret, coerr = coroutine.resume(client.coro,c)
 					if not coret then
 						print("ERROR! "..coerr)
+					elseif coerr then
+						client.waitforconnect = coerr
 					end
 					if not clients[id] then
 						err=nil
 						break
 					end
-					c,err=client.socket:receive(1)
 				end
 				if err and err~="timeout" then
 					disconnect(id,err)

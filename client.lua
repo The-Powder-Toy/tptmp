@@ -16,9 +16,10 @@ local versionstring = "0.101"
 --Support replace mode
 
 if TPTMP then if TPTMP.version <= 4 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
-TPTMP = {["version"] = 4, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
+TPTMP = {["version"] = 5, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not sim.clearRect then error"Tpt version not supported" end
+if not http then error"Tpt version not supported" end
 local using_manager = false
 local type = type -- people like to overwrite this function with a global a lot
 local _print = print
@@ -42,25 +43,6 @@ math.randomseed(os.time())
 local username = get_name()
 if username == "" then
 	username = "Guest"..math.random(10000,99999)
-end
-local function stealSessionID()
-	local f = io.open("powder.pref")
-	if not f then return end
-	local sessionID = nil
-	local line = f:read("*l")
-	repeat
-		if line:sub(1,13) == '\t\t"SessionID"' then
-			if line:sub(14,14) == ":" then
-				sessionID = line:sub(17, 21)
-			else
-				sessionID = line:sub(18, 22)
-			end
-			break
-		end
-		line = f:read("*l")
-	until line == nil
-	f:close()
-	return sessionID
 end
 local chatwindow
 local lastchan = ''
@@ -102,6 +84,43 @@ local function joinChannel(chan)
 	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
 	lastchan = chan
 end
+local function authenticate(saveid, comment)
+	local uid, sess
+	local function getUser()
+		local pref = io.open("powder.pref")
+		if not pref then
+			return false
+		end
+		local prefData = pref:read("*a")
+		pref:close()
+		local user = prefData:match([["User"%s*:%s*(%b{})]])
+		if not user then
+			return false
+		end
+		uid = user:match([["ID"%s*:%s*(%d+)]])
+		sess = user:match([["SessionID"%s*:%s*"([^"]+)"]])
+		if not uid or not sess then
+			return false
+		end
+		return true
+	end
+	local auth_failed = "Authentication failed, try logging out and back in and restarting TPT"
+	if not getUser() then
+		return nil, auth_failed
+	end
+	local req = http.post("https://powdertoy.co.uk/Browse/Comments.json?ID=" .. saveid, { Comment = comment }, { [ "X-Auth-User-Id" ] = uid, [ "X-Auth-Session-Key" ] = sess })
+	while req:status() == "running" do
+		socket.sleep(0.1)
+	end
+	local body, code = req:finish()
+	if not body:match([["Status"%s*:%s*1]]) then
+		return nil, auth_failed
+	end
+	if code ~= 200 then
+		return nil, "Error code " .. code .. ": " .. body
+	end
+	return true
+end
 local function connectToServer(ip,port,nick)
 	if con.connected then return false,"Already connected" end
 	ip = ip or "tptmp.starcatcher.us"
@@ -110,16 +129,72 @@ local function connectToServer(ip,port,nick)
 	sock:settimeout(10)
 	local s,r = sock:connect(ip,port)
 	if not s then return false,r end
-	sock:settimeout(0)
+	sock:settimeout(0.1)
 	sock:setoption("keepalive",true)
 	sock:send(string.char(tpt.version.major)..string.char(tpt.version.minor)..string.char(TPTMP.version)..nick.."\0")
-	local c,r
-	while not c do
-	c,r = sock:receive(1)
-	if not c and r~="timeout" then break end
+	local c,r,zs
+	local function connectByte()
+		repeat
+			c,r = sock:receive(1)
+			if not c and r~="timeout" then break end
+		until c
+		return c
 	end
-	if not c and r~="timeout" then return false,r end
-
+	local function connectZString()
+		local buf = {}
+		while true do
+			if not connectByte() then
+				return false
+			end
+			if c == "\0" then
+				break
+			end
+			table.insert(buf, c)
+		end
+		zs = table.concat(buf)
+		return zs
+	end
+	if not connectByte() then
+		return false, r
+	end
+	if c=="\3" then
+		if not connectZString() then
+			return false, r
+		end
+		local saveid = zs
+		if not connectZString() then
+			return false, r
+		end
+		local comment = zs
+		local ok, err = authenticate(saveid, comment)
+		if not ok then
+			return false, err
+		end
+		sock:send("\0")
+		for attempt = 1, 30 do
+			c,r = sock:receive(1)
+			if not c then
+				if r~="timeout" then
+					return false, r
+				end
+			else
+				break
+			end
+		end
+		if not c then
+			return false, "Authentication failed, try again later"
+		end
+		if c == "\4" then
+			if not connectZString() then
+				return false, r
+			end
+			nick = zs
+			if not connectByte() then
+				return false, r
+			end
+		end
+	end
+	sock:settimeout(0)
 	if c~= "\1" then
 	if c=="\0" then
 		local err=""
