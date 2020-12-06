@@ -8,6 +8,9 @@ function serverHooks.motd(client, cmd, msg)
 			--serverMsg(client, "[MOTD] BREAKING NEWS! "..client.nick.." has joined the room.")
 			serverMsg(client, "Welcome to TPTMP! Use /join to join a private channel")
 			return
+		elseif client.nick and client.room == "guest" then
+			serverMsg(client, "Welcome to TPTMP! You landed in the guest channel as you don't seem to be logged in")
+			return
 		end
 	end
 end

@@ -42,7 +42,7 @@ local jacobsmod = tpt.version.jacob1s_mod~=nil
 math.randomseed(os.time())
 local username = get_name()
 if username == "" then
-	username = "Guest"..math.random(10000,99999)
+	username = "Guest#"..math.random(10000,99999)
 end
 local chatwindow
 local lastchan = ''
@@ -82,39 +82,33 @@ local function joinChannel(chan)
 	conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
 	conSend(38,L.replacemode)
 	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
-	lastchan = chan
 end
-local function authenticate(saveid, comment)
-	local uid, sess
-	local function getUser()
-		local pref = io.open("powder.pref")
-		if not pref then
-			return false
-		end
-		local prefData = pref:read("*a")
-		pref:close()
-		local user = prefData:match([["User"%s*:%s*(%b{})]])
-		if not user then
-			return false
-		end
-		uid = user:match([["ID"%s*:%s*(%d+)]])
-		sess = user:match([["SessionID"%s*:%s*"([^"]+)"]])
-		if not uid or not sess then
-			return false
-		end
-		return true
+local function authenticateGetUser()
+	local pref = io.open("powder.pref")
+	if not pref then
+		return false
 	end
-	local auth_failed = "Authentication failed, try logging out and back in and restarting TPT"
-	if not getUser() then
-		return nil, auth_failed
+	local prefData = pref:read("*a")
+	pref:close()
+	local user = prefData:match([["User"%s*:%s*(%b{})]])
+	if not user then
+		return false
 	end
+	local uid = user:match([["ID"%s*:%s*(%d+)]])
+	local sess = user:match([["SessionID"%s*:%s*"([^"]+)"]])
+	if not uid or not sess then
+		return false
+	end
+	return uid, sess
+end
+local function authenticate(saveid, comment, uid, sess)
 	local req = http.post("https://powdertoy.co.uk/Browse/Comments.json?ID=" .. saveid, { Comment = comment }, { [ "X-Auth-User-Id" ] = uid, [ "X-Auth-Session-Key" ] = sess })
 	while req:status() == "running" do
 		socket.sleep(0.1)
 	end
 	local body, code = req:finish()
 	if not body:match([["Status"%s*:%s*1]]) then
-		return nil, auth_failed
+		return nil, "Authentication failed, try logging out and back in and restarting TPT"
 	end
 	if code ~= 200 then
 		return nil, "Error code " .. code .. ": " .. body
@@ -166,11 +160,16 @@ local function connectToServer(ip,port,nick)
 			return false, r
 		end
 		local comment = zs
-		local ok, err = authenticate(saveid, comment)
-		if not ok then
-			return false, err
+		local uid, sess = authenticateGetUser()
+		if uid then
+			local ok, err = authenticate(saveid, comment, uid, sess)
+			if not ok then
+				return false, err
+			end
+			sock:send("\1")
+		else
+			sock:send("\0")
 		end
-		sock:send("\0")
 		for attempt = 1, 30 do
 			c,r = sock:receive(1)
 			if not c then
@@ -189,6 +188,7 @@ local function connectToServer(ip,port,nick)
 				return false, r
 			end
 			nick = zs
+			chatwindow:addline("You have joined as "..nick,255,255,50)
 			if not connectByte() then
 				return false, r
 			end
@@ -222,7 +222,6 @@ local function connectToServer(ip,port,nick)
 	conSend(37,string.char(math.floor(192 + L.selrep/256),L.selrep%256))
 	conSend(38,L.replacemode)
 	conSend(65,string.char(math.floor(L.dcolour/16777216),math.floor(L.dcolour/65536)%256,math.floor(L.dcolour/256)%256,L.dcolour%256))
-	lastchan = 'null'
 	return true
 end
 --get up to a null (\0)
@@ -648,7 +647,7 @@ new=function(x,y,w,h)
 		local lastchan_width = tpt.textwidth(lastchan)
 		self.minimize.t.y = self.y+1 -- aligns the minimize button vertically
 		-- channel displayed in the left top corner
-		if lastchan == 'null' then
+		if lastchan == "null" or lastchan == "guest" then
 			gfx.drawText(self.x+2,self.y+2,'lobby',200,200,0)
 		else
 			if lastchan_width > self.w - 5 then
@@ -772,7 +771,7 @@ new=function(x,y,w,h)
 	chatcommands = {
 	connect = function(self,msg,args)
 		if not issocket then self:addline("No luasockets found") return end
-		local newname = pcall(string.dump, get_name) and "Gue".."st"..math["random"](1111,9888) or get_name()
+		local newname = pcall(string.dump, get_name) and "Gue".."st#"..math["random"](1111,9888) or get_name()
 		local s,r = connectToServer(args[1],tonumber(args[2]), newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
 		pressedKeys = nil
@@ -794,7 +793,6 @@ new=function(x,y,w,h)
 	join = function(self,msg,args)
 		if args[1] then
 			joinChannel(args[1])
-			self:addline("joined channel "..args[1],50,255,50)
 		end
 	end,
 	sync = function(self,msg,args)
@@ -850,7 +848,7 @@ new=function(x,y,w,h)
 		chatwindow.lines = {}
 	end,
 	lobby = function(self, msg, args)
-		joinChannel('null')
+		joinChannel(username:find("#") and "guest" or "null") -- best effort
 	end
 	}
 	function chat:keypress(key, scan, rep, shift, ctrl, alt)
@@ -1177,7 +1175,8 @@ end
 
 local dataCmds = {
 	[16] = function()
-	--room members
+		lastchan = conGetNull()
+		--room members
 		con.members = {}
 		local amount = cByte()
 		local peeps = {}
@@ -1187,6 +1186,7 @@ local dataCmds = {
 			local name = con.members[id].name
 			table.insert(peeps,name)
 		end
+		chatwindow:addline("joined channel "..lastchan,50,255,50)
 		chatwindow:addline("Online: "..table.concat(peeps," "),255,255,50)
 	end,
 	[17]= function()

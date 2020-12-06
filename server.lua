@@ -231,7 +231,7 @@ xpcall(function()
 		--hook system (check if user is allowed)
 		if onChat(client, 1, room) then
 			if room ~= "null" then
-				join('null', id)
+				join(client.guest and "guest" or "null", id)
 			else
 				disconnect(id, 'Banned from lobby')
 			end
@@ -249,7 +249,7 @@ xpcall(function()
 				end
 			end
 		end
-		client.socket:send("\16"..string.char(#rooms[room]))
+		client.socket:send("\16"..room.."\0"..string.char(#rooms[room]))
 		for _,uid in ipairs(rooms[room]) do
 			client.socket:send(string.char(uid)..clients[uid].nick.."\0")
 		end
@@ -326,7 +326,7 @@ xpcall(function()
 			disconnect(id,"Bad script version "..scriptver)
 			return
 		end
-		if not client.nick:match("^[%w%-%_]+$") then
+		if not client.nick:match("^[%w%-%_#]+$") then
 			client.socket:send("\0Bad Nickname!\0")
 			disconnect(id,"Bad nickname")
 			return
@@ -351,19 +351,25 @@ xpcall(function()
 			local token = table.concat(token_buf)
 			client.socket:send("\3" .. config.authsave .. "\0" .. token .. "\0")
 			print("authentication token sent to " .. client.nick)
-			byte()
-			print("checking authentication token for " .. client.nick)
-			local ok = authenticate(client, token)
-			if not ok then
-				client.socket:send("\0Authentication failed; you shouldn't be seeing this\0")
-				disconnect(id,"Authentication failed")
-				return
+			if byte() == 1 then
+				print("checking authentication token for " .. client.nick)
+				local ok = authenticate(client, token)
+				if not ok then
+					client.socket:send("\0Authentication failed; you shouldn't be seeing this\0")
+					disconnect(id,"Authentication failed")
+					return
+				end
+			else
+				local guestName = ("Guest#%05i"):format(math.random(0, 99999))
+				print(client.nick .. " is a guest, renaming to " .. guestName)
+				client.nick = guestName
+				client.guest = true
 			end
 			client.socket:send("\4" .. client.nick .. "\0")
 		end
 		print(client.nick.." done identifying")
-		client.socket:send"\1"
-		join("null",id)
+		client.socket:send("\1")
+		join(client.guest and "guest" or "null",id)
 		while 1 do
 			local cmd=byte()
 			--if cmd~=32 and cmd~=33 and cmd~=34 then
@@ -380,6 +386,8 @@ xpcall(function()
 				local room=nullstr():lower()
 				if not room:match("^[%w%-%_]+$") or #room > 32 then
 					serverMsg(client, "Invalid room name")
+				elseif client.guest and room == "null" then
+					serverMsg(client, "Guests cannot join the main lobby")
 				else
 					leave(client.room,id)
 					if not onChat(client,16,room) then
@@ -417,7 +425,7 @@ xpcall(function()
 					serverMsg(client, "Invalid characters detected in kick reason")
 				elseif #reason > 200 then
 					serverMsg(client, "Kick reason too long, not sent")
-				elseif client.room == "null" then
+				elseif client.room == "null" or client.room == "guest" then
 					serverMsg(client, "You can't kick people from the lobby")
 				elseif rooms[client.room][1] ~= id then
 					serverMsg(client, "You can't kick people from here")
