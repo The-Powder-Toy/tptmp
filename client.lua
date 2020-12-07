@@ -44,6 +44,10 @@ local username = get_name()
 if username == "" then
 	username = "Guest#"..math.random(10000,99999)
 end
+local authToken
+if using_manager then
+	authToken = MANAGER.getsetting("tptmp", "authtoken")
+end
 local chatwindow
 local lastchan = ''
 local con = {connected = false,
@@ -159,16 +163,30 @@ local function connectToServer(ip,port,nick)
 		if not connectZString() then
 			return false, r
 		end
-		local comment = zs
 		local uid, sess = authenticateGetUser()
-		if uid then
-			local ok, err = authenticate(saveid, comment, uid, sess)
-			if not ok then
-				return false, err
+		if not uid then
+			authToken = nil
+		end
+		if authToken then
+			sock:send("\3" .. uid .. "\0" .. authToken .. "\0")
+			if not connectByte() then
+				return false, r
 			end
-			sock:send("\1")
-		else
-			sock:send("\0")
+			if c == "\6" then
+				authToken = nil
+			end
+		end
+		if not authToken then
+			authToken = zs
+			if uid then
+				local ok, err = authenticate(saveid, authToken, uid, sess)
+				if not ok then
+					return false, err
+				end
+				sock:send("\1")
+			else
+				sock:send("\0")
+			end
 		end
 		for attempt = 1, 30 do
 			c,r = sock:receive(1)
@@ -187,8 +205,13 @@ local function connectToServer(ip,port,nick)
 			if not connectZString() then
 				return false, r
 			end
-			nick = zs
-			chatwindow:addline("You have joined as "..nick,255,255,50)
+			if using_manager and nick == zs then -- best effort
+				MANAGER.savesetting("tptmp", "authtoken", authToken)
+			end
+			if nick ~= zs then
+				nick = zs
+				chatwindow:addline("You joined as "..nick,255,255,50)
+			end
 			if not connectByte() then
 				return false, r
 			end

@@ -10,5 +10,6 @@ config.pingtimeout=120
 
 -- * Comment the next line  out to disable authentication; like "online mode" in Minecraft.
 config.authsave=2622871
+config.authtokenmaxage=300
 
 return config

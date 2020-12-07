@@ -95,22 +95,22 @@ xpcall(function()
 			print(client.nick .. ": authenticate: bad json")
 			return
 		end
-		local ok = false
+		local uid
 		for ix = 1, #jsonData do
 			if jsonData[ix].Text == token then
 				if client.nick ~= jsonData[ix].Username then
 					print(client.nick .. ": authenticate: renamed to " .. jsonData[ix].Username)
 					client.nick = jsonData[ix].Username
 				end
-				ok = true
+				uid = jsonData[ix].UserID
 				break
 			end
 		end
-		if not ok then
+		if not uid then
 			print(client.nick .. ": authenticate: invalid token")
 			return
 		end
-		return true
+		return uid
 	end
 
 	local succ,err=socket.bind(config.bindhost,config.bindport,10)
@@ -126,6 +126,7 @@ xpcall(function()
 	bans={}
 
 	clients={}
+	tokenCache = {}
 	rooms={}
 	
 	askedforsync = {}
@@ -336,7 +337,6 @@ xpcall(function()
 		client.selection={"\0\1","\64\0","\128\0","\192\0"}
 		client.replacemode="0"
 		client.deco="\0\0\0\0"
-		client.socket:send("\1")
 		if config.authsave then
 			local token_buf = {}
 			for i_token = 1, 20 do
@@ -345,10 +345,46 @@ xpcall(function()
 			local token = table.concat(token_buf)
 			client.socket:send("\3" .. config.authsave .. "\0" .. token .. "\0")
 			print("authentication token sent to " .. client.nick)
-			if byte() == 1 then
-				print("checking authentication token for " .. client.nick)
-				local ok = authenticate(client, token)
-				if not ok then
+			local authCapability = byte()
+			if authCapability > 0 then
+				local authenticated = false
+				if authCapability == 3 then
+					print(client.nick .. " attempts to reuse an authentication token")
+					local uid = nullstr()
+					local token = nullstr()
+					local failed = true
+					if tokenCache[uid] then
+						if tokenCache[uid].token == token then
+							if tokenCache[uid].created + config.authtokenmaxage < os.time() then
+								print("authentication token cached for " .. client.nick .. " already expired")
+								tokenCache[uid] = nil
+							else
+								print("authentication token cached for " .. client.nick .. " accepted")
+								failed = false
+							end
+						else
+							print("different authentication token cached for " .. client.nick)
+						end
+					else
+						print("no authentication token cached for " .. client.nick)
+					end
+					if failed then
+						client.socket:send("\6")
+						authCapability = byte() -- fall back to authentication by comment
+					else
+						client.socket:send("\7")
+						authenticated = true
+					end
+				end
+				if authCapability == 1 then
+					print("checking authentication token for " .. client.nick)
+					local uid = authenticate(client, token)
+					if uid then
+						tokenCache[uid] = { token = token, created = os.time() }
+						authenticated = true
+					end
+				end
+				if not authenticated then
 					client.socket:send("\0Authentication failed; you shouldn't be seeing this\0")
 					disconnect(id,"Authentication failed")
 					return
@@ -360,13 +396,14 @@ xpcall(function()
 					end
 				end
 			else
-				local guestName
+				local newName
+				local oldName = client.nick
 				client.nick = false -- so it doesn't interfere with the unique loop below
 				while true do
-					guestName = ("Guest#%05i"):format(math.random(0, 99999))
+					newName = ("Guest#%05i"):format(math.random(0, 99999))
 					local found = false
 					for k,v in pairs(clients) do
-						if v.nick == guestName then
+						if v.nick == newName then
 							found = true
 							break
 						end
@@ -375,8 +412,8 @@ xpcall(function()
 						break
 					end
 				end
-				print(client.nick .. " is a guest, renaming to " .. guestName)
-				client.nick = guestName
+				print(oldName .. " is a guest, renaming to " .. newName)
+				client.nick = newName
 				client.guest = true
 			end
 			client.socket:send("\4" .. client.nick .. "\0")
@@ -389,6 +426,7 @@ xpcall(function()
 				end
 			end
 		end
+		client.socket:send("\1")
 		print(client.nick.." done identifying")
 		join(client.guest and "guest" or "null",id)
 		while 1 do
