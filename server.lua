@@ -360,6 +360,10 @@ xpcall(function()
 								tokenCache[uid] = nil
 							else
 								print("authentication token cached for " .. client.nick .. " accepted")
+								if client.nick ~= tokenCache[uid].nick then
+									print(client.nick .. ": renamed to " .. tokenCache[uid].nick)
+									client.nick = tokenCache[uid].nick
+								end
 								failed = false
 							end
 						else
@@ -380,7 +384,7 @@ xpcall(function()
 					print("checking authentication token for " .. client.nick)
 					local uid = authenticate(client, token)
 					if uid then
-						tokenCache[uid] = { token = token, created = os.time() }
+						tokenCache[uid] = { token = token, created = os.time(), nick = client.nick }
 						authenticated = true
 					end
 				end
