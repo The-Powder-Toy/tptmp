@@ -331,18 +331,12 @@ xpcall(function()
 			disconnect(id,"Bad nickname")
 			return
 		end
-		for k,v in pairs(clients) do
-			if k~=id and v.nick == client.nick then
-				client.socket:send("\0This nick is already on the server\0")
-				disconnect(id,"Duplicate nick")
-				return
-			end
-		end
 		client.brush=0
 		client.size="\4\4"
 		client.selection={"\0\1","\64\0","\128\0","\192\0"}
 		client.replacemode="0"
 		client.deco="\0\0\0\0"
+		client.socket:send("\1")
 		if config.authsave then
 			local token_buf = {}
 			for i_token = 1, 20 do
@@ -359,16 +353,43 @@ xpcall(function()
 					disconnect(id,"Authentication failed")
 					return
 				end
+				for k,v in pairs(clients) do
+					if k~=id and v.nick == client.nick then
+						v.socket:send("\5Authenticated from another client\0")
+						disconnect(k,"Duplicate nick")
+					end
+				end
 			else
-				local guestName = ("Guest#%05i"):format(math.random(0, 99999))
+				local guestName
+				client.nick = false -- so it doesn't interfere with the unique loop below
+				while true do
+					guestName = ("Guest#%05i"):format(math.random(0, 99999))
+					local found = false
+					for k,v in pairs(clients) do
+						if v.nick == guestName then
+							found = true
+							break
+						end
+					end
+					if not found then
+						break
+					end
+				end
 				print(client.nick .. " is a guest, renaming to " .. guestName)
 				client.nick = guestName
 				client.guest = true
 			end
 			client.socket:send("\4" .. client.nick .. "\0")
+		else
+			for k,v in pairs(clients) do
+				if k~=id and v.nick == client.nick then
+					client.socket:send("\0This nick is already on the server\0")
+					disconnect(id,"Authenticated from another client")
+					return
+				end
+			end
 		end
 		print(client.nick.." done identifying")
-		client.socket:send("\1")
 		join(client.guest and "guest" or "null",id)
 		while 1 do
 			local cmd=byte()

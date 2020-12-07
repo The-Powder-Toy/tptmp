@@ -1174,6 +1174,9 @@ local function deleteStamp(name)
 end
 
 local dataCmds = {
+	[5] = function()
+		disconnected(conGetNull())
+	end,
 	[16] = function()
 		lastchan = conGetNull()
 		--room members
