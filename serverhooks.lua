@@ -1,3 +1,5 @@
+local lfs = require("lfs")
+
 serverHooks = {}
 commandHooks = {}
 
@@ -15,12 +17,10 @@ function loadhook(name)
 end
 
 function loadallhooks()
-	local listcmd = WINDOWS and "dir /b" or "ls"
-	local pluginList = io.popen(listcmd.." \"hooks\"")
 	serverHooks = {}
 	commandHooks = {}
-	for file in pluginList:lines() do
-		if file:sub(#file-3,#file) == ".lua" then
+	for file in lfs.dir("hooks") do
+		if file:find("%.lua$") then
 			loadhook(file)
 		end
 	end
