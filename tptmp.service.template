@@ -1,0 +1,16 @@
+# replace $USER and $PWD with whatever
+# $PWD should point to this repo
+
+[Unit]
+Description=TPT Multiplayer Server
+After=network-online.target
+
+[Service]
+ExecStart=$PWD/server.lua
+ExecStop=/bin/kill -SIGINT $MAINPID
+WorkingDirectory=$PWD
+Restart=always
+User=$USER
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+ignore/
+*.sublime-*
+*.dist.lua
+config.json
+config.json~
+*.pem
