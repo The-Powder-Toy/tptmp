@@ -1,24 +1,11 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
 
-local versionstring = "0.101"
+local versionstring = "1.0"
 
---TODO's
---FIGH,STKM,STK2,LIGH need a few more creation adjustments
---Some more server functions
--------------------------------------------------------
-
---CHANGES:
---Lots of Fixes
---More colors!
---ESC key will unfocus, then minimize chat
---Changes from jacob, including: Support jacobsMod, keyrepeat
---Support replace mode
-
-if TPTMP then if TPTMP.version <= 4 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
+if TPTMP then if TPTMP.version <= 5 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
 TPTMP = {["version"] = 5, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
-if not sim.clearRect then error"Tpt version not supported" end
 if not http then error"Tpt version not supported" end
 local using_manager = false
 local type = type -- people like to overwrite this function with a global a lot
@@ -670,8 +657,10 @@ new=function(x,y,w,h)
 		local lastchan_width = tpt.textwidth(lastchan)
 		self.minimize.t.y = self.y+1 -- aligns the minimize button vertically
 		-- channel displayed in the left top corner
-		if lastchan == "null" or lastchan == "guest" then
+		if lastchan == "null" then
 			gfx.drawText(self.x+2,self.y+2,'lobby',200,200,0)
+		elseif lastchan == "guest" then
+			gfx.drawText(self.x+2,self.y+2,'guest lobby',200,200,0)
 		else
 			if lastchan_width > self.w - 5 then
 				while tpt.textwidth(lastchan) > self.w - 5 do
@@ -1201,6 +1190,7 @@ local dataCmds = {
 		disconnected(conGetNull())
 	end,
 	[16] = function()
+		local initialJoin = lastchan == ''
 		lastchan = conGetNull()
 		--room members
 		con.members = {}
@@ -1212,7 +1202,9 @@ local dataCmds = {
 			local name = con.members[id].name
 			table.insert(peeps,name)
 		end
-		chatwindow:addline("joined channel "..lastchan,50,255,50)
+		if not initialJoin then
+			chatwindow:addline("Joined channel "..lastchan,50,255,50)
+		end
 		chatwindow:addline("Online: "..table.concat(peeps," "),255,255,50)
 	end,
 	[17]= function()
@@ -2176,7 +2168,7 @@ function TPTMP.disableMultiplayer()
 	evt.unregister(evt.mousedown, mouseDown)
 	evt.unregister(evt.mouseup, mouseUp)
 	evt.unregister(evt.mousemove, mouseMove)
-	evt.unregister(evt.mousewheel, mouseQheel)
+	evt.unregister(evt.mousewheel, mouseWheel)
 	evt.unregister(evt.keypress, keypress)
 	evt.unregister(evt.keyrelease, keyrelease)
 	evt.unregister(evt.textinput, textinput)

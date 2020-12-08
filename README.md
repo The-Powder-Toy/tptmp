@@ -8,6 +8,11 @@ Server Usage
 
 #### Running the server
 1. Edit `config.lua` as needed
+2. Install dependencies:
+	sudo luarocks install luasocket
+	sudo luarocks install lua-cjson
+	sudo luarocks install luasec
+	sudo luarocks install luafilesystem
 2. run the command `lua server.lua`
 
 #### Creating hooks
@@ -65,4 +70,6 @@ If you don't join another channel, you will stay in the default one.
 /help <command>         Display information on a command.
 /sync                   Syncs your screen to everyone else in the room.
 /size <width> <height>  Sets the size of the chat window. Default is 225 by 150.
+/clear                  Clears all chat history
+/lobby                  Joins you to the lobby
 ```
