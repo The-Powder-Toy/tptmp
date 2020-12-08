@@ -166,7 +166,7 @@ local function connectToServer(ip,port,nick)
 		if not authToken then
 			authToken = zs
 			if uid then
-				local ok, err = authenticate(saveid, authToken, uid, sess)
+				local ok, err = authenticate(saveid, authToken:sub(1, 20), uid, sess)
 				if not ok then
 					return false, err
 				end

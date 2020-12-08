@@ -24,11 +24,14 @@ xpcall(function()
 	local ssl = require("ssl")
 	local ltn12 = require("ltn12")
 	local cjson = require("cjson")
+	local rand = require("openssl.rand")
 	math.randomseed(os.time())
+
+	local base64 = [[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]]
 
 	config=dofile"config.lua"
 
-	local function authenticate(client, token)
+	local function authenticate(client, tokenPublic)
 		local buf = {}
 		local url = "https://powdertoy.co.uk/Browse/Comments.json?ID=" .. config.authsave .. "&Count=20"
 		local https = url:find("^https://") and true
@@ -97,7 +100,7 @@ xpcall(function()
 		end
 		local uid
 		for ix = 1, #jsonData do
-			if jsonData[ix].Text == token then
+			if jsonData[ix].Text == tokenPublic then
 				if client.nick ~= jsonData[ix].Username then
 					print(client.nick .. ": authenticate: renamed to " .. jsonData[ix].Username)
 					client.nick = jsonData[ix].Username
@@ -339,8 +342,17 @@ xpcall(function()
 		client.deco="\0\0\0\0"
 		if config.authsave then
 			local token_buf = {}
-			for i_token = 1, 20 do
-				table.insert(token_buf, math.random(0, 9))
+			for i_token = 1, 10 do
+				local a, b, c = rand.bytes(3):byte(1, 3)
+				local b24 = a * 0x10000 + b * 0x100 + c
+				local p = b24 % 0x40 + 1
+				local q = (math.floor(b24 / 0x40) % 0x40) + 1
+				local r = (math.floor(b24 / 0x1000) % 0x40) + 1
+				local s = (math.floor(b24 / 0x40000) % 0x40) + 1
+				table.insert(token_buf, base64:sub(p, p))
+				table.insert(token_buf, base64:sub(q, q))
+				table.insert(token_buf, base64:sub(r, r))
+				table.insert(token_buf, base64:sub(s, s))
 			end
 			local token = table.concat(token_buf)
 			client.socket:send("\3" .. config.authsave .. "\0" .. token .. "\0")
@@ -382,7 +394,7 @@ xpcall(function()
 				end
 				if authCapability == 1 then
 					print("checking authentication token for " .. client.nick)
-					local uid = authenticate(client, token)
+					local uid = authenticate(client, token:sub(1, 20))
 					if uid then
 						tokenCache[uid] = { token = token, created = os.time(), nick = client.nick }
 						authenticated = true

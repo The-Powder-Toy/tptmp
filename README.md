@@ -13,6 +13,7 @@ Server Usage
 	sudo luarocks install lua-cjson
 	sudo luarocks install luasec
 	sudo luarocks install luafilesystem
+	sudo luarocks install luaossl
 2. run the command `lua server.lua`
 
 #### Creating hooks
