@@ -1,10 +1,10 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
 
-local versionstring = "1.0"
+local versionstring = "1.0.1"
 
-if TPTMP then if TPTMP.version <= 5 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
-TPTMP = {["version"] = 5, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
+if TPTMP then if TPTMP.version <= 6 then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
+TPTMP = {["version"] = 6, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
 local issocket,socket = pcall(require,"socket")
 if not http then error"Tpt version not supported" end
 local using_manager = false
