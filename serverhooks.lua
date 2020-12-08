@@ -49,7 +49,7 @@ function getArgs(msg)
 end
 
 local function callHook(hook, ...)
-	local succ,err = pcall(hook, unpack(arg))
+	local succ,err = pcall(hook, ...)
 	if not succ then
 		if crackbot then
 			crackbot:send("Hook error: "..err.."\n")

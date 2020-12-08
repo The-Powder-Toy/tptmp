@@ -1,5 +1,5 @@
 function serverHooks.stalkchat(client, cmd, msg)
-	if not crackbot then return end
+	if not crackbot or not client then return end
 	local nick = client.nick or "UNKNOWN"
 	if crackbot and client.room then
 		local output = nil
@@ -20,7 +20,7 @@ function serverHooks.stalkchat(client, cmd, msg)
 		if output then
 			crackbot:send(output.."\n")
 		end
-	elseif cmd == -1 and not client.room and msg ~= "Banned user" then
+	elseif cmd == -1 and client.nick and not client.room and msg ~= "Banned user" then
 		crackbot:send(("\00305* "..nick.."["..client.host.."] has quit ("..msg..")"):gsub("\n", "\\n"):gsub("\r", "\\r").."\n")
 	end
 end
