@@ -9,7 +9,7 @@ function serverHooks.stalkchat(client, cmd, msg)
 		elseif cmd == 20 then
 			output = "\00308["..room.."]\003 * "..nick.." "..msg
 		elseif cmd == 1 then
-			if room == "null" then
+			if room == "null" or room == "guest" then
 				output = "\00311* "..nick.."["..client.host.."] has joined "..room
 			else
 				output = "\00311* "..nick.." has joined "..room
