@@ -2,7 +2,7 @@ privaterooms = {}
 invites = {}
 
 function serverHooks.private(client, cmd, msg)
-	if cmd == 1 and msg ~= "null" and client.nick and privaterooms[msg] then
+	if cmd == 1 and msg ~= "null" and client.room ~= "guest" and client.nick and privaterooms[msg] then
 		if not invites[client.nick] or invites[client.nick] ~= msg then
 			serverMsg(client, "That channel is invite only, joining lobby instead.")
 			return true
@@ -59,7 +59,7 @@ function commandHooks.uninvite(client, msg, msgsplit)
 end
 
 function commandHooks.private(client, msg, msgsplit)
-	if client.room and client.room ~= "null" and rooms[client.room] and clients[rooms[client.room][1]] and clients[rooms[client.room][1]].nick == client.nick then
+	if client.room and client.room ~= "null" and client.room ~= "guest" and rooms[client.room] and clients[rooms[client.room][1]] and clients[rooms[client.room][1]].nick == client.nick then
 		privaterooms[client.room] = not privaterooms[client.room]
 		if privaterooms[client.room] then
 			serverMsg(client, "This room is now private, use /invite to invite users.")
