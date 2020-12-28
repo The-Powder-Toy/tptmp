@@ -21,19 +21,17 @@ xpcall(function()
 	-- init server socket
 	local socket = require("socket")
 	local http = require("socket.http")
+	local mime = require("mime") -- from luasocket
 	local ssl = require("ssl")
 	local ltn12 = require("ltn12")
 	local cjson = require("cjson")
-	local rand = require("openssl.rand")
 	math.randomseed(os.time())
-
-	local base64 = [[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]]
 
 	config=dofile"config.lua"
 
-	local function authenticate(client, tokenPublic)
+	local function authenticateCheckToken(client, token)
 		local buf = {}
-		local url = "https://powdertoy.co.uk/Browse/Comments.json?ID=" .. config.authsave .. "&Count=20"
+		local url = "https://powdertoy.co.uk/ExternalAuth.api?Action=Check&MaxAge=" .. config.authtokenmaxage .. "&Token=" .. token
 		local https = url:find("^https://") and true
 		local ok, code = http.request({
 			url = url,
@@ -50,7 +48,7 @@ xpcall(function()
 					local ok, err = real:connect(host, https and 443 or 80)
 					if not ok then
 						if err ~= "timeout" then
-							print(client.nick .. ": authenticate: failed to connect to authentication endpoint: " .. err)
+							print(client.nick .. ": authenticateCheckToken: failed to connect to authentication endpoint: " .. err)
 							return nil, err
 						end
 						coroutine.yield(real)
@@ -61,12 +59,12 @@ xpcall(function()
 							protocol = "tlsv1_2",
 						})
 						if not real then
-							print(client.nick .. ": authenticate: ssl.wrap failed: " .. err)
+							print(client.nick .. ": authenticateCheckToken: ssl.wrap failed: " .. err)
 							return nil, err
 						end
 						ok, err = real:dohandshake()
 						if not ok then
-							print(client.nick .. ": authenticate: dohandshake failed: " .. err)
+							print(client.nick .. ": authenticateCheckToken: dohandshake failed: " .. err)
 							return nil, err
 						end
 					end
@@ -86,34 +84,45 @@ xpcall(function()
 			sink = ltn12.sink.table(buf),
 		})
 		if not ok then
-			print(client.nick .. ": authenticate: http.request failed: " .. code)
+			print(client.nick .. ": authenticateCheckToken: http.request failed: " .. code)
 			return
 		end
-		if not ok then
-			print(client.nick .. ": authenticate: non-200 status code: " .. code)
+		if code ~= 200 then
+			print(client.nick .. ": authenticateCheckToken: non-200 status code: " .. code)
 			return
 		end
 		local ok, jsonData = pcall(cjson.decode, table.concat(buf))
 		if not ok then
-			print(client.nick .. ": authenticate: bad json")
+			print(client.nick .. ": authenticateCheckToken: bad json")
 			return
 		end
-		local uid
-		for ix = 1, #jsonData do
-			if jsonData[ix].Text == tokenPublic then
-				if client.nick ~= jsonData[ix].Username then
-					print(client.nick .. ": authenticate: renamed to " .. jsonData[ix].Username)
-					client.nick = jsonData[ix].Username
-				end
-				uid = jsonData[ix].UserID
-				break
-			end
-		end
-		if not uid then
-			print(client.nick .. ": authenticate: invalid token")
+		if jsonData.Status ~= "OK" then
+			print(client.nick .. ": authenticateCheckToken: failed: " .. jsonData.Status)
 			return
 		end
-		return uid
+		return true
+	end
+	local function authenticateGetPayload(client, token)
+		local payloadb64 = token:match("^[^%.]+%.([^%.]+)%.[^%.]+$")
+		if not payloadb64 then
+			print(client.nick .. ": authenticateGetPayload: no payload")
+			return
+		end
+		local ok, payload = pcall(mime.unb64, payloadb64)
+		if not ok or not payload then
+			print(client.nick .. ": authenticateGetPayload: bad base64")
+			return
+		end
+		local ok, jsonData = pcall(cjson.decode, payload)
+		if not ok then
+			print(client.nick .. ": authenticateGetPayload: bad json")
+			return
+		end
+		if type(jsonData) ~= "table" or not jsonData.sub or jsonData.sub:find("[^0-9]") then
+			print(client.nick .. ": authenticateGetPayload: bad payload")
+			return
+		end
+		return jsonData
 	end
 
 	local succ,err=socket.bind(config.bindhost,config.bindport,10)
@@ -340,64 +349,25 @@ xpcall(function()
 		client.selection={"\0\1","\64\0","\128\0","\192\0"}
 		client.replacemode="0"
 		client.deco="\0\0\0\0"
-		if config.authsave then
-			local token_buf = {}
-			for i_token = 1, 10 do
-				local a, b, c = rand.bytes(3):byte(1, 3)
-				local b24 = a * 0x10000 + b * 0x100 + c
-				local p = b24 % 0x40 + 1
-				local q = (math.floor(b24 / 0x40) % 0x40) + 1
-				local r = (math.floor(b24 / 0x1000) % 0x40) + 1
-				local s = (math.floor(b24 / 0x40000) % 0x40) + 1
-				table.insert(token_buf, base64:sub(p, p))
-				table.insert(token_buf, base64:sub(q, q))
-				table.insert(token_buf, base64:sub(r, r))
-				table.insert(token_buf, base64:sub(s, s))
-			end
-			local token = table.concat(token_buf)
-			client.socket:send("\3" .. config.authsave .. "\0" .. token .. "\0")
-			print("authentication token sent to " .. client.nick)
-			local authCapability = byte()
-			if authCapability > 0 then
+		if config.auth then
+			client.socket:send("\3")
+			print("authentication request sent to " .. client.nick)
+			if char() == "\1" then
 				local authenticated = false
-				if authCapability == 3 then
-					print(client.nick .. " attempts to reuse an authentication token")
-					local uid = nullstr()
-					local token = nullstr()
-					local failed = true
-					if tokenCache[uid] then
-						if tokenCache[uid].token == token then
-							if tokenCache[uid].created + config.authtokenmaxage < os.time() then
-								print("authentication token cached for " .. client.nick .. " already expired")
-								tokenCache[uid] = nil
-							else
-								print("authentication token cached for " .. client.nick .. " accepted")
-								if client.nick ~= tokenCache[uid].nick then
-									print(client.nick .. ": renamed to " .. tokenCache[uid].nick)
-									client.nick = tokenCache[uid].nick
-								end
-								failed = false
-							end
-						else
-							print("different authentication token cached for " .. client.nick)
-						end
-					else
-						print("no authentication token cached for " .. client.nick)
-					end
-					if failed then
-						client.socket:send("\6")
-						authCapability = byte() -- fall back to authentication by comment
-					else
-						client.socket:send("\7")
+				local token = nullstr()
+				local tokenPayload = authenticateGetPayload(client, token)
+				if tokenPayload then
+					-- * This assumes that the authenticator-side os.time() is the same as this os.time(), which
+					--   should be True Enough:tm: for max-ages as high as what we tend to use here (e.g. 3600).
+					-- * After the tokenCache[tokenPayload.sub] == token check, tokenPayload is guaranteed
+					--   to be valid, which is why authenticateGetPayload does such limited validation.
+					if tokenCache[tokenPayload.sub] == token and tokenPayload.iat + config.authtokenmaxage >= os.time() then
 						authenticated = true
-					end
-				end
-				if authCapability == 1 then
-					print("checking authentication token for " .. client.nick)
-					local uid = authenticate(client, token:sub(1, 20))
-					if uid then
-						tokenCache[uid] = { token = token, created = os.time(), nick = client.nick }
+						print("cached authentication token reused by " .. client.nick)
+					elseif authenticateCheckToken(client, token) then
+						tokenCache[tokenPayload.sub] = token
 						authenticated = true
+						print("accepted and cached authentication token from " .. client.nick)
 					end
 				end
 				if not authenticated then
@@ -405,10 +375,14 @@ xpcall(function()
 					disconnect(id,"Authentication failed")
 					return
 				end
+				if client.nick ~= tokenPayload.name then
+					print(client.nick .. ": renamed to " .. tokenPayload.name)
+					client.nick = tokenPayload.name
+				end
 				for k,v in pairs(clients) do
 					if k~=id and v.nick == client.nick then
 						v.socket:send("\5Authenticated from another client\0")
-						disconnect(k,"Duplicate nick")
+						disconnect(k,"Authenticated from another client")
 					end
 				end
 			else
@@ -432,17 +406,17 @@ xpcall(function()
 				client.nick = newName
 				client.guest = true
 			end
-			client.socket:send("\4" .. client.nick .. "\0")
+			client.socket:send("\1" .. client.nick .. "\0")
 		else
 			for k,v in pairs(clients) do
 				if k~=id and v.nick == client.nick then
 					client.socket:send("\0This nick is already on the server\0")
-					disconnect(id,"Authenticated from another client")
+					disconnect(id,"Duplicate nick")
 					return
 				end
 			end
+			client.socket:send("\1")
 		end
-		client.socket:send("\1")
 		print(client.nick.." done identifying")
 		join(client.guest and "guest" or "null",id)
 		while 1 do

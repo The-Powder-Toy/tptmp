@@ -17,7 +17,7 @@ function serverHooks.motd(client, cmd, msg)
 end
 
 function commandHooks.motd(client, msg, msgsplit)
-	if client.room and client.room ~= "null" and rooms[client.room] and clients[rooms[client.room][1]] and clients[rooms[client.room][1]].nick == client.nick then
+	if client.room and client.room ~= "null" and client.room ~= "guest" and rooms[client.room] and clients[rooms[client.room][1]] and clients[rooms[client.room][1]].nick == client.nick then
 		motd[client.room] = msg
 		serverMsg(client, "MotD set")
 	else
