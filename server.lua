@@ -108,7 +108,7 @@ xpcall(function()
 			print(client.nick .. ": authenticateGetPayload: no payload")
 			return
 		end
-		local ok, payload = pcall(mime.unb64, payloadb64)
+		local ok, payload = pcall(mime.unb64, payloadb64 .. ("="):rep(3 - #payloadb64 % 3))
 		if not ok or not payload then
 			print(client.nick .. ": authenticateGetPayload: bad base64")
 			return
@@ -350,42 +350,49 @@ xpcall(function()
 		client.replacemode="0"
 		client.deco="\0\0\0\0"
 		if config.auth then
-			client.socket:send("\3")
-			print("authentication request sent to " .. client.nick)
-			if char() == "\1" then
-				local authenticated = false
-				local token = nullstr()
-				local tokenPayload = authenticateGetPayload(client, token)
-				if tokenPayload then
-					-- * This assumes that the authenticator-side os.time() is the same as this os.time(), which
-					--   should be True Enough:tm: for max-ages as high as what we tend to use here (e.g. 3600).
-					-- * After the tokenCache[tokenPayload.sub] == token check, tokenPayload is guaranteed
-					--   to be valid, which is why authenticateGetPayload does such limited validation.
-					if tokenCache[tokenPayload.sub] == token and tokenPayload.iat + config.authtokenmaxage >= os.time() then
-						authenticated = true
-						print("cached authentication token reused by " .. client.nick)
-					elseif authenticateCheckToken(client, token) then
-						tokenCache[tokenPayload.sub] = token
-						authenticated = true
-						print("accepted and cached authentication token from " .. client.nick)
+			local cannotAuthenticate = false
+			local authenticated = false
+			for authAttempt = 1, 2 do
+				client.socket:send("\3")
+				print("authentication request sent to " .. client.nick)
+				if char() == "\1" then
+					local token = nullstr()
+					local tokenPayload = authenticateGetPayload(client, token)
+					if tokenPayload then
+						-- * This assumes that the authenticator-side os.time() is the same as this os.time(), which
+						--   should be True Enough:tm: for max-ages as high as what we tend to use here (e.g. 3600).
+						-- * After the tokenCache[tokenPayload.sub] == token check, tokenPayload is guaranteed
+						--   to be valid, which is why authenticateGetPayload does such limited validation.
+						if tokenCache[tokenPayload.sub] == token and tokenPayload.iat + config.authtokenmaxage >= os.time() then
+							authenticated = true
+							print("cached authentication token reused by " .. client.nick)
+						elseif authenticateCheckToken(client, token) then
+							tokenCache[tokenPayload.sub] = token
+							authenticated = true
+							print("accepted and cached authentication token from " .. client.nick)
+						end
 					end
-				end
-				if not authenticated then
-					client.socket:send("\0Authentication failed; you shouldn't be seeing this\0")
-					disconnect(id,"Authentication failed")
-					return
-				end
-				if client.nick ~= tokenPayload.name then
-					print(client.nick .. ": renamed to " .. tokenPayload.name)
-					client.nick = tokenPayload.name
-				end
-				for k,v in pairs(clients) do
-					if k~=id and v.nick == client.nick then
-						v.socket:send("\5Authenticated from another client\0")
-						disconnect(k,"Authenticated from another client")
+					if authenticated then
+						for k,v in pairs(clients) do
+							if k~=id and v.nick == client.nick then
+								v.socket:send("\5Authenticated from another client\0")
+								disconnect(k,"Authenticated from another client")
+							end
+						end
+						if client.nick ~= tokenPayload.name then
+							print(client.nick .. ": renamed to " .. tokenPayload.name)
+							client.nick = tokenPayload.name
+						end
+						break
+					else
+						print("authentication token invalid or expired, asking for a new one")
 					end
+				else
+					cannotAuthenticate = true
+					break
 				end
-			else
+			end
+			if cannotAuthenticate then
 				local newName
 				local oldName = client.nick
 				client.nick = false -- so it doesn't interfere with the unique loop below
@@ -405,6 +412,10 @@ xpcall(function()
 				print(oldName .. " is a guest, renaming to " .. newName)
 				client.nick = newName
 				client.guest = true
+			elseif not authenticated then
+				client.socket:send("\0Authentication failed; you shouldn't be seeing this\0")
+				disconnect(id,"Authentication failed")
+				return
 			end
 			client.socket:send("\1" .. client.nick .. "\0")
 		else

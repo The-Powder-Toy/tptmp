@@ -5,7 +5,7 @@ config.versionmajormin=95
 config.versionminormin=0
 config.versionmajormax=95
 config.versionminormax=0
-config.scriptversion=7
+config.scriptversion=8
 config.pingtimeout=120
 
 -- * Comment the next line  out to disable authentication; like "online mode" in Minecraft.

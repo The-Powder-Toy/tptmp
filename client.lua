@@ -1,7 +1,7 @@
 --Cracker64's Powder Toy Multiplayer
 --I highly recommend to use my Autorun Script Manager
 
-local version = 7
+local version = 8
 local versionstring = "1.0.2"
 
 if TPTMP then if TPTMP.version <= version then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
@@ -144,7 +144,10 @@ local function connectToServer(ip,port,nick)
 	if not connectByte() then
 		return false, r
 	end
-	if c=="\3" then
+	for authAttempt = 1, 2 do
+		if c~="\3" then
+			break
+		end
 		local uid, sess = authenticateGetUser()
 		if uid then
 			if not authToken then
@@ -165,18 +168,8 @@ local function connectToServer(ip,port,nick)
 		else
 			sock:send("\0")
 		end
-		for attempt = 1, 30 do
-			c,r = sock:receive(1)
-			if not c then
-				if r~="timeout" then
-					return false, r
-				end
-			else
-				break
-			end
-		end
-		if not c then
-			return false, "Authentication failed, try again later"
+		if not connectByte() then
+			return false, r
 		end
 		local cresponse = c
 		if c == "\1" then
@@ -187,6 +180,8 @@ local function connectToServer(ip,port,nick)
 				nick = zs
 				chatwindow:addline("You joined as "..nick,255,255,50)
 			end
+		else
+			authToken = nil
 		end
 		c = cresponse
 	end
