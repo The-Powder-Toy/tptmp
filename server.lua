@@ -108,7 +108,7 @@ xpcall(function()
 			print(client.nick .. ": authenticateGetPayload: no payload")
 			return
 		end
-		local ok, payload = pcall(mime.unb64, payloadb64 .. ("="):rep(3 - #payloadb64 % 3))
+		local ok, payload = pcall(mime.unb64, payloadb64 .. ("="):rep((#payloadb64 % 4) > 0 and (4 - #payloadb64 % 4) or 0))
 		if not ok or not payload then
 			print(client.nick .. ": authenticateGetPayload: bad base64")
 			return
