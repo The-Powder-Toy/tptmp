@@ -373,15 +373,15 @@ xpcall(function()
 						end
 					end
 					if authenticated then
+						if client.nick ~= tokenPayload.name then
+							print(client.nick .. ": renamed to " .. tokenPayload.name)
+							client.nick = tokenPayload.name
+						end
 						for k,v in pairs(clients) do
 							if k~=id and v.nick == client.nick then
 								v.socket:send("\5Authenticated from another client\0")
 								disconnect(k,"Authenticated from another client")
 							end
-						end
-						if client.nick ~= tokenPayload.name then
-							print(client.nick .. ": renamed to " .. tokenPayload.name)
-							client.nick = tokenPayload.name
 						end
 						break
 					else
