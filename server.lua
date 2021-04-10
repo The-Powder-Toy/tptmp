@@ -371,6 +371,7 @@ xpcall(function()
 							authenticated = true
 							print("accepted and cached authentication token from " .. client.nick)
 						end
+						client.userid = tokenPayload.sub
 					end
 					if authenticated then
 						if client.nick ~= tokenPayload.name then
@@ -621,9 +622,13 @@ xpcall(function()
 					print(client.nick.." provided sync for "..clients[i].nick..", it was "..sz.." bytes")
 					local s,stm = bytes(client.socket,sz)
 					if s then
-						clients[i].socket:settimeout(8)
-						clients[i].socket:send("\129"..string.char(b1,b2,b3)..stm)
-						clients[i].socket:settimeout(0)
+						if not clients[i] then
+							print("Target disconnected before stamp could be sent")
+						else
+							clients[i].socket:settimeout(8)
+							clients[i].socket:send("\129"..string.char(b1,b2,b3)..stm)
+							clients[i].socket:settimeout(0)
+						end
 					else
 						disconnect(id,stm)
 					end
