@@ -399,6 +399,13 @@ new=function(x,y,w,h)
 	end)
 	intext:moveadd(function(self,x,y) self.t:onmove(x,y) end)
 	function intext:setfocus(focus)
+		if ui.grabTextInput then
+			if focus and not self.focus then
+				ui.grabTextInput()
+			elseif not focus and self.focus then
+				ui.dropTextInput()
+			end
+		end
 		self.focus=focus
 		if focus then self:setcolor(255,255,0)
 		else self:setcolor(255,255,255) end
@@ -2154,6 +2161,7 @@ function TPTMP.disableMultiplayer()
 	evt.unregister(evt.keyrelease, keyrelease)
 	evt.unregister(evt.textinput, textinput)
 	evt.unregister(evt.blur, blur)
+	chatwindow.inputbox:setfocus(false)
 	TPTMP = nil
 	disconnected("TPTMP unloaded")
 end
