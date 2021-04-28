@@ -1986,9 +1986,6 @@ local scanFuncs = {
 	--F, frame step
 	[9] = function() if not jacobsmod or not L.ctrl then conSend(50) end end,
 
-	--H, HUD and intro text
-	[11] = function() if L.ctrl and jacobsmod then return false end end,
-
 	--I, invert pressure
 	[12] = function() conSend(62) end,
 
@@ -2058,9 +2055,6 @@ local scanFuncs = {
 
 	--;, replace mode or specific delete
 	[59] = function() if L.ctrl then  L.replacemode = bit.bxor(L.replacemode, 2) else  L.replacemode = bit.bxor(L.replacemode, 1) end conSend(38, L.replacemode) end,
-
-	--F1 , intro text
-	[58] = function() if jacobsmod then return false end end,
 
 	--F5 , save reload
 	[62] = function()
