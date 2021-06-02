@@ -1,4 +1,4 @@
-#!/usr/bin/env lua5.1
+#!/usr/bin/env luajit
 
 local DIST = ...
 local MAIN_MODULE = "tptmp.client"
