@@ -321,7 +321,7 @@ local function create_parts_any(x, y, rx, ry, xtype, brush, member)
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x]
+		tpt.selectedreplace = to_tool[member.tool_x] or "TPTMP_PT_UNKNOWN"
 	end
 	sim.createParts(x, y, rx, ry, xtype, brush, member.bmode)
 	if member.bmode ~= 0 then

@@ -127,6 +127,7 @@ function room_i:leave(client)
 	self.server_:phost():call_hook("leave_room", self, client)
 	local id = self.client_to_id_[client].id
 	self.client_to_id_[client].dead = true
+	self.dead_ids_[id] = client
 	client:move_to_room(nil, nil)
 	self.clients_ = self.clients_ - 1
 	self.log_inf_("$ left", client:nick())

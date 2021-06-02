@@ -93,7 +93,10 @@ local function run()
 			cli = client.new(params)
 			return cli
 		end,
-		kill_client_func = kill_client,
+		kill_client_func = function()
+			should_reconnect = false
+			kill_client()
+		end,
 	})
 	win = window.new({
 		hide_window_func = hide_window,

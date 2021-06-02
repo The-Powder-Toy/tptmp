@@ -64,7 +64,7 @@ return {
 				else
 					client:send_server("* Invite successfully sent")
 				end
-				room:log("$ invited $", client:nick(), other_nick)
+				room:log("$ invited $", client:nick(), other_nick or other:nick())
 				if other and not server:phost():call_check_all("can_interact_with", client, other) then
 					other = nil
 				end
