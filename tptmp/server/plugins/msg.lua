@@ -28,6 +28,7 @@ return {
 				if ciw then
 					other:send_server(("* %s >> %s"):format(client:nick(), message))
 					other.reply_to_ = client:nick()
+					server.log_inf_("$ >> $: $", client:nick(), other:nick(), message)
 				end
 				return true
 			end,

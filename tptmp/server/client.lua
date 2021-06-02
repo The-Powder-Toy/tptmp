@@ -26,24 +26,37 @@ function client_i:proto_error_(...)
 end
 
 function client_i:read_(count)
-	if count == 0 then
-		return ""
-	end
-	while true do
-		local data, err = self.socket_:read(count)
-		if data then
-			return data
+	local collect
+	while count > 0 do
+		if self.status_ == "running" and self.socket_:pending() == 0 then
+			util.cqueues_poll(self.socket_readable_, self.wake_)
 		end
-		if err ~= errno.EAGAIN then
+		if self.status_ ~= "running" then
+			self:stop_()
+			self:proto_stop_()
+		end
+		local data, err = self.socket_:read(-count)
+		if not data or (err and err ~= errno.EAGAIN) then
 			if self.socket_:eof("r") then
 				self.log_inf_("connection closed")
 			else
-				self.log_inf_("send failed with code $", err)
+				self.log_inf_("read failed with code $", err)
 			end
 			self:stop_()
 			self:proto_stop_()
 		end
+		if #data > 0 then
+			if not collect then
+				if #data == count then
+					return data
+				end
+				collect = {}
+			end
+			table.insert(collect, data)
+			count = count - #data
+		end
 	end
+	return collect and table.concat(collect) or ""
 end
 
 function client_i:read_str24_()
@@ -188,9 +201,9 @@ function client_i:handle_say3rd_20_()
 end
 
 local function header_24be(d24)
-	local hi = bit.band(bit.rshift(d24, 16), 0xFF)
-	local mi = bit.band(bit.rshift(d24,  8), 0xFF)
-	local lo = bit.band(           d24     , 0xFF)
+	local hi = (d24 >> 16) & 0xFF
+	local mi = (d24 >>  8) & 0xFF
+	local lo =  d24        & 0xFF
 	return string.char(hi, mi, lo)
 end
 
@@ -526,9 +539,9 @@ function client_i:write_nullstr_(str)
 end
 
 function client_i:write_24be_(d24)
-	local hi = bit.badn(bit.rshift(d24, 16), 0xFF)
-	local mi = bit.badn(bit.rshift(d24,  8), 0xFF)
-	local lo = bit.badn(           d24     , 0xFF)
+	local hi = (d24 >> 16) & 0xFF
+	local mi = (d24 >>  8) & 0xFF
+	local lo =  d24        & 0xFF
 	self:write_bytes_(hi, mi, lo)
 end
 
@@ -608,6 +621,7 @@ local function new(params)
 	return setmetatable({
 		server_ = params.server,
 		socket_ = params.socket,
+		socket_readable_ = { pollfd = params.socket:pollfd(), events = "r" },
 		name_ = params.name,
 		host_ = host,
 		status_ = "ready",
