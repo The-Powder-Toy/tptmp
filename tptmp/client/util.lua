@@ -169,6 +169,7 @@ local function stamp_load(x, y, data, reset)
 	if reset then
 		sim.clearSim()
 	end
+	-- * TODO[api]: maybe have loadStamp return a real error message
 	if not sim.loadStamp(config.stamp_temp, x, y) then
 		os.remove(config.stamp_temp)
 		return nil, "cannot load stamp data"

@@ -631,6 +631,8 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 					self.input_history_[self.input_history_next_ - config.history_size] = nil
 					self:input_reset_()
 				end
+			else
+				self.in_focus = false
 			end
 			self.input_autocomplete_ = nil
 		elseif scan == 82 then -- * SDL_SCANCODE_UP
@@ -711,6 +713,11 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 			self.input_autocomplete_ = nil
 		end
 		return not modkey_scan[scan]
+	else
+		if scan == 41 then -- * SDL_SCANCODE_ESCAPE
+			self.hide_window_func_()
+			return true
+		end
 	end
 end
 

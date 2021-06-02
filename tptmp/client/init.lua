@@ -221,8 +221,8 @@ local function run()
 							yhi = math.max(py, member.select_y)
 							action = member.select
 						else
-							xlo = px - math.floor(member.place_w / 2)
-							ylo = py - math.floor(member.place_h / 2)
+							xlo = math.min(sim.XRES - member.place_w, math.max(0, px - math.floor(member.place_w / 2)))
+							ylo = math.min(sim.YRES - member.place_h, math.max(0, py - math.floor(member.place_h / 2)))
 							xhi = xlo + member.place_w
 							yhi = ylo + member.place_h
 							action = member.place

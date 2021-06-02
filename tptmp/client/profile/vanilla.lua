@@ -1115,11 +1115,16 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	local did_shortcut = true
 	if scan == 44 then -- * SDL_SCANCODE_SPACE
 		self.simstate_invalid_ = true
+	elseif scan == 53 then -- * SDL_SCANCODE_GRAVE
+		if self.registered_func_() and not alt then
+			log_event(config.print_prefix .. "The console is disabled because it does not sync (press the Alt key to override)")
+			return true
+		end
 	elseif scan == 29 then -- * SDL_SCANCODE_Z
 		if self.select_mode_ == "none" or not self.dragging_mouse_ then
 			if ctrl and not self.dragging_mouse_ then
 				if self.registered_func_() and not alt then
-					log_event(config.print_prefix .. "Undo is disabled because it does not sync (use Ctrl+Alt+Z to override)")
+					log_event(config.print_prefix .. "Undo is disabled because it does not sync (press the Alt key to override)")
 					return true
 				end
 			else
@@ -1142,7 +1147,7 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	elseif scan == 28 then -- * SDL_SCANCODE_Y
 		if ctrl then
 			if self.registered_func_() and not alt then
-				log_event(config.print_prefix .. "Redo is disabled because it does not sync (use Ctrl+Alt+Y to override)")
+				log_event(config.print_prefix .. "Redo is disabled because it does not sync (press the Alt key to override)")
 				return true
 			end
 		else

@@ -170,15 +170,22 @@ function client_i:handle_ping_3_()
 	self.wake_:signal()
 end
 
-function client_i:forward_message_(format, packet, message)
+function client_i:check_message_(message)
 	local server = self:server()
 	local ok, err = server:phost():call_check_all("message_ok", self, message)
-	if ok then
-		ok, err = server:phost():call_check_all("content_ok", server, message)
-	end
 	if not ok then
 		self:send_server("* Cannot send message: " .. err)
-		return true
+		return false
+	end
+	return true
+end
+
+function client_i:forward_message_(format, packet, message)
+	local server = self:server()
+	local ok, err = server:phost():call_check_all("content_ok", server, message)
+	if not ok then
+		self:send_server("* Cannot send message: " .. err)
+		return
 	end
 	self.room_:log(format, self.nick_, message)
 	self.room_:broadcast_ciw(self, { packet, self.room_id_str_, string.char(#message), message })
@@ -186,6 +193,9 @@ end
 
 function client_i:handle_say_19_()
 	local message = self:read_str8_():sub(1, config.message_size):gsub("[^\32-\255]", "")
+	if not self:check_message_(message) then
+		return
+	end
 	if message:find("^//") then
 		message = message:sub(2)
 	elseif message:find("^/") then
@@ -197,6 +207,9 @@ end
 
 function client_i:handle_say3rd_20_()
 	local message = self:read_str8_():sub(1, config.message_size):gsub("[^\32-\255]", "")
+	if not self:check_message_(message) then
+		return
+	end
 	self:forward_message_("* $ $", "\20", message)
 end
 

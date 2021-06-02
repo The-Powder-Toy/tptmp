@@ -146,18 +146,42 @@ return {
 				local dconf = client:server():dconf()
 				local room_info = dconf:root().rooms[room:name()]
 				if room:is_private() then
-					room_info.private = nil
-					room:log("$ cleared private status", client:nick())
-					client:send_server("* Private status cleared")
+					client:send_server("* Room is already private")
 				else
 					room_info.private = true
 					room:log("$ set private status", client:nick())
 					client:send_server("* Private status set")
+					dconf:commit()
 				end
-				dconf:commit()
 				return true
 			end,
-			help = "/private, no arguments: toggles the private status of the room",
+			help = "/private, no arguments: sets the private status of the room",
+		},
+		unprivate = {
+			func = function(client, message, words, offsets)
+				local room = client:room()
+				local server = client:server()
+				if room:is_temporary() then
+					client:send_server("* Temporary rooms cannot be made private")
+					return true
+				end
+				if not room:is_owner(client) then
+					client:send_server("* You are not an owner of this room")
+					return true
+				end
+				local dconf = client:server():dconf()
+				local room_info = dconf:root().rooms[room:name()]
+				if room:is_private() then
+					room_info.private = nil
+					room:log("$ cleared private status", client:nick())
+					client:send_server("* Private status cleared")
+					dconf:commit()
+				else
+					client:send_server("* Room is not currently private")
+				end
+				return true
+			end,
+			help = "/unprivate, no arguments: clears the private status of the room",
 		},
 	},
 	hooks = {

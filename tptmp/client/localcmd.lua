@@ -103,6 +103,13 @@ local cmdp = command_parser.new({
 			help = "/disconnect, no arguments: disconnects from the current server",
 			alias = "D",
 		},
+		quit = {
+			func = function(localcmd, message, words, offsets)
+				return { "disconnect" }
+			end,
+			help = "/quit, no arguments: same as /disconnect",
+			alias = "Q",
+		},
 		names = {
 			func = function(localcmd, message, words, offsets)
 				local cli = localcmd.client_func_()

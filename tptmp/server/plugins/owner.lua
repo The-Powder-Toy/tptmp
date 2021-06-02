@@ -41,7 +41,7 @@ function room_owner_i:is_temporary()
 	return not room_info or #room_info.owners == 0
 end
 
-function room_owner_i:insert_owner_(client)
+function room_owner_i:insert_owner_(uid)
 	local server = self:server()
 	local dconf = server:dconf()
 	local rooms = dconf:root().rooms
@@ -52,27 +52,42 @@ function room_owner_i:insert_owner_(client)
 		}
 		rooms[self:name()] = room_info
 	end
-	table.insert(room_info.owners, client:uid())
+	local idx = util.array_find(room_info.owners, uid)
+	if idx then
+		return false
+	end
+	table.insert(room_info.owners, uid)
 	room_info.owners[0] = #room_info.owners
-	client.rooms_owned_ = client.rooms_owned_ + 1
-	server:phost():call_hook("insert_room_owner", self, client)
+	local client = server:client_by_uid(uid)
+	if client then
+		client.rooms_owned_ = client.rooms_owned_ + 1
+	end
+	server:phost():call_hook("insert_room_owner", self, uid)
 	dconf:commit()
+	return true
 end
 
-function room_owner_i:remove_owner_(client)
+function room_owner_i:remove_owner_(uid)
 	local server = self:server()
 	local dconf = server:dconf()
 	local rooms = dconf:root().rooms
 	local room_info = rooms[self:name()]
-	server:phost():call_hook("remove_room_owner", self, client)
-	table.remove(room_info.owners, util.array_find(room_info.owners, client:uid()))
+	local idx = util.array_find(room_info.owners, uid)
+	if not idx then
+		return false
+	end
+	table.remove(room_info.owners, idx)
 	room_info.owners[0] = #room_info.owners
-	client.rooms_owned_ = client.rooms_owned_ - 1
+	local client = server:client_by_uid(uid)
+	if client then
+		client.rooms_owned_ = client.rooms_owned_ - 1
+	end
 	if self:is_temporary() then
 		server:phost():call_hook("unregister_room", self)
 		rooms[self:name()] = nil
 	end
 	dconf:commit()
+	return true
 end
 
 local client_owner_i = {}
@@ -109,7 +124,7 @@ return {
 				room:set_temp_owner_(nil)
 				room:log("$ registered the room and gained room ownership", client:nick())
 				client:send_server("* Room successfully registered")
-				room:insert_owner_(client)
+				room:insert_owner_(client:uid())
 				return true
 			end,
 			help = "/register, no arguments: registers and claims ownership of the room",
@@ -119,18 +134,17 @@ return {
 				if not words[2] then
 					return false
 				end
-				local nick = words[2]
 				local room = client:room()
 				local server = client:server()
-				if room:is_temporary() then
-					client:send_server("* Temporary rooms cannot be shared")
-					return true
-				end
 				if not room:is_owner(client) then
 					client:send_server("* You are not an owner of this room")
 					return true
 				end
-				local other = server:client_by_nick(nick)
+				if room:is_temporary() then
+					client:send_server("* This is a temporary room, use /register to make it permanent")
+					return true
+				end
+				local other = server:client_by_nick(words[2])
 				if not (other and other:room() == room) then
 					client:send_server("* User not present in this room")
 					return true
@@ -140,16 +154,52 @@ return {
 					return true
 				end
 				if other:rooms_owned() >= config.max_rooms_per_owner then
-					client:send_server(("* %s owns too many rooms, have them use /disown to disown one"):format(nick))
+					client:send_server(("* %s owns too many rooms, have them use /disown to disown one"):format(other:nick()))
+					return true
+				end
+				if not room:insert_owner_(other:uid()) then
+					client:send_server(("* %s already owns this room"):format(other:nick()))
 					return true
 				end
 				room:log("$ shared room ownership with $", client:nick(), other:nick())
-				client:send_server("* Room successfully shared")
+				client:send_server("* Room ownership successfully shared")
 				other:send_server("* You now have shared ownership of this room")
-				room:insert_owner_(other)
 				return true
 			end,
 			help = "/share <user>: shares ownership of the room with a user",
+		},
+		unshare = {
+			func = function(client, message, words, offsets)
+				if not words[2] then
+					return false
+				end
+				local room = client:room()
+				local server = client:server()
+				if not room:is_owner(client) then
+					client:send_server("* You are not an owner of this room")
+					return true
+				end
+				if room:is_temporary() then
+					client:send_server("* This is a temporary room, use /register to make it permanent")
+					return true
+				end
+				local other_uid, other_nick = server:offline_user_by_nick(words[2])
+				if not other_uid then
+					client:send_server("* No such user")
+					return true
+				end
+				if room:remove_owner_(other_uid) then
+					client:send_server("* Room ownership successfully stripped")
+					local other = server:client_by_nick(other_nick)
+					if other and other:room() == room then
+						other:send_server("* You no longer have shared ownership of this room")
+					end
+				else
+					client:send_server(("* %s does not currently own this room"):format(other_nick))
+				end
+				return true
+			end,
+			help = "/unshare <user>: strips a user of their ownership of the room",
 		},
 		disown = {
 			func = function(client, message, words, offsets)
@@ -162,7 +212,7 @@ return {
 					client:send_server("* You are not an owner of this room")
 					return true
 				end
-				room:remove_owner_(client)
+				room:remove_owner_(client:uid())
 				room:log("$ relinquished room ownership", client:nick())
 				if room:is_temporary() then
 					client:send_server("* Room unregistered")
