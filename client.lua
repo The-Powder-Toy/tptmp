@@ -121,14 +121,19 @@ end
 rawset(env__, "require", require)
 
 ]])
-	for key, value in pairs(chunks) do
+	local chunk_keys = {}
+	for key in pairs(chunks) do
+		table.insert(chunk_keys, key)
+	end
+	table.sort(chunk_keys)
+	for i = 1, #chunk_keys do
 		handle:write(([[
 require_preload__["%s"] = function()
 
 	%s
 end
 
-]]):format(key, value:gsub("\n", "\n\t")))
+]]):format(chunk_keys[i], chunks[chunk_keys[i]]:gsub("\n", "\n\t")))
 	end
 	handle:write(([[
 require("%s").run()
