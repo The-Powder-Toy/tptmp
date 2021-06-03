@@ -426,7 +426,7 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x]
+		tpt.selectedreplace = to_tool[member.tool_x] or "TPTMP_PT_UNKNOWN"
 	end
 	sim.createLine(x1, y1, x2, y2, rx, ry, xtype, brush, member.bmode)
 	if member.bmode ~= 0 then
@@ -459,7 +459,7 @@ local function create_box_any(x1, y1, x2, y2, xtype, member)
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x]
+		tpt.selectedreplace = to_tool[member.tool_x] or "TPTMP_PT_UNKNOWN"
 	end
 	sim.createBox(x1, y1, x2, y2, xtype, member and member.bmode)
 	if member.bmode ~= 0 then
@@ -488,7 +488,7 @@ local function flood_any(x, y, xtype, part_flood_hint, wall_flood_hint, member)
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x]
+		tpt.selectedreplace = to_tool[member.tool_x] or "TPTMP_PT_UNKNOWN"
 	end
 	sim.floodParts(x, y, xtype, part_flood_hint, member.bmode)
 	if member.bmode ~= 0 then
@@ -512,13 +512,9 @@ local function fnv1a32(data)
 	local hash = 2166136261
 	for i = 1, #data do
 		hash = bit.bxor(hash, data:byte(i))
-		hash = bit.band(
-			bit.band(bit.lshift(hash,   24), 0xFFFFFFFF) +
-			bit.band(bit.lshift(hash,    8), 0xFFFFFFFF) +
-			bit.band(           hash * 147 , 0xFFFFFFFF),
-			0xFFFFFFFF
-		)
+		hash = bit.band(bit.lshift(hash, 24), 0xFFFFFFFF) + bit.band(bit.lshift(hash, 8), 0xFFFFFFFF) + hash * 147
 	end
+	hash = bit.band(hash, 0xFFFFFFFF)
 	return hash < 0 and (hash + 0x100000000) or hash
 end
 
