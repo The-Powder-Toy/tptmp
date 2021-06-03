@@ -181,6 +181,10 @@ function server_i:join_room(client, name)
 	return ok, err
 end
 
+function server_i:room_by_name(name)
+	return self.name_to_room_[name:lower()]
+end
+
 function server_i:client_by_nick(name)
 	return self.nick_to_client_[name:lower()]
 end

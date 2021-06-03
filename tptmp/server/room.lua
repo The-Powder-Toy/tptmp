@@ -23,6 +23,13 @@ function room_i:broadcast(source, chunks)
 	self:cleanup_dead_ids_()
 end
 
+function room_i:broadcast_server(message)
+	for client in self:clients() do
+		client:send_server(message)
+	end
+	self:cleanup_dead_ids_()
+end
+
 function room_i:client_by_id(id)
 	local client = self.id_to_client_[id]
 	if type(client) == "table" then

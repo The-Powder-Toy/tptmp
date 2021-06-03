@@ -97,36 +97,35 @@ return {
 			func = function(rcon, data)
 				local server = rcon:server()
 				if type(data.nick) ~= "string" then
-					return { status = "badnick", human = "invalid nick" }
+					return { status = "badnick", human = "invalid nick", nick = data.nick }
 				end
 				local uid = server:offline_user_by_nick(data.nick)
 				if not uid then
-					return { status = "nouser", human = "no such user" }
+					return { status = "nouser", human = "no such user", nick = data.nick }
 				end
 				if data.action == "insert" then
 					local ok, err, human = server:insert_uid_ban_(uid)
 					if not ok then
-						return { status = err, human = human }
+						return { status = err, human = human, uid = uid }
 					end
 					return { status = "ok" }
 				elseif data.action == "remove" then
 					local ok, err, human = server:remove_uid_ban_(uid)
 					if not ok then
-						return { status = err, human = human }
+						return { status = err, human = human, uid = uid }
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
 					return { status = "ok", banned = server:uid_banned_(uid) }
-				else
-					return { status = "badaction", human = "unrecognized action" }
 				end
+				return { status = "badaction", human = "unrecognized action", action = data.action }
 			end,
 		},
 		ipban = {
 			func = function(rcon, data)
 				local server = rcon:server()
 				if type(data.host) ~= "string" then
-					return { status = "badhost", human = "invalid host" }
+					return { status = "badhost", human = "invalid host", host = data.host }
 				end
 				if data.action == "insert" then
 					local ok, err, human = server:insert_host_ban_(data.host)
@@ -143,9 +142,8 @@ return {
 				elseif data.action == "check" then
 					local banned_subnet = server:host_banned_(data.host)
 					return { status = "ok", banned = banned_subnet and tostring(banned_subnet) or false }
-				else
-					return { status = "badaction", human = "unrecognized action" }
 				end
+				return { status = "badaction", human = "unrecognized action", action = data.action }
 			end,
 		},
 	},
