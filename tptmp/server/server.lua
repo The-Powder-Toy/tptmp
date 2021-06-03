@@ -421,7 +421,9 @@ local function new(params)
 				return { "join", client:lobby_name() }
 			end,
 			help = "/lobby, no arguments: joins the lobby",
-			alias = "L",
+		},
+		L = {
+			alias = "lobby",
 		},
 		join = {
 			func = function(client, message, words, offsets)
@@ -442,7 +444,9 @@ local function new(params)
 				return true
 			end,
 			help = "/join <room>: joins the specified room",
-			alias = "J",
+		},
+		J = {
+			alias = "join",
 		},
 		online = {
 			func = function(client, message, words, offsets)

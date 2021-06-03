@@ -14,9 +14,7 @@ function command_parser_i:parse(ctx, message)
 	end
 	local initial_cmd = words[1]
 	while true do
-		words[1] = self.aliases_[words[1]] or words[1]
-		local cmdstr = words[1] and words[1]:lower()
-		local cmd = self.commands_[cmdstr]
+		local cmd = self.commands_[self.aliases_[words[1]] or words[1]]
 		if not cmd then
 			if self.cmd_fallback_ then
 				if self.cmd_fallback_(ctx, message) then
@@ -95,30 +93,37 @@ local function new(params)
 	}, command_parser_m)
 	local collect = {}
 	for name, info in pairs(params.commands) do
-		local internal_info = {}
 		table.insert(collect, "/" .. name)
 		if info.role == "help" then
 			cmd.help_name_ = name
-			internal_info.func = function(ctx, _, words)
-				cmd:help_(ctx, words[2])
-				return true
-			end
+			cmd.commands_[name] = {
+				func = function(ctx, _, words)
+					cmd:help_(ctx, words[2])
+					return true
+				end,
+				help = info.help,
+			}
 		elseif info.role == "list" then
-			internal_info.func = function(ctx)
-				cmd:list_(ctx)
-				return true
-			end
+			cmd.commands_[name] = {
+				func = function(ctx)
+					cmd:list_(ctx)
+					return true
+				end,
+				help = info.help,
+			}
+		elseif info.alias then
+			cmd.aliases_[name] = info.alias
 		elseif info.macro then
-			internal_info.macro = info.macro
+			cmd.commands_[name] = {
+				macro = info.macro,
+				help = info.help,
+			}
 		else
-			internal_info.func = info.func
+			cmd.commands_[name] = {
+				func = info.func,
+				help = info.help,
+			}
 		end
-		internal_info.help = info.help
-		if info.alias then
-			table.insert(collect, "/" .. info.alias)
-			cmd.aliases_[info.alias] = name
-		end
-		cmd.commands_[name] = internal_info
 	end
 	table.sort(collect)
 	cmd.list_str_ = table.concat(collect, " ")

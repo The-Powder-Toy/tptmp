@@ -47,7 +47,9 @@ return {
 				return { "msg", client.reply_to_, message }
 			end,
 			help = "/reply <message>: replies to the last private message",
-			alias = "R",
+		},
+		R = {
+			alias = "reply",
 		},
 	},
 }

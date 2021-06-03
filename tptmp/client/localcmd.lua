@@ -41,14 +41,18 @@ local cmdp = command_parser.new({
 				return true
 			end,
 			help = "/sync, no arguments: synchronizes your simulation with everyone else's in the room",
-			alias = "S",
+		},
+		S = {
+			alias = "sync",
 		},
 		connect = {
 			macro = function(localcmd, message, words, offsets)
 				return { "connectroom", "", unpack(words, 2) }
 			end,
 			help = "/connect [host[:port]]: connects the default TPTMP server or the specified one",
-			alias = "C",
+		},
+		C = {
+			alias = "connect",
 		},
 		reconnect = {
 			macro = function(localcmd, message, words, offsets)
@@ -102,14 +106,15 @@ local cmdp = command_parser.new({
 				return true
 			end,
 			help = "/disconnect, no arguments: disconnects from the current server",
-			alias = "D",
+		},
+		D = {
+			alias = "disconnect",
 		},
 		quit = {
-			func = function(localcmd, message, words, offsets)
-				return { "disconnect" }
-			end,
-			help = "/quit, no arguments: same as /disconnect",
-			alias = "Q",
+			alias = "disconnect",
+		},
+		Q = {
+			alias = "disconnect",
 		},
 		names = {
 			func = function(localcmd, message, words, offsets)
