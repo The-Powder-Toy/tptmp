@@ -84,6 +84,7 @@ local cmdp = command_parser.new({
 						initial_room = words[2],
 						localcmd = localcmd,
 					})
+					new_cli:nick_colour_seed(localcmd.nick_colour_seed_)
 					new_cli:start()
 				end
 				return true
@@ -146,6 +147,18 @@ local cmdp = command_parser.new({
 			end,
 			help = "/me <message>: says something in third person",
 		},
+		ncseed = {
+			func = function(localcmd, message, words, offsets)
+				localcmd.nick_colour_seed_ = words[2] or tostring(math.random())
+				manager.set("clincs", tostring(localcmd.nick_colour_seed_))
+				local cli = localcmd.client_func_()
+				if cli then
+					cli:nick_colour_seed(localcmd.nick_colour_seed_)
+				end
+				return true
+			end,
+			help = "/ncseed [seed]: set nick colour seed, randomize it if not specified, default is 0",
+		},
 	},
 	respond = function(localcmd, message)
 		localcmd.window:backlog_push_neutral("* " .. message)
@@ -203,7 +216,7 @@ local function new(params)
 		host = manager.get("rchost", ""),
 		port = manager.get("rcport", ""),
 		secr = manager.get("rcsecr", ""),
-	}	
+	}
 	if #reconnect.room == 0 or #reconnect.host == 0 or #reconnect.port == 0 then
 		reconnect = nil
 	end
@@ -212,6 +225,7 @@ local function new(params)
 		client_func_ = params.client_func,
 		new_client_func_ = params.new_client_func,
 		kill_client_func_ = params.kill_client_func,
+		nick_colour_seed_ = manager.get("clincs", "0"),
 	}, localcmd_m)
 end
 

@@ -508,6 +508,20 @@ local function escape_regex(str)
 	return (str:gsub("[%$%%%(%)%*%+%-%.%?%[%^%]]", "%%%1"))
 end
 
+local function fnv1a32(data)
+	local hash = 2166136261
+	for i = 1, #data do
+		hash = bit.bxor(hash, data:byte(i))
+		hash = bit.band(
+			bit.band(bit.lshift(hash,   24), 0xFFFFFFFF) +
+			bit.band(bit.lshift(hash,    8), 0xFFFFFFFF) +
+			bit.band(           hash * 147 , 0xFFFFFFFF),
+			0xFFFFFFFF
+		)
+	end
+	return hash < 0 and (hash + 0x100000000) or hash
+end
+
 return {
 	get_user = get_user,
 	stamp_load = stamp_load,
@@ -532,4 +546,5 @@ return {
 	xid_class = xid_class,
 	corners_to_rect = corners_to_rect,
 	escape_regex = escape_regex,
+	fnv1a32 = fnv1a32,
 }

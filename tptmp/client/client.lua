@@ -127,7 +127,6 @@ function client_i:add_member_(id, nick)
 	end
 	self.id_to_member[id] = setmetatable({
 		nick = nick,
-		formatted_nick = format.nick(nick),
 	}, member_m)
 end
 
@@ -144,6 +143,7 @@ function client_i:handle_room_16_()
 		local nick = self:read_str8_()
 		self:add_member_(id, nick)
 	end
+	self:reformat_nicks_()
 	self:push_names("Joined ")
 	self.window_:set_subtitle("room", self.room_name_)
 	self.localcmd_:reconnect_commit({
@@ -159,6 +159,7 @@ function client_i:handle_join_17_()
 	local id = self:read_bytes_(1)
 	local nick = self:read_str8_()
 	self:add_member_(id, nick)
+	self:reformat_nicks_()
 	self.window_:backlog_push_join(self.id_to_member[id].formatted_nick)
 	self.profile_:user_sync()
 end
@@ -618,7 +619,7 @@ function client_i:handshake_()
 		self.should_reconnect_func_()
 		self.registered_ = true
 		self.nick_ = self:read_str8_()
-		self.formatted_nick_ = format.nick(self.nick_)
+		self:reformat_nicks_()
 		self.flags_ = self:read_bytes_(1)
 		self.guest_ = bit.band(self.flags_, 1) ~= 0
 		self.last_ping_sent_at_ = socket.gettime()
@@ -862,6 +863,7 @@ function client_i:start()
 			end
 		end, function(err)
 			print(debug.traceback(err, 2))
+			self.proto_coro_ = nil
 		end))
 	end)
 end
@@ -975,7 +977,9 @@ function client_i:tick_sim_()
 end
 
 function client_i:tick()
-	assert(self.status_ == "running")
+	if self.status_ ~= "running" then
+		return
+	end
 	self:tick_read_()
 	self:tick_resume_()
 	self:tick_write_()
@@ -1066,6 +1070,20 @@ function client_i:registered()
 	return self.registered_
 end
 
+function client_i:nick_colour_seed(seed)
+	self.nick_colour_seed_ = seed
+	self:reformat_nicks_()
+end
+
+function client_i:reformat_nicks_()
+	if self.nick_ then
+		self.formatted_nick_ = format.nick(self.nick_, self.nick_colour_seed_)
+	end
+	for _, member in pairs(self.id_to_member) do
+		member.formatted_nick = format.nick(member.nick, self.nick_colour_seed_)
+	end
+end
+
 for key, value in pairs(client_i) do
 	local packet_id = key:match("^handle_.+_(%d+)_$")
 	if packet_id then
@@ -1098,6 +1116,7 @@ local function new(params)
 		should_reconnect_func_ = params.should_reconnect_func,
 		should_not_reconnect_func_ = params.should_not_reconnect_func,
 		id_to_member = {},
+		nick_colour_seed_ = 0,
 	}, client_m)
 end
 

@@ -1,12 +1,8 @@
 local colours = require("tptmp.client.colours")
+local util    = require("tptmp.client.util")
 
-local function nick(unformatted)
-	-- * TODO[opt]: a better nick colour hash?
-	local hash = 9.238762
-	for i = 1, #unformatted do
-		hash = (hash * 13.23472364 + unformatted:byte(i)) % 235.21974612
-	end
-	return colours.escape(colours.hsv_to_rgb(hash % 1, 0.5, 1)) .. unformatted
+local function nick(unformatted, seed)
+	return colours.escape(colours.hsv_to_rgb(util.fnv1a32(seed .. unformatted .. "bagels") / 0x100000000, 0.5, 1)) .. unformatted
 end
 
 local function room(unformatted)
