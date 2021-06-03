@@ -1,5 +1,4 @@
 local cqueues        = require("cqueues")
-local jnet           = require("jnet")
 local socket         = require("cqueues.socket")
 local condition      = require("cqueues.condition")
 local client         = require("tptmp.server.client")
@@ -19,97 +18,14 @@ local http_request   = require("http.request")
 local server_i = {}
 local server_m = { __index = server_i }
 
-function server_i:insert_host_ban(host_str)
-	local ok, host = pcall(jnet, host_str)
-	if not ok then
-		error("invalid subnet: " .. host)
-	end
-	self.host_bans_:insert(host)
-	self:save_host_bans_()
-	return true
-end
-
-function server_i:remove_host_ban(host_str)
-	local ok, host = pcall(jnet, host_str)
-	if not ok then
-		error("invalid subnet: " .. host)
-	end
-	local ret = self.host_bans_:remove(host)
-	self:save_host_bans_()
-	return ret
-end
-
-function server_i:save_host_bans_()
-	local tbl = {}
-	for host in self.host_bans_:nets() do
-		table.insert(tbl, tostring(host))
-	end
-	tbl[0] = #tbl
-	self.dconf_:root().host_bans = tbl
-	self.dconf_:commit()
-end
-
-function server_i:load_host_bans_()
-	local tbl = self.dconf_:root().host_bans or {}
-	self.host_bans_ = jnet.set()
-	for i = 1, #tbl do
-		self.host_bans_:insert(jnet(tbl[i]))
-	end
-	self:save_host_bans_()
-end
-
-function server_i:host_banned(host)
-	return self.host_bans_:contains(host)
-end
-
-function server_i:insert_uid_ban(uid)
-	assert(not tostring(uid):find("[^0-9]"), "invalid uid")
-	self.uid_bans_[uid] = true
-	self:save_uid_bans_()
-	return true
-end
-
-function server_i:remove_uid_ban(uid)
-	assert(not tostring(uid):find("[^0-9]"), "invalid uid")
-	local ret = self.uid_bans_[uid] and true
-	self.uid_bans_[uid] = nil
-	self:save_uid_bans_()
-	return ret
-end
-
-function server_i:save_uid_bans_()
-	local tbl = {}
-	for uid in pairs(self.uid_bans_) do
-		table.insert(tbl, uid)
-	end
-	tbl[0] = #tbl
-	self.dconf_:root().uid_bans = tbl
-	self.dconf_:commit()
-end
-
-function server_i:load_uid_bans_()
-	local tbl = self.dconf_:root().uid_bans or {}
-	self.uid_bans_ = {}
-	for i = 1, #tbl do
-		self.uid_bans_[tbl[i]] = true
-	end
-	self:save_uid_bans_()
-end
-
 function server_i:load_uid_to_nick_()
 	self.dconf_:root().uid_to_nick = self.dconf_:root().uid_to_nick or {}
 	self.dconf_:commit()
 end
 
-function server_i:uid_banned(uid)
-	return self.uid_bans_[uid]
-end
-
 function server_i:init()
 	self.dconf_:hold()
 	self:load_uid_to_nick_()
-	self:load_host_bans_()
-	self:load_uid_bans_()
 	self.phost_:call_hook("init", self)
 	self.dconf_:unhold()
 end
@@ -246,7 +162,7 @@ end
 function server_i:join_room(client, name)
 	name = name:lower()
 	if not self.name_to_room_[name] then
-		if #name > 32 then
+		if #name > config.max_room_name_length then
 			return nil, "room name too long"
 		end
 		if not name:find("^[a-z0-9-_]+$") then
@@ -504,4 +420,5 @@ end
 
 return {
 	new = new,
+	server_i = server_i,
 }

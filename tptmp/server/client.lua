@@ -338,9 +338,9 @@ function client_i:handshake_()
 	if self.server_:full() then
 		self:proto_close_("server is full", "server is full")
 	end
-	local banned_subnet = self.server_:host_banned(self.host_)
-	if banned_subnet then
-		self:proto_close_("you are banned from this server", "host %s is banned (subnet %s)", self.host_, tostring(banned_subnet))
+	local ok, err, err2 = self.server_:phost():call_check_all("can_connect", self)
+	if not ok then
+		self:proto_close_(err, "%s", err2)
 	end
 	if self.server_:connection_limit(self.host_) then
 		self:proto_close_("connection limit exceeded")
@@ -351,21 +351,19 @@ function client_i:handshake_()
 	local initial_room = self:read_str8_()
 	if self.server_:can_authenticate() then
 		self.nick_, self.uid_ = self.server_:authenticate(self, quickauth_token)
-		if self.nick_ then
-			if self.server_:uid_banned(self.uid_) then
-				self:proto_close_("you are banned from this server", "%s, uid %i is banned", self.nick_, self.uid_)
-			end
-		else
-			if not config.guests_allowed then
-				self:proto_close_("authentication failed and guests are not allowed on this server")
-			end
-			self:unique_guest_nick_()
+		if not self.nick_ then
 			self.guest_ = true
 		end
+		local ok, err, err2 = self.server_:phost():call_check_all("can_join", self)
+		if not ok then
+			self:proto_close_(err, "%s", err2)
+		end
+		if self.guest_ then
+			self:unique_guest_nick_()
+		end
 	else
-		local max_nick_length = 32
-		if #self.initial_nick_ > max_nick_length then
-			self:proto_error_("nick too long", "nick too long (%i > %i)", #self.initial_nick_, max_nick_length)
+		if #self.initial_nick_ > config.max_nick_length then
+			self:proto_error_("nick too long", "nick too long (%i > %i)", #self.initial_nick_, config.max_nick_length)
 		end
 		if self.initial_nick_:find("[^A-Za-z0-9-_]") then
 			self:proto_error_("invalid nick")
@@ -392,10 +390,6 @@ function client_i:handshake_()
 	util.cqueues_wrap(cqueues.running(), function()
 		self:ping_()
 	end)
-	local ok, err, err2 = self.server_:phost():call_check_all("can_join", self)
-	if not ok then
-		self:proto_close_(err, err2)
-	end
 	self.server_:phost():call_hook("join", self)
 	if initial_room == "" then
 		local ok, err = self.server_:join_room(self, self:lobby_name())

@@ -12,6 +12,7 @@ return {
 	tpt_version_max = { 95, 0 }, -- * TODO[fin]: Bump to 96.0.
 	sendq_limit = 0x2000000,
 	sendq_flush_timeout = 3,
+	rcon_sendq_flush_timeout = 3,
 	ping_interval = 60,
 	ping_timeout = 120,
 	host = "0.0.0.0",
@@ -35,4 +36,6 @@ return {
 	max_message_interval_violations = 10,
 	auth_backend = common_config.auth_backend,
 	uid_backend = common_config.uid_backend,
+	max_room_name_length = 32,
+	max_nick_length = 32,
 }

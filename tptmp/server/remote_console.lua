@@ -1,23 +1,34 @@
+local lunajson  = require("lunajson")
 local cqueues   = require("cqueues")
 local socket    = require("cqueues.socket")
 local condition = require("cqueues.condition")
 local config    = require("tptmp.server.config")
 local util      = require("tptmp.server.util")
+local log       = require("tptmp.server.log")
 
 local remote_console_i = {}
 local remote_console_m = { __index = remote_console_i }
 
 function remote_console_i:close_()
 	if self.client_sock_ then
+		self.client_sock_:flush("n", config.rcon_sendq_flush_timeout)
+		self.client_sock_:shutdown()
 		self.client_sock_:close()
 		self.client_sock_ = nil
 	end
 end
 
-function remote_console_i:send_line(line)
+function remote_console_i:send_json_(json)
 	if self.client_sock_ then
-		self.client_sock_:write(line:gsub("[\r\n]", " "):gsub("[^ -~]", "") .. "\n")
+		self.client_sock_:write(lunajson.encode(json):gsub("\n", "") .. "\n")
 	end
+end
+
+function remote_console_i:log(data)
+	self:send_json_({
+		type = "log",
+		data = data,
+	})
 end
 
 function remote_console_i:listen_()
@@ -28,26 +39,51 @@ function remote_console_i:listen_()
 		local ready = util.cqueues_poll(server_pollable, self.wake_)
 		if ready[server_pollable] then
 			self.client_sock_ = server_sock:accept()
+			local _, host_str = self.client_sock_:peername()
+			self.log_inf_("connection from $", host_str)
 			local client_pollable = { pollfd = self.client_sock_:pollfd(), events = "r" }
 			while self.status_ == "running" do
 				local ready = util.cqueues_poll(client_pollable, self.wake_)
 				if ready[client_pollable] then
-					local line = self.client_sock_:read("*l")
+					local line, err = self.client_sock_:read("*l")
 					if not line then
+						self.log_inf_("read failed with code $", err)
 						break
 					end
-					local func, err = load(line, "=rcon", "t", self.env_)
-					if func then
-						func, err = pcall(func)
+					local ok, data = pcall(lunajson.decode, line, nil, nil, true)
+					if ok then
+						local handler = self.handlers_[data.type]
+						if handler then
+							self:send_json_({
+								type = "response",
+								status = "handled",
+								data = handler.func(self, data),
+							})
+						else
+							self:send_json_({
+								type = "response",
+								status = "nohandler",
+								human = "no such handler",
+								type = data.type,
+							})
+							self.log_wrn_("no handler for request type $", data.type)
+							break
+						end
+					else
+						self:send_json_({
+							type = "response",
+							status = "badjson",
+							human = "invalid json",
+							line = line,
+							reason = data,
+						})
+						self.log_wrn_("bad json: $", data)
+						break
 					end
-					err = tostring(err)
-					if not func then
-						err = "ERROR: " .. err
-					end
-					self:send_line(err)
 				end
 			end
 			self:close_()
+			self.log_inf_("connection closed")
 		end
 	end
 	server_sock:close()
@@ -71,11 +107,22 @@ function remote_console_i:stop()
 	self.wake_:signal()
 end
 
+function remote_console_i:server()
+	return self.server_
+end
+
 local function new(params)
+	local handlers = {}
+	for key, value in pairs(params.phost:console()) do
+		handlers[key] = value
+	end
 	return setmetatable({
-		env_ = params.env,
 		status_ = "ready",
+		handlers_ = handlers,
+		server_ = params.server,
 		wake_ = condition.new(),
+		log_inf_ = log.derive(log.inf, "[" .. params.name .. "] "),
+		log_wrn_ = log.derive(log.err, "[" .. params.name .. "] "),
 	}, remote_console_m)
 end
 

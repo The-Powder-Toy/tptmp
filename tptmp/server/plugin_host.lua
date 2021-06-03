@@ -44,19 +44,26 @@ function plugin_host_i:commands()
 	return self.commands_
 end
 
+function plugin_host_i:console()
+	return self.console_
+end
+
 local function new(params)
 	local phost = setmetatable({
 		plugins_ = params.plugins,
 	}, plugin_host_m)
 	local hooks_by_name = {}
 	local commands = {}
+	local console = {}
 	for plugin_name, plugin in pairs(params.plugins) do
 		for command_name, command in pairs(plugin.commands or {}) do
 			assert(not commands[command_name], "command already exists")
 			commands[command_name] = command
 		end
-	end
-	for plugin_name, plugin in pairs(params.plugins) do
+		for handler_name, handler in pairs(plugin.console or {}) do
+			assert(not console[handler_name], "console handler already exists")
+			console[handler_name] = handler
+		end
 		for hook_name, hook in pairs(plugin.hooks or {}) do
 			hooks_by_name[hook_name] = hooks_by_name[hook_name] or {}
 			hooks_by_name[hook_name][plugin_name] = {
@@ -65,6 +72,8 @@ local function new(params)
 			}
 		end
 	end
+	phost.commands_ = commands
+	phost.console_ = console
 	for plugin_name, plugin in pairs(params.plugins) do
 		for hook_name, hook in pairs(plugin.hooks or {}) do
 			for _, after in pairs(hook.after or {}) do
@@ -75,7 +84,6 @@ local function new(params)
 			end
 		end
 	end
-	phost.commands_ = commands
 	local hooks = {}
 	for name, hook_class in pairs(hooks_by_name) do
 		local sorted = {}

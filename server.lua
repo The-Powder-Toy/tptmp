@@ -39,6 +39,7 @@ xpcall(function()
 		mtidx = {
 			room = room.room_i,
 			client = client.client_i,
+			server = server.server_i,
 		},
 	})
 
@@ -56,26 +57,6 @@ xpcall(function()
 			name = "dconf",
 		})
 
-		-- * TODO[req]: better remote console protocol
-		rcon = remote_console.new({
-			env = setmetatable({
-				stop = stop,
-				insert_host_ban = function(...)
-					serv:insert_host_ban(...)
-				end,
-				remove_host_ban = function(...)
-					serv:remove_host_ban(...)
-				end,
-				insert_uid_ban = function(...)
-					serv:insert_uid_ban(...)
-				end,
-				remove_uid_ban = function(...)
-					serv:remove_uid_ban(...)
-				end,
-			}, { __index = _ENV or getfenv() }),
-		})
-		rcon:start()
-
 		if config.auth then
 			auth = authenticator.new({
 				name = "auth",
@@ -90,6 +71,13 @@ xpcall(function()
 			phost = phost,
 		})
 		serv:start()
+
+		rcon = remote_console.new({
+			server = serv,
+			name = "rcon",
+			phost = phost,
+		})
+		rcon:start()
 	end)
 
 	-- * util.cqueues_wrap shouldn't throw errors.
