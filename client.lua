@@ -6,7 +6,6 @@ local versionstring = "1.0.2"
 
 if TPTMP then if TPTMP.version <= version then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
 TPTMP = {["version"] = version, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
-local issocket,socket = pcall(require,"socket")
 if not http then error"Tpt version not supported" end
 local using_manager = false
 local type = type -- people like to overwrite this function with a global a lot
@@ -399,7 +398,7 @@ new=function(x,y,w,h)
 	end)
 	intext:moveadd(function(self,x,y) self.t:onmove(x,y) end)
 	function intext:setfocus(focus)
-		if ui.grabTextInput then
+		if ui and ui.grabTextInput then
 			if focus and not self.focus then
 				ui.grabTextInput()
 			elseif not focus and self.focus then
@@ -770,7 +769,6 @@ new=function(x,y,w,h)
 	--commands for chat window
 	chatcommands = {
 	connect = function(self,msg,args)
-		if not issocket then self:addline("No luasockets found") return end
 		local newname = pcall(string.dump, get_name) and "Gue".."st#"..math["random"](1111,9888) or get_name()
 		local s,r = connectToServer(args[1],tonumber(args[2]), newname~="" and newname or username)
 		if not s then self:addline(r,255,50,50) end
@@ -2180,4 +2178,5 @@ evt.register(evt.keypress, keypress)
 evt.register(evt.keyrelease, keyrelease)
 evt.register(evt.textinput, textinput)
 evt.register(evt.blur, blur)
+
 
