@@ -342,6 +342,7 @@ local simstates = {
 function client_i:handle_simstate_38_()
 	local member = self:member_prefix_()
 	local lo, hi = self:read_bytes_(2)
+	local temp = self:read_24be_()
 	local bits = bit.bor(lo, bit.lshift(hi, 8))
 	for i = 1, #simstates do
 		local desc = simstates[i]
@@ -353,6 +354,10 @@ function client_i:handle_simstate_38_()
 			desc.func(value)
 			log_event(config.print_prefix .. colours.commonstr.event .. desc.format:format(desc.states[value + 1], member.formatted_nick))
 		end
+	end
+	if util.ambientAirTemp() ~= temp then
+		local set = util.ambientAirTemp(temp)
+		log_event(config.print_prefix .. colours.commonstr.event .. ("Ambient air temperature set to %.2f by %s"):format(set, member.formatted_nick))
 	end
 	self.profile_:sample_simstate()
 end
@@ -682,7 +687,7 @@ function client_i:send_selecttool(idx, xtype)
 	self:write_bytes_(hi, lo)
 end
 
-function client_i:send_simstate(ss_p, ss_h, ss_u, ss_n, ss_w, ss_g, ss_a, ss_e, ss_y)
+function client_i:send_simstate(ss_p, ss_h, ss_u, ss_n, ss_w, ss_g, ss_a, ss_e, ss_y, ss_t)
 	self:write_("\38")
 	local toggles = bit.bor(
 		           ss_p    ,
@@ -698,6 +703,7 @@ function client_i:send_simstate(ss_p, ss_h, ss_u, ss_n, ss_w, ss_g, ss_a, ss_e, 
 		bit.lshift(ss_e, 5)
 	)
 	self:write_bytes_(toggles, multis)
+	self:write_24be_(ss_t)
 end
 
 function client_i:send_flood(index, x, y)

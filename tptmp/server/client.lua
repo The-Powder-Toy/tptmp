@@ -238,7 +238,7 @@ forward_to_room(   "brushsize", 34, 2)
 forward_to_room(  "brushshape", 35, 1)
 forward_to_room(    "keybdmod", 36, 1)
 forward_to_room(  "selecttool", 37, 2)
-forward_to_room(    "simstate", 38, 2)
+forward_to_room(    "simstate", 38, 5)
 forward_to_room(       "flood", 39, 4)
 forward_to_room(     "lineend", 40, 3)
 forward_to_room(     "rectend", 41, 3)
@@ -264,15 +264,15 @@ forward_to_room(   "sparksign", 75, 3)
 
 function client_i:handle_sync_done_128_()
 	local data = {
-		self:read_(1),
+		self:read_(1), -- loadonline_69
 		self.room_id_str_,
-		self:read_(4),
+		self:read_(4), -- sync_30 (starting at the 4th byte)
 		self.room_id_str_,
 		self:read_(3),
 		self:read_str24_(),
-		self:read_(1),
+		self:read_(1), -- simstate_38
 		self.room_id_str_,
-		self:read_(2),
+		self:read_(5),
 	}
 	for target in pairs(self.syncing_for_) do
 		target:write_(      data[1])

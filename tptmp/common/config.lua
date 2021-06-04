@@ -1,5 +1,5 @@
 return {
-	version = 13, -- * TODO[fin]: Give this a bump.
+	version = 14, -- * TODO[fin]: Give this a bump.
 	ping_interval = 60,
 	ping_timeout = 120,
 	message_size = 200, -- * Upper limit is 255.

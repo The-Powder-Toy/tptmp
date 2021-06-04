@@ -518,6 +518,16 @@ local function fnv1a32(data)
 	return hash < 0 and (hash + 0x100000000) or hash
 end
 
+local function ambientAirTemp(temp)
+	if temp then
+		local set = temp / 0x400
+		sim.ambientAirTemp(set)
+		return set
+	else
+		return math.floor(sim.ambientAirTemp() * 0x400)
+	end
+end
+
 return {
 	get_user = get_user,
 	stamp_load = stamp_load,
@@ -543,4 +553,5 @@ return {
 	corners_to_rect = corners_to_rect,
 	escape_regex = escape_regex,
 	fnv1a32 = fnv1a32,
+	ambientAirTemp = ambientAirTemp,
 }

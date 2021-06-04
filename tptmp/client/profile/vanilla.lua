@@ -303,7 +303,7 @@ end
 
 function profile_i:simstate_sync()
 	if self.client then
-		self.client:send_simstate(self.ss_p_, self.ss_h_, self.ss_u_, self.ss_n_, self.ss_w_, self.ss_g_, self.ss_a_, self.ss_e_, self.ss_y_)
+		self.client:send_simstate(self.ss_p_, self.ss_h_, self.ss_u_, self.ss_n_, self.ss_w_, self.ss_g_, self.ss_a_, self.ss_e_, self.ss_y_, self.ss_t_)
 	end
 end
 
@@ -461,6 +461,7 @@ function profile_i:sample_simstate()
 	local ss_a = sim.airMode()
 	local ss_e = sim.edgeMode()
 	local ss_y = sim.prettyPowders()
+	local ss_t = util.ambientAirTemp()
 	if self.ss_p_ ~= ss_p or
 	   self.ss_h_ ~= ss_h or
 	   self.ss_u_ ~= ss_u or
@@ -469,7 +470,8 @@ function profile_i:sample_simstate()
 	   self.ss_g_ ~= ss_g or
 	   self.ss_a_ ~= ss_a or
 	   self.ss_e_ ~= ss_e or
-	   self.ss_y_ ~= ss_y then
+	   self.ss_y_ ~= ss_y or
+	   self.ss_t_ ~= ss_t then
 		self.ss_p_ = ss_p
 		self.ss_h_ = ss_h
 		self.ss_u_ = ss_u
@@ -479,6 +481,7 @@ function profile_i:sample_simstate()
 		self.ss_a_ = ss_a
 		self.ss_e_ = ss_e
 		self.ss_y_ = ss_y
+		self.ss_t_ = ss_t
 		return true
 	end
 	return false
