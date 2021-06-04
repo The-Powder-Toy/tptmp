@@ -26,6 +26,7 @@ return {
 	max_rooms = 100,
 	max_rooms_per_owner = 10,
 	max_owners_per_room = 10,
+	max_blocks_per_user = 100,
 	max_invites_per_room = 20,
 	max_clients_per_room = 20, -- * Upper limit is 255.
 	max_clients_per_host = 4, -- * Must be at least 2 for ghosting to work.

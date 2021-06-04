@@ -33,29 +33,11 @@ return {
 				return { status = "ok" }
 			end,
 		},
-		all_clients = {
+		clients = {
 			func = function(rcon, data)
 				local server = rcon:server()
 				local clients = {}
 				for client in pairs(server.clients_) do
-					table.insert(clients, serialize_client(client))
-				end
-				clients[0] = #clients
-				return { status = "ok", clients = clients }
-			end,
-		},
-		room_clients = {
-			func = function(rcon, data)
-				local server = rcon:server()
-				if type(data.room) ~= "string" then
-					return { status = "badroom", human = "invalid room", room = data.room }
-				end
-				local room = server:room_by_name(data.room)
-				if not room then
-					return { status = "enoent", human = "no such room", room = data.room }
-				end
-				local clients = {}
-				for client in room:clients() do
 					table.insert(clients, serialize_client(client))
 				end
 				clients[0] = #clients

@@ -48,14 +48,15 @@ return {
 							client:send_server("* The room has too many invites, use /uninvite to remove one")
 							return true
 						end
-						if not room_info.invites then
-							room_info.invites = {}
-						end
-						if not util.array_find(room_info.invites, other_uid) then
+						local idx = room_info.invites and util.array_find(room_info.invites, other_uid)
+						if not idx then
+							if not room_info.invites then
+								room_info.invites = {}
+							end
 							table.insert(room_info.invites, other_uid)
+							room_info.invites[0] = #room_info.invites
+							dconf:commit()
 						end
-						room_info.invites[0] = #room_info.invites
-						dconf:commit()
 						client:send_server("* Invite successfully sent and recorded")
 					else
 						client:send_server("* You are not an owner of this room")

@@ -81,7 +81,13 @@ xpcall(function()
 	end)
 
 	-- * util.cqueues_wrap shouldn't throw errors.
-	local ok, err = queue:loop()
+	local ok, err = pcall(function()
+		assert(queue:loop())
+	end)
+	if err:find("interrupted!$") then
+		log.inf("interrupted")
+		ok = true
+	end
 	assert(ok or err == util.CQUEUES_WRAP_RETHROW, "sanity check failure")
 end, function(err)
 	io.stderr:write("[rip] top-level error: " .. tostring(err) .. "\n")

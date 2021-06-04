@@ -1,4 +1,5 @@
-local util = require("tptmp.server.util")
+local util   = require("tptmp.server.util")
+local config = require("tptmp.server.config")
 
 local client_block_i = {}
 
@@ -42,6 +43,11 @@ return {
 					local uids = blocked_by[tostring(other_uid)]
 					local idx = uids and util.array_find(uids, client:uid())
 					if not idx then
+						local blocks = uids and #uids or 0
+						if blocks >= config.max_blocks_per_user then
+							client:send_server("You have blocked too many users, contact staff")
+							return true
+						end
 						blocked = true
 						if not uids then
 							uids = {}

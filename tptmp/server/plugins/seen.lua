@@ -5,6 +5,10 @@ return {
 				if not words[2] then
 					return false
 				end
+				if client:guest() then
+					client:send_server("Guests have no reason to use /seen")
+					return true
+				end
 				local nick = words[2]
 				local server = client:server()
 				local other = server:client_by_nick(nick)
@@ -13,17 +17,11 @@ return {
 					client:send_server("* No such user")
 					return true
 				end
-				if other and not server:phost():call_check_all("can_interact_with", client, other) then
-					other = nil
-				end
 				if other then
 					client:send_server(("* %s is currently online"):format(other:nick()))
 					return true
 				end
 				local seen = server:dconf():root().seen[tostring(other_uid)]
-				if not server:phost():call_check_all("can_interact_with", client, other_uid) then
-					seen = nil
-				end
 				if not seen then
 					client:send_server(("* %s has never been online"):format(other_nick))
 					return true

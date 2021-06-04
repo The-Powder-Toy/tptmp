@@ -135,6 +135,7 @@ function client_i:push_names(prefix)
 end
 
 function client_i:handle_room_16_()
+	sim.clearSim()
 	self.room_name_ = self:read_str8_()
 	local self_id, item_count = self:read_bytes_(2)
 	self.id_to_member = {}

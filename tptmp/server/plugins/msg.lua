@@ -8,13 +8,6 @@ return {
 				local message = message:sub(offsets[3])
 				local server = client:server()
 				local other = server:client_by_nick(words[2])
-				local ciw = true
-				if other then
-					ciw = server:phost():call_check_all("can_interact_with", client, other:uid())
-					if not ciw and other:room() ~= client:room() then
-						other = nil
-					end
-				end
 				if not other then
 					client:send_server("* User not online")
 					return true
@@ -25,7 +18,7 @@ return {
 					return true
 				end
 				client:send_server(("* %s << %s"):format(other:nick(), message))
-				if ciw then
+				if server:phost():call_check_all("can_interact_with", client, other) then
 					other:send_server(("* %s >> %s"):format(client:nick(), message))
 					other.reply_to_ = client:nick()
 					server.log_inf_("$ >> $: $", client:nick(), other:nick(), message)
