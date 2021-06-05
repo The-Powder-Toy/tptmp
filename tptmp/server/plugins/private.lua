@@ -35,6 +35,7 @@ return {
 				local room = client:room()
 				local server = client:server()
 				local other = server:client_by_nick(words[2])
+				-- * TODO[req]: invite guests temporarily (until they leave)
 				local other_uid, other_nick = server:offline_user_by_nick(words[2])
 				if not other_uid and not other then
 					client:send_server("* No such user")

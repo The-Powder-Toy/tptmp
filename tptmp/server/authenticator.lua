@@ -32,7 +32,7 @@ local function check_external_auth(client, token)
 	if not req then
 		return nil, err
 	end
-	local headers, stream = req:go()
+	local headers, stream = req:go(config.auth_backend_timeout)
 	if not headers then
 		return nil, stream
 	end

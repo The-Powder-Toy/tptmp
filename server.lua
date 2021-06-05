@@ -84,7 +84,7 @@ xpcall(function()
 	local ok, err = pcall(function()
 		assert(queue:loop())
 	end)
-	if err:find("interrupted!$") then
+	if type(err) == "string" and err:find("interrupted!$") then
 		log.inf("interrupted")
 		ok = true
 	end

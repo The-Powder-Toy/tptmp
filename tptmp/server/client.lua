@@ -28,7 +28,17 @@ end
 function client_i:read_(count)
 	local collect
 	while count > 0 do
-		if self.status_ == "running" and self.socket_:pending() == 0 then
+		if self.status_ ~= "running" then
+			self:stop_()
+			self:proto_stop_()
+		end
+		local recvq = self.socket_:pending()
+		if recvq > config.recvq_limit then
+			self.log_inf_("recv queue limit exceeded")
+			self:stop_()
+			self:proto_stop_()
+		end
+		if self.status_ == "running" and recvq == 0 then
 			util.cqueues_poll(self.socket_readable_, self.wake_)
 		end
 		if self.status_ ~= "running" then
@@ -38,7 +48,7 @@ function client_i:read_(count)
 		local data, err = self.socket_:read(-count)
 		if not data or (err and err ~= errno.EAGAIN) then
 			if self.socket_:eof("r") then
-				self.log_inf_("connection closed")
+				self.log_inf_("connection closed while reading")
 			else
 				self.log_inf_("read failed with code $", err)
 			end
@@ -109,10 +119,6 @@ end
 
 function client_i:send_quickauth_failure()
 	self:write_("\4")
-end
-
-function client_i:send_reconnect_later()
-	self:write_("\5")
 end
 
 function client_i:send_room(id, name, item_count)
@@ -254,7 +260,7 @@ forward_to_room(    "clearsim", 63, 0)
 forward_to_room(   "brushdeco", 65, 4)
 forward_to_room(   "clearrect", 67, 6)
 forward_to_room(  "canceldraw", 68, 0)
-forward_to_room(  "loadonline", 69, 3)
+forward_to_room(  "loadonline", 69, 9)
 forward_to_room(   "reloadsim", 70, 0)
 forward_to_room( "placestatus", 71, 4)
 forward_to_room("selectstatus", 72, 4)
@@ -262,28 +268,37 @@ forward_to_room(   "zoomstart", 73, 4)
 forward_to_room(     "zoomend", 74, 0)
 forward_to_room(   "sparksign", 75, 3)
 
+function client_i:proto_assert_(got, expected)
+	if got ~= expected then
+		self:proto_error_("unexpected packet ID (%i ~= %i)", got, expected)
+	end
+	return got
+end
+
 function client_i:handle_sync_done_128_()
 	local data = {
-		self:read_(1), -- loadonline_69
+		self:proto_assert_(self:read_(1), "\69"), -- * loadonline_69
 		self.room_id_str_,
-		self:read_(4), -- sync_30 (starting at the 4th byte)
+		self:read_(9),
+		self:proto_assert_(self:read_(1), "\30"), -- * sync_30
 		self.room_id_str_,
 		self:read_(3),
 		self:read_str24_(),
-		self:read_(1), -- simstate_38
+		self:proto_assert_(self:read_(1), "\38"), -- * simstate_38
 		self.room_id_str_,
 		self:read_(5),
 	}
 	for target in pairs(self.syncing_for_) do
-		target:write_(      data[1])
-		target:write_(      data[2])
-		target:write_(      data[3])
-		target:write_(      data[4])
-		target:write_(      data[5])
-		target:write_str24_(data[6])
-		target:write_(      data[7])
-		target:write_(      data[8])
-		target:write_(      data[9])
+		target:write_(      data[ 1])
+		target:write_(      data[ 2])
+		target:write_(      data[ 3])
+		target:write_(      data[ 4])
+		target:write_(      data[ 5])
+		target:write_(      data[ 6])
+		target:write_str24_(data[ 7])
+		target:write_(      data[ 8])
+		target:write_(      data[ 9])
+		target:write_(      data[10])
 	end
 	self.syncing_for_ = nil
 end
@@ -341,9 +356,6 @@ function client_i:handshake_()
 	local ok, err, err2 = self.server_:phost():call_check_all("can_connect", self)
 	if not ok then
 		self:proto_close_(err, "%s", err2)
-	end
-	if self.server_:connection_limit(self.host_) then
-		self:proto_close_("connection limit exceeded")
 	end
 	self.flags_ = self:read_bytes_(1)
 	self.guest_ = false
@@ -404,6 +416,15 @@ function client_i:handshake_()
 	end
 end
 
+function client_i:early_drop(message)
+	self.log_inf_("dropped early: $", message)
+	self:send_handshake_failure_(message:sub(1, 255))
+	self.socket_:flush("n", config.sendq_flush_timeout)
+	self.socket_:shutdown()
+	self.socket_:close()
+	self.socket_ = nil
+end
+
 function client_i:drop(message, log_message)
 	self.log_inf_("dropped: $", log_message or message)
 	if self.handshake_done_ then
@@ -431,6 +452,7 @@ local packet_handlers = {}
 function client_i:proto_()
 	self.socket_:setmode("bn", "bn")
 	self.socket_:onerror(function(_, _, code, _)
+		self.socket_:clearerr()
 		return code
 	end)
 	local real_error
@@ -476,15 +498,19 @@ function client_i:proto_()
 	if real_error then
 		error("proto died")
 	end
+	self.status_ = "dead"
 	self.socket_:flush("n", config.sendq_flush_timeout)
 	self.socket_:shutdown()
-	self.socket_:close()
 	if self.room_ then
 		self.room_:leave(self)
 	end
 	self.server_:remove_client(self)
-	self.status_ = "dead"
 	self.wake_:signal()
+	while self.writing_ > 0 do
+		self.wake_:wait()
+	end
+	self.socket_:close()
+	self.socket_ = nil
 end
 
 function client_i:expect_ping_()
@@ -504,15 +530,20 @@ function client_i:expect_ping_()
 end
 
 function client_i:write_(data)
-	if self.status_ ~= "running" then
+	if not self.socket_ then
 		return
 	end
+	self.writing_ = self.writing_ + 1
 	local ok, err = self.socket_:write(data)
+	self.writing_ = self.writing_ - 1
+	if self.status_ ~= "running" then
+		self.wake_:signal()
+	end
 	if not ok then
 		if self.socket_:eof("w") then
-			self.log_inf_("connection closed")
+			self.log_inf_("connection closed while writing")
 		else
-			self.log_inf_("send failed with code $", err)
+			self.log_inf_("write failed with code $", err)
 		end
 		self:stop_()
 		return
@@ -635,6 +666,7 @@ local function new(params)
 		wake_ = condition.new(),
 		log_wrn_ = log.derive(log.wrn, "[" .. params.name .. "] "),
 		log_inf_ = log.derive(log.inf, "[" .. params.name .. "] "),
+		writing_ = 0,
 	}, client_m)
 end
 

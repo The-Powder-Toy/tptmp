@@ -24,7 +24,11 @@ local function get_auth_token(uid, sess)
 		[ "X-Auth-User-Id" ] = uid,
 		[ "X-Auth-Session-Key" ] = sess,
 	})
+	local started_at = socket.gettime()
 	while req:status() == "running" do
+		if socket.gettime() > started_at + config.auth_backend_timeout then
+			return nil, "timeout", "authentication backend down"
+		end
 		coroutine.yield()
 	end
 	local body, code = req:finish()
@@ -122,7 +126,7 @@ function member_i:update_can_render()
 end
 
 function client_i:add_member_(id, nick)
-	if self.id_to_member[id] then
+	if self.id_to_member[id] or id == self.self_id_ then
 		self:proto_close_("member already exists")
 	end
 	self.id_to_member[id] = setmetatable({
@@ -137,7 +141,8 @@ end
 function client_i:handle_room_16_()
 	sim.clearSim()
 	self.room_name_ = self:read_str8_()
-	local self_id, item_count = self:read_bytes_(2)
+	local item_count
+	self.self_id_, item_count = self:read_bytes_(2)
 	self.id_to_member = {}
 	for i = 1, item_count do
 		local id = self:read_bytes_(1)
@@ -216,7 +221,7 @@ function client_i:handle_pastestamp_31_()
 	local data = self:read_str24_()
 	local ok, err = util.stamp_load(x, y, data, false)
 	if ok then
-		-- log_event(config.print_prefix .. colours.commonstr.event .. "Stamp from " .. member.formatted_nick) -- * Not really needed thanks to the stamp intent displays in init.lua.
+		log_event(config.print_prefix .. colours.commonstr.event .. "Stamp from " .. member.formatted_nick) -- * Not really needed thanks to the stamp intent displays in init.lua.
 	else
 		log_event(config.print_prefix .. colours.commonstr.error .. "Failed to paste stamp from " .. member.formatted_nick .. colours.commonstr.error .. ": " .. err)
 	end
@@ -355,8 +360,8 @@ function client_i:handle_simstate_38_()
 			log_event(config.print_prefix .. colours.commonstr.event .. desc.format:format(desc.states[value + 1], member.formatted_nick))
 		end
 	end
-	if util.ambientAirTemp() ~= temp then
-		local set = util.ambientAirTemp(temp)
+	if util.ambient_air_temp() ~= temp then
+		local set = util.ambient_air_temp(temp)
 		log_event(config.print_prefix .. colours.commonstr.event .. ("Ambient air temperature set to %.2f by %s"):format(set, member.formatted_nick))
 	end
 	self.profile_:sample_simstate()
@@ -463,7 +468,7 @@ end
 function client_i:handle_clearsim_63_()
 	local member = self:member_prefix_()
 	sim.clearSim()
-	self.set_id_func_(nil)
+	self.set_id_func_(nil, nil)
 	log_event(config.print_prefix .. colours.commonstr.event .. "Simulation cleared by " .. member.formatted_nick)
 end
 
@@ -490,10 +495,14 @@ end
 function client_i:handle_loadonline_69_()
 	local member = self:member_prefix_()
 	local id = self:read_24be_()
+	local histhi = self:read_24be_()
+	local histlo = self:read_24be_()
+	local hist = histhi * 0x1000000 + histlo
 	if id > 0 then
-		sim.loadSave(id, 1)
-		self.set_id_func_(id)
-		log_event(config.print_prefix .. colours.commonstr.event .. "Online save id:" .. id .. " loaded by " .. member.formatted_nick)
+		sim.loadSave(id, 1, hist)
+		coroutine.yield() -- * sim.loadSave seems to take effect one frame late.
+		self.set_id_func_(id, hist)
+		log_event(config.print_prefix .. colours.commonstr.event .. "Online save " .. (hist == 0 and "id" or "history") .. ":" .. id .. " loaded by " .. member.formatted_nick)
 	end
 end
 
@@ -595,13 +604,16 @@ end
 
 function client_i:handshake_()
 	self.window_:set_subtitle("status", "Registering")
+	self:tick_read_() -- * Deal with early handshake failures (e.g. connection limit exceeded).
 	local uid, sess, name = util.get_user()
-	self:write_bytes_(tpt.version.major, tpt.version.minor, config.version)
-	self:write_nullstr_((name or tpt.get_name() or ""):sub(1, 255))
-	self:write_bytes_(0) -- * Flags, currently unused.
-	local qa_uid, qa_token = manager.get("quickauth", ""):match("^([^:]+):([^:]+)$")
-	self:write_str8_(qa_token and qa_uid == uid and qa_token or "")
-	self:write_str8_(self.initial_room_ or "")
+	if self.rx_:pending() == 0 then
+		self:write_bytes_(tpt.version.major, tpt.version.minor, config.version)
+		self:write_nullstr_((name or tpt.get_name() or ""):sub(1, 255))
+		self:write_bytes_(0) -- * Flags, currently unused.
+		local qa_uid, qa_token = manager.get("quickauth", ""):match("^([^:]+):([^:]+)$")
+		self:write_str8_(qa_token and qa_uid == uid and qa_token or "")
+		self:write_str8_(self.initial_room_ or "")
+	end
 	local conn_status = self:read_bytes_(1)
 	local auth_err
 	if conn_status == 4 then -- * Quickauth failed.
@@ -610,6 +622,8 @@ function client_i:handshake_()
 		if not token then
 			if err == "non200" then
 				auth_err = "authentication failed (status code " .. info .. "); try again later or try restarting TPT"
+			elseif err == "timeout" then
+				auth_err = "authentication failed (timeout: " .. info .. "); try again later or try restarting TPT"
 			else
 				auth_err = "authentication failed (" .. err .. ": " .. info .. "); try logging out and back in and restarting TPT"
 			end
@@ -630,6 +644,9 @@ function client_i:handshake_()
 		self.guest_ = bit.band(self.flags_, 1) ~= 0
 		self.last_ping_sent_at_ = socket.gettime()
 		self.connecting_since_ = nil
+		if auth_err then
+			self.window_:backlog_push_error("Warning: " .. auth_err)
+		end
 		self.window_:backlog_push_registered(self.formatted_nick_)
 		self.profile_.client = self
 	elseif conn_status == 0 then
@@ -785,9 +802,11 @@ function client_i:send_canceldraw()
 	self:write_("\68")
 end
 
-function client_i:send_loadonline(id)
+function client_i:send_loadonline(id, hist)
 	self:write_("\69")
 	self:write_24be_(id)
+	self:write_24be_(math.floor(hist / 0x1000000))
+	self:write_24be_(           hist % 0x1000000 )
 end
 
 function client_i:send_pastestamp_data_(pid, x, y, w, h)
@@ -848,7 +867,8 @@ end
 
 function client_i:send_sync_done()
 	self:write_("\128")
-	self:send_loadonline(self.get_id_func_() or 0)
+	local id, hist = self.get_id_func_()
+	self:send_loadonline(id or 0, hist or 0)
 	self:send_sync()
 	self.profile_:simstate_sync()
 end
@@ -876,7 +896,7 @@ function client_i:start()
 end
 
 function client_i:tick_read_()
-	if self.connected_ then
+	if self.connected_ and not self.read_closed_ then
 		while true do
 			local closed = false
 			local data, err, partial = self.socket_:receive(config.read_size)
@@ -894,7 +914,7 @@ function client_i:tick_read_()
 			self.rx_:push(data)
 			if closed then
 				self:tick_resume_()
-				self:stop("connection closed")
+				self.read_closed_ = true
 				break
 			end
 			if #data < config.read_size then
@@ -905,7 +925,7 @@ function client_i:tick_read_()
 end
 
 function client_i:tick_resume_()
-	if self.proto_coro_ then
+	if self.proto_coro_ and coroutine.running() ~= self.proto_coro_ then
 		assert(coroutine.resume(self.proto_coro_))
 		if self.proto_coro_ and coroutine.status(self.proto_coro_) == "dead" then
 			self:stop("proto coroutine died")
@@ -922,6 +942,9 @@ function client_i:tick_write_()
 			end
 			local closed = false
 			local count = last - first + 1
+			if self.socket_:status() ~= "connected" then
+				break
+			end
 			local written_up_to, err, partial_up_to = self.socket_:send(data, first, last)
 			if not written_up_to then
 				if err == "closed" then

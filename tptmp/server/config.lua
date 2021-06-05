@@ -10,6 +10,7 @@ return {
 	version = common_config.version,
 	tpt_version_min = { 91, 4 }, -- * TODO[fin]: Bump to 96.0.
 	tpt_version_max = { 95, 0 }, -- * TODO[fin]: Bump to 96.0.
+	recvq_limit = 0x2000000,
 	sendq_limit = 0x2000000,
 	sendq_flush_timeout = 3,
 	rcon_sendq_flush_timeout = 3,
@@ -36,7 +37,9 @@ return {
 	message_interval = common_config.message_interval,
 	max_message_interval_violations = 10,
 	auth_backend = common_config.auth_backend,
+	auth_backend_timeout = common_config.auth_backend_timeout,
 	uid_backend = common_config.uid_backend,
+	uid_backend_timeout = common_config.uid_backend_timeout,
 	max_room_name_length = 32,
 	max_nick_length = 32,
 }

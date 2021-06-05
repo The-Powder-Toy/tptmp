@@ -31,12 +31,12 @@ local function run()
 	}
 	rawset(_G, "TPTMP", TPTMP)
 
-	local current_id = sim.getSaveID()
-	local function set_id(id)
-		current_id = id
+	local current_id, current_hist = util.get_save_id()
+	local function set_id(id, hist)
+		current_id, current_hist = id, hist
 	end
 	local function get_id()
-		return current_id
+		return current_id, current_hist
 	end
 	local should_reconnect_at
 	local cli

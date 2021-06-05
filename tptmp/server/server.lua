@@ -39,11 +39,13 @@ function server_i:rooms_full()
 end
 
 function server_i:insert_client_(client)
+	local host_string = tostring(client:host())
+	self.host_connections_[host_string] = (self.host_connections_[host_string] or 0) + 1
 	self.clients_[client] = true
 	self.log_inf_("$ connected from $", client:name(), client:host())
 end
 
-function server_i:connection_limit(host)
+function server_i:connection_limit_(host)
 	return (self.host_connections_[tostring(host)] or 0) >= config.max_clients_per_host
 end
 
@@ -54,8 +56,6 @@ function server_i:register_client(client)
 	if not client:guest() then
 		self.uid_to_client_[client:uid()] = client
 	end
-	local host_string = tostring(client:host())
-	self.host_connections_[host_string] = (self.host_connections_[host_string] or 0) + 1
 	self.phost_:call_hook("connect", client)
 	if not client:guest() then
 		self:cache_uid_to_nick_(client:uid(), client:nick())
@@ -79,11 +79,11 @@ function server_i:remove_client(client)
 		if not client:guest() then
 			self.uid_to_client_[client:uid()] = nil
 		end
-		local host_string = tostring(client:host())
-		self.host_connections_[host_string] = self.host_connections_[host_string] - 1
-		if self.host_connections_[host_string] == 0 then
-			self.host_connections_[host_string] = nil
-		end
+	end
+	local host_string = tostring(client:host())
+	self.host_connections_[host_string] = self.host_connections_[host_string] - 1
+	if self.host_connections_[host_string] == 0 then
+		self.host_connections_[host_string] = nil
 	end
 	self.log_inf_("$ disconnected", client:name())
 end
@@ -106,8 +106,12 @@ function server_i:listen_()
 				socket = server_socket:accept(),
 				name = "client-" .. self.client_unique_,
 			})
-			self:insert_client_(client)
-			client:start()
+			if self:connection_limit_(client:host()) then
+				client:early_drop("connection limit exceeded")
+			else
+				self:insert_client_(client)
+				client:start()
+			end
 		end
 	end
 	for client in util.safe_pairs(self.clients_) do
@@ -218,7 +222,7 @@ local function fetch_user(nick)
 	if not req then
 		return nil, err
 	end
-	local headers, stream = req:go()
+	local headers, stream = req:go(config.uid_backend_timeout)
 	if not headers then
 		return nil, stream
 	end

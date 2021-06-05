@@ -131,9 +131,9 @@ local function in_zoom_window(x, y)
 	return ren.zoomEnabled() and (ax ~= x or ay ~= y)
 end
 
-function profile_i:report_loadonline_(id)
+function profile_i:report_loadonline_(id, hist)
 	if self.client then
-		self.client:send_loadonline(id)
+		self.client:send_loadonline(id, hist)
 	end
 end
 
@@ -410,10 +410,12 @@ function profile_i:post_event_check_()
 			local x, y, w, h = util.corners_to_rect(x1, y1, x2, y2)
 			self.simstate_invalid_ = true
 			if self.placesave_open_ then
-				local id = sim.getSaveID()
-				self.set_id_func_(id)
+				local id, hist = util.get_save_id()
+				local histlo = hist % 0x1000000
+				local histhi = math.floor(hist / 0x1000000)
+				self.set_id_func_(id, hist)
 				if id then
-					self:report_loadonline_(id)
+					self:report_loadonline_(id, hist)
 				else
 					self:report_pastestamp_(x, y, w, h)
 				end
@@ -423,7 +425,7 @@ function profile_i:post_event_check_()
 				end
 				self:report_reloadsim_()
 			elseif self.placesave_clear_ then
-				self.set_id_func_(nil)
+				self.set_id_func_(nil, nil)
 				self:report_clearsim_()
 			else
 				self:report_pastestamp_(x, y, w, h)
@@ -461,7 +463,7 @@ function profile_i:sample_simstate()
 	local ss_a = sim.airMode()
 	local ss_e = sim.edgeMode()
 	local ss_y = sim.prettyPowders()
-	local ss_t = util.ambientAirTemp()
+	local ss_t = util.ambient_air_temp()
 	if self.ss_p_ ~= ss_p or
 	   self.ss_h_ ~= ss_h or
 	   self.ss_u_ ~= ss_u or

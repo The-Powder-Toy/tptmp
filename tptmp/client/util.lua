@@ -518,7 +518,7 @@ local function fnv1a32(data)
 	return hash < 0 and (hash + 0x100000000) or hash
 end
 
-local function ambientAirTemp(temp)
+local function ambient_air_temp(temp)
 	if temp then
 		local set = temp / 0x400
 		sim.ambientAirTemp(set)
@@ -526,6 +526,14 @@ local function ambientAirTemp(temp)
 	else
 		return math.floor(sim.ambientAirTemp() * 0x400)
 	end
+end
+
+local function get_save_id()
+	local id, hist = sim.getSaveID()
+	if id and not hist then
+		hist = 0
+	end
+	return id, hist
 end
 
 return {
@@ -553,5 +561,6 @@ return {
 	corners_to_rect = corners_to_rect,
 	escape_regex = escape_regex,
 	fnv1a32 = fnv1a32,
-	ambientAirTemp = ambientAirTemp,
+	ambient_air_temp = ambient_air_temp,
+	get_save_id = get_save_id,
 }
