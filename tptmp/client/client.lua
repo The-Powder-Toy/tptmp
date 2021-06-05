@@ -1,5 +1,5 @@
+local buffer_list = require("tptmp.common.buffer_list")
 local colours     = require("tptmp.client.colours")
-local buffer_list = require("tptmp.client.buffer_list")
 local config      = require("tptmp.client.config")
 local util        = require("tptmp.client.util")
 local format      = require("tptmp.client.format")
@@ -604,16 +604,13 @@ end
 
 function client_i:handshake_()
 	self.window_:set_subtitle("status", "Registering")
-	self:tick_read_() -- * Deal with early handshake failures (e.g. connection limit exceeded).
 	local uid, sess, name = util.get_user()
-	if self.rx_:pending() == 0 then
-		self:write_bytes_(tpt.version.major, tpt.version.minor, config.version)
-		self:write_nullstr_((name or tpt.get_name() or ""):sub(1, 255))
-		self:write_bytes_(0) -- * Flags, currently unused.
-		local qa_uid, qa_token = manager.get("quickauth", ""):match("^([^:]+):([^:]+)$")
-		self:write_str8_(qa_token and qa_uid == uid and qa_token or "")
-		self:write_str8_(self.initial_room_ or "")
-	end
+	self:write_bytes_(tpt.version.major, tpt.version.minor, config.version)
+	self:write_nullstr_((name or tpt.get_name() or ""):sub(1, 255))
+	self:write_bytes_(0) -- * Flags, currently unused.
+	local qa_uid, qa_token = manager.get("quickauth", ""):match("^([^:]+):([^:]+)$")
+	self:write_str8_(qa_token and qa_uid == uid and qa_token or "")
+	self:write_str8_(self.initial_room_ or "")
 	local conn_status = self:read_bytes_(1)
 	local auth_err
 	if conn_status == 4 then -- * Quickauth failed.
@@ -911,10 +908,14 @@ function client_i:tick_read_()
 					break
 				end
 			end
-			self.rx_:push(data)
+			local pushed, count = self.rx_:push(data)
+			if pushed < count then
+				self:stop("recv queue limit exceeded")
+				break
+			end
 			if closed then
 				self:tick_resume_()
-				self.read_closed_ = true
+				self:stop("connection closed")
 				break
 			end
 			if #data < config.read_size then
@@ -925,7 +926,7 @@ function client_i:tick_read_()
 end
 
 function client_i:tick_resume_()
-	if self.proto_coro_ and coroutine.running() ~= self.proto_coro_ then
+	if self.proto_coro_ then
 		assert(coroutine.resume(self.proto_coro_))
 		if self.proto_coro_ and coroutine.status(self.proto_coro_) == "dead" then
 			self:stop("proto coroutine died")
@@ -1131,7 +1132,7 @@ local function new(params)
 		secure_ = params.secure,
 		event_log_ = params.event_log,
 		backlog_ = params.backlog,
-		rx_ = buffer_list.new({}),
+		rx_ = buffer_list.new({ limit = config.recvq_limit }),
 		tx_ = buffer_list.new({ limit = config.sendq_limit }),
 		connecting_since_ = now,
 		last_ping_sent_at_ = now,

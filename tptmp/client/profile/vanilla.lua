@@ -411,8 +411,6 @@ function profile_i:post_event_check_()
 			self.simstate_invalid_ = true
 			if self.placesave_open_ then
 				local id, hist = util.get_save_id()
-				local histlo = hist % 0x1000000
-				local histhi = math.floor(hist / 0x1000000)
 				self.set_id_func_(id, hist)
 				if id then
 					self:report_loadonline_(id, hist)

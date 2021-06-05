@@ -10,7 +10,8 @@ return {
 	version = common_config.version,
 	tpt_version_min = { 91, 4 }, -- * TODO[fin]: Bump to 96.0.
 	tpt_version_max = { 95, 0 }, -- * TODO[fin]: Bump to 96.0.
-	recvq_limit = 0x2000000,
+	read_size = 0x1000000,
+	recvq_limit = 0x200000,
 	sendq_limit = 0x2000000,
 	sendq_flush_timeout = 3,
 	rcon_sendq_flush_timeout = 3,

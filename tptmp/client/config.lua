@@ -7,6 +7,7 @@ local config = {
 	default_port = common_config.port,
 	default_secure = common_config.secure,
 	read_size = 0x1000000,
+	recvq_limit = 0x200000,
 	sendq_limit = 0x2000000,
 	connect_timeout = 15,
 	ping_interval = 60,

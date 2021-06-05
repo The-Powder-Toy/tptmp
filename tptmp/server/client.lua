@@ -1,10 +1,11 @@
-local cqueues   = require("cqueues")
-local condition = require("cqueues.condition")
-local errno     = require("cqueues.errno")
-local log       = require("tptmp.server.log")
-local util      = require("tptmp.server.util")
-local config    = require("tptmp.server.config")
-local jnet      = require("jnet")
+local cqueues     = require("cqueues")
+local condition   = require("cqueues.condition")
+local errno       = require("cqueues.errno")
+local buffer_list = require("tptmp.common.buffer_list")
+local log         = require("tptmp.server.log")
+local util        = require("tptmp.server.util")
+local config      = require("tptmp.server.config")
+local jnet        = require("jnet")
 
 local PROTO_STOP = {}
 local PROTO_ERROR = {}
@@ -26,47 +27,16 @@ function client_i:proto_error_(...)
 end
 
 function client_i:read_(count)
-	local collect
-	while count > 0 do
+	while true do
 		if self.status_ ~= "running" then
-			self:stop_()
 			self:proto_stop_()
 		end
-		local recvq = self.socket_:pending()
-		if recvq > config.recvq_limit then
-			self.log_inf_("recv queue limit exceeded")
-			self:stop_()
-			self:proto_stop_()
+		if self.rx_:pending() >= count then
+			break
 		end
-		if self.status_ == "running" and recvq == 0 then
-			util.cqueues_poll(self.socket_readable_, self.wake_)
-		end
-		if self.status_ ~= "running" then
-			self:stop_()
-			self:proto_stop_()
-		end
-		local data, err = self.socket_:read(-count)
-		if not data or (err and err ~= errno.EAGAIN) then
-			if self.socket_:eof("r") then
-				self.log_inf_("connection closed while reading")
-			else
-				self.log_inf_("read failed with code $", err)
-			end
-			self:stop_()
-			self:proto_stop_()
-		end
-		if #data > 0 then
-			if not collect then
-				if #data == count then
-					return data
-				end
-				collect = {}
-			end
-			table.insert(collect, data)
-			count = count - #data
-		end
+		util.cqueues_poll(self.wake_, self.read_wake_)
 	end
-	return collect and table.concat(collect) or ""
+	return self.rx_:get(count)
 end
 
 function client_i:read_str24_()
@@ -419,10 +389,7 @@ end
 function client_i:early_drop(message)
 	self.log_inf_("dropped early: $", message)
 	self:send_handshake_failure_(message:sub(1, 255))
-	self.socket_:flush("n", config.sendq_flush_timeout)
-	self.socket_:shutdown()
-	self.socket_:close()
-	self.socket_ = nil
+	self:close_socket_()
 end
 
 function client_i:drop(message, log_message)
@@ -449,6 +416,78 @@ end
 
 local packet_handlers = {}
 
+function client_i:close_socket_()
+	self.socket_:flush("n", config.sendq_flush_timeout)
+	self.socket_:shutdown()
+	self.socket_:close()
+end
+
+function client_i:manage_socket_()
+	local read_pollable = { pollfd = self.socket_:pollfd(), events = "r" }
+	local write_pollable = { pollfd = self.socket_:pollfd(), events = "w" }
+	while self.status_ == "running" do
+		if self.tx_:next() then
+			util.cqueues_poll(read_pollable, self.write_wake_, write_pollable, self.wake_)
+		else
+			util.cqueues_poll(read_pollable, self.write_wake_, self.wake_)
+		end
+		while true do
+			local closed = false
+			local data, err = self.socket_:recv(-config.read_size)
+			if not data then
+				if err == errno.EAGAIN then
+					break
+				end
+				if self.socket_:eof("r") then
+					self.log_inf_("connection reached eof")
+				else
+					self.log_inf_("recv failed with code $", err)
+				end
+				self:stop_()
+				break
+			end
+			if not data then
+				break
+			end
+			local pushed, count = self.rx_:push(data)
+			if pushed < count then
+				self.log_inf_("recv queue limit exceeded")
+				self:stop_()
+				break
+			end
+			self.read_wake_:signal()
+			if #data < config.read_size then
+				break
+			end
+		end
+		while true do
+			local data, first, last = self.tx_:next()
+			if not data then
+				break
+			end
+			local count = last - first + 1
+			local written, err = self.socket_:send(data, first, last)
+			self.tx_:pop(written)
+			if err then
+				if err == errno.EAGAIN then
+					break
+				end
+				if self.socket_:eof("w") then
+					self.log_inf_("connection closed")
+				else
+					self.log_inf_("send failed with code $", err)
+				end
+				self:stop_()
+				break
+			end
+			if written < count then
+				break
+			end
+		end
+	end
+	self:close_socket_()
+end
+
 function client_i:proto_()
 	self.socket_:setmode("bn", "bn")
 	self.socket_:onerror(function(_, _, code, _)
@@ -470,6 +509,9 @@ function client_i:proto_()
 				self:proto_error_("incorrect hostname: (%s ~= %s)", hostname, config.secure_hostname)
 			end
 		end
+		util.cqueues_wrap(cqueues.running(), function()
+			self:manage_socket_()
+		end)
 		util.cqueues_wrap(cqueues.running(), function()
 			self:expect_ping_()
 		end)
@@ -499,18 +541,11 @@ function client_i:proto_()
 		error("proto died")
 	end
 	self.status_ = "dead"
-	self.socket_:flush("n", config.sendq_flush_timeout)
-	self.socket_:shutdown()
 	if self.room_ then
 		self.room_:leave(self)
 	end
 	self.server_:remove_client(self)
 	self.wake_:signal()
-	while self.writing_ > 0 do
-		self.wake_:wait()
-	end
-	self.socket_:close()
-	self.socket_ = nil
 end
 
 function client_i:expect_ping_()
@@ -530,29 +565,12 @@ function client_i:expect_ping_()
 end
 
 function client_i:write_(data)
-	if not self.socket_ then
-		return
-	end
-	self.writing_ = self.writing_ + 1
-	local ok, err = self.socket_:write(data)
-	self.writing_ = self.writing_ - 1
-	if self.status_ ~= "running" then
-		self.wake_:signal()
-	end
-	if not ok then
-		if self.socket_:eof("w") then
-			self.log_inf_("connection closed while writing")
-		else
-			self.log_inf_("write failed with code $", err)
-		end
-		self:stop_()
-		return
-	end
-	local _, sendq = self.socket_:pending()
-	if sendq > config.sendq_limit then
+	local pushed, count = self.tx_:push(data)
+	if pushed < count then
 		self.log_inf_("send queue limit exceeded")
 		self:stop_()
 	end
+	self.write_wake_:signal()
 end
 
 function client_i:write_bytes_(...)
@@ -664,9 +682,12 @@ local function new(params)
 		host_ = host,
 		status_ = "ready",
 		wake_ = condition.new(),
+		read_wake_ = condition.new(),
+		write_wake_ = condition.new(),
 		log_wrn_ = log.derive(log.wrn, "[" .. params.name .. "] "),
 		log_inf_ = log.derive(log.inf, "[" .. params.name .. "] "),
-		writing_ = 0,
+		rx_ = buffer_list.new({ limit = config.recvq_limit }),
+		tx_ = buffer_list.new({ limit = config.sendq_limit }),
 	}, client_m)
 end
 
