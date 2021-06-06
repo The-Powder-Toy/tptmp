@@ -246,6 +246,7 @@ return {
 					end
 					reserve("null")
 					reserve("guest")
+					reserve("kicked")
 					dconf:root().rooms = rooms
 				end
 				dconf:commit()

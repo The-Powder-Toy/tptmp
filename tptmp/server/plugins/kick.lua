@@ -19,9 +19,9 @@ return {
 				end
 				other:send_server(("* You have been kicked by %s: %s"):format(client:nick(), reason))
 				room:log("$ kicked $: $", client:nick(), other:nick(), reason)
-				local ok, err = server:join_room(other, other:lobby_name())
+				local ok, err = server:join_room(other, "kicked")
 				if not ok then
-					other:drop("cannot join lobby: " .. err)
+					other:drop("cannot join kicked: " .. err)
 				end
 				return true
 			end,
