@@ -60,7 +60,16 @@ function client_i:read_(count)
 end
 
 function client_i:read_bytes_(count)
-	return self:read_(count):byte(1, count)
+	while self.rx_:pending() < count do
+		coroutine.yield()
+	end
+	local data, first, last = self.rx_:next()
+	if last - first + 1 >= count then
+		-- * Less memory-intensive path.
+		self.rx_:pop(count)
+		return data:byte(first, first + count - 1)
+	end
+	return self.rx_:get(count):byte(1, count)
 end
 
 function client_i:read_str24_()
@@ -611,6 +620,7 @@ function client_i:handshake_()
 	local qa_uid, qa_token = manager.get("quickauth", ""):match("^([^:]+):([^:]+)$")
 	self:write_str8_(qa_token and qa_uid == uid and qa_token or "")
 	self:write_str8_(self.initial_room_ or "")
+	self:write_flush_()
 	local conn_status = self:read_bytes_(1)
 	local auth_err
 	if conn_status == 4 then -- * Quickauth failed.
@@ -627,6 +637,7 @@ function client_i:handshake_()
 			token = ""
 		end
 		self:write_str8_(token)
+		self:write_flush_()
 		conn_status = self:read_bytes_(1)
 		if uid then
 			manager.set("quickauth", (conn_status == 1) and (uid .. ":" .. token) or "")
@@ -655,42 +666,49 @@ function client_i:handshake_()
 end
 
 function client_i:send_ping()
-	self:write_("\3")
+	self:write_flush_("\3")
 end
 
 function client_i:send_say(str)
 	self:write_("\19")
 	self:write_str8_(str)
+	self:write_flush_()
 end
 
 function client_i:send_say3rd(str)
 	self:write_("\20")
 	self:write_str8_(str)
+	self:write_flush_()
 end
 
 function client_i:send_mousepos(px, py)
 	self:write_("\32")
 	self:write_xy_12_(px, py)
+	self:write_flush_()
 end
 
 function client_i:send_brushmode(bmode)
 	self:write_("\33")
 	self:write_bytes_(bmode)
+	self:write_flush_()
 end
 
 function client_i:send_brushsize(sx, sy)
 	self:write_("\34")
 	self:write_bytes_(sx, sy)
+	self:write_flush_()
 end
 
 function client_i:send_brushshape(shape)
 	self:write_("\35")
 	self:write_bytes_(shape)
+	self:write_flush_()
 end
 
 function client_i:send_keybdmod(c, s, a)
 	self:write_("\36")
 	self:write_bytes_(bit.bor(c and 1 or 0, s and 2 or 0, a and 4 or 0))
+	self:write_flush_()
 end
 
 function client_i:send_selecttool(idx, xtype)
@@ -699,6 +717,7 @@ function client_i:send_selecttool(idx, xtype)
 	local hi = bit.band(bit.rshift(tool, 8), 0xFF)
 	local lo = bit.band(           tool    , 0xFF)
 	self:write_bytes_(hi, lo)
+	self:write_flush_()
 end
 
 function client_i:send_simstate(ss_p, ss_h, ss_u, ss_n, ss_w, ss_g, ss_a, ss_e, ss_y, ss_t)
@@ -718,65 +737,73 @@ function client_i:send_simstate(ss_p, ss_h, ss_u, ss_n, ss_w, ss_g, ss_a, ss_e, 
 	)
 	self:write_bytes_(toggles, multis)
 	self:write_24be_(ss_t)
+	self:write_flush_()
 end
 
 function client_i:send_flood(index, x, y)
 	self:write_("\39")
 	self:write_bytes_(index)
 	self:write_xy_12_(x, y)
+	self:write_flush_()
 end
 
 function client_i:send_lineend(x, y)
 	self:write_("\40")
 	self:write_xy_12_(x, y)
+	self:write_flush_()
 end
 
 function client_i:send_rectend(x, y)
 	self:write_("\41")
 	self:write_xy_12_(x, y)
+	self:write_flush_()
 end
 
 function client_i:send_pointsstart(index, x, y)
 	self:write_("\42")
 	self:write_bytes_(index)
 	self:write_xy_12_(x, y)
+	self:write_flush_()
 end
 
 function client_i:send_pointscont(x, y)
 	self:write_("\43")
 	self:write_xy_12_(x, y)
+	self:write_flush_()
 end
 
 function client_i:send_linestart(index, x, y)
 	self:write_("\44")
 	self:write_bytes_(index)
 	self:write_xy_12_(x, y)
+	self:write_flush_()
 end
 
 function client_i:send_rectstart(index, x, y)
 	self:write_("\45")
 	self:write_bytes_(index)
 	self:write_xy_12_(x, y)
+	self:write_flush_()
 end
 
 function client_i:send_stepsim()
-	self:write_("\50")
+	self:write_flush_("\50")
 end
 
 function client_i:send_sparkclear()
-	self:write_("\60")
+	self:write_flush_("\60")
 end
 
 function client_i:send_airclear()
-	self:write_("\61")
+	self:write_flush_("\61")
 end
 
 function client_i:send_airinv()
-	self:write_("\62")
+	self:write_flush_("\62")
 end
 
 function client_i:send_clearsim()
-	self:write_("\63")
+	self:write_flush_("\63")
 end
 
 function client_i:send_brushdeco(deco)
@@ -787,16 +814,18 @@ function client_i:send_brushdeco(deco)
 		bit.band(bit.rshift(deco,  8), 0xFF),
 		bit.band(           deco     , 0xFF)
 	)
+	self:write_flush_()
 end
 
 function client_i:send_clearrect(x, y, w, h)
 	self:write_("\67")
 	self:write_xy_12_(x, y)
 	self:write_xy_12_(w, h)
+	self:write_flush_()
 end
 
 function client_i:send_canceldraw()
-	self:write_("\68")
+	self:write_flush_("\68")
 end
 
 function client_i:send_loadonline(id, hist)
@@ -804,6 +833,7 @@ function client_i:send_loadonline(id, hist)
 	self:write_24be_(id)
 	self:write_24be_(math.floor(hist / 0x1000000))
 	self:write_24be_(           hist % 0x1000000 )
+	self:write_flush_()
 end
 
 function client_i:send_pastestamp_data_(pid, x, y, w, h)
@@ -814,6 +844,7 @@ function client_i:send_pastestamp_data_(pid, x, y, w, h)
 	self:write_(pid)
 	self:write_xy_12_(x, y)
 	self:write_str24_(data)
+	self:write_flush_()
 	return true
 end
 
@@ -832,38 +863,42 @@ function client_i:send_sync()
 end
 
 function client_i:send_reloadsim()
-	self:write_("\70")
+	self:write_flush_("\70")
 end
 
 function client_i:send_placestatus(k, w, h)
 	self:write_("\71")
 	self:write_bytes_(k)
 	self:write_xy_12_(w, h)
+	self:write_flush_()
 end
 
 function client_i:send_selectstatus(k, x, y)
 	self:write_("\72")
 	self:write_bytes_(k)
 	self:write_xy_12_(x, y)
+	self:write_flush_()
 end
 
 function client_i:send_zoomstart(x, y, s)
 	self:write_("\73")
 	self:write_xy_12_(x, y)
 	self:write_bytes_(s)
+	self:write_flush_()
 end
 
 function client_i:send_zoomend()
-	self:write_("\74")
+	self:write_flush_("\74")
 end
 
 function client_i:send_sparksign(x, y)
 	self:write_("\75")
 	self:write_xy_12_(x, y)
+	self:write_flush_()
 end
 
 function client_i:send_sync_done()
-	self:write_("\128")
+	self:write_flush_("\128")
 	local id, hist = self.get_id_func_()
 	self:send_loadonline(id or 0, hist or 0)
 	self:send_sync()
@@ -1043,7 +1078,22 @@ function client_i:stop(message)
 end
 
 function client_i:write_(data)
-	local pushed, count = self.tx_:push(data)
+	if not self.write_buf_ then
+		self.write_buf_ = data
+	elseif type(self.write_buf_) == "string" then
+		self.write_buf_ = { self.write_buf_, data }
+	else
+		table.insert(self.write_buf_, data)
+	end
+end
+
+function client_i:write_flush_(data)
+	if data then
+		self:write_(data)
+	end
+	local buf = self.write_buf_
+	self.write_buf_ = nil
+	local pushed, count = self.tx_:push(type(buf) == "string" and buf or table.concat(buf))
 	if pushed < count then
 		self:stop("send queue limit exceeded")
 	end

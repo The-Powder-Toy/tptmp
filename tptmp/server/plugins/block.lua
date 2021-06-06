@@ -20,6 +20,7 @@ return {
 		block = {
 			func = function(client, message, words, offsets)
 				if not words[2] then
+					-- * TODO[req]: list blocked users
 					return false
 				end
 				local server = client:server()
@@ -71,7 +72,7 @@ return {
 				end
 				return true
 			end,
-			help = "/block <user>: blocks a user, preventing them from messaging you or interacting with you otherwise",
+			help = "/block [user]: blocks a user, preventing them from messaging you or interacting with you otherwise, lists blocked users if one is not provided",
 		},
 		unblock = {
 			func = function(client, message, words, offsets)

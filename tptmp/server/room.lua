@@ -5,19 +5,19 @@ local config = require("tptmp.server.config")
 local room_i = {}
 local room_m = { __index = room_i }
 
-function room_i:broadcast_ciw(source, chunks)
+function room_i:broadcast_ciw(source, chunk)
 	for client in self:clients() do
 		if client ~= source and self:server():phost():call_check_all("can_interact_with", source, client) then
-			client:send_room_chunks(chunks)
+			client:send_room_chunk(chunk)
 		end
 	end
 	self:cleanup_dead_ids_()
 end
 
-function room_i:broadcast(source, chunks)
+function room_i:broadcast(source, chunk)
 	for client in self:clients() do
 		if client ~= source then
-			client:send_room_chunks(chunks)
+			client:send_room_chunk(chunk)
 		end
 	end
 	self:cleanup_dead_ids_()
@@ -69,14 +69,18 @@ function room_i:join(client)
 	client:move_to_room(self, string.char(id))
 	self.clients_ = self.clients_ + 1
 	self.log_inf_("$ joined", client:nick())
-	client:send_room(id, self.name_, self.clients_ - 1)
 	local sync_source
+	local others = {}
 	for other_client, other_id in self:clients() do
 		if other_client ~= client then
 			sync_source = other_client
-			client:send_room_item(other_id, other_client:nick())
+			table.insert(others, {
+				id = other_id,
+				nick = other_client:nick(),
+			})
 		end
 	end
+	client:send_room(id, self.name_, others)
 	for other_client in self:clients() do
 		if other_client ~= client then
 			other_client:send_join(id, client:nick())

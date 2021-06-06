@@ -26,7 +26,7 @@ function client_i:proto_error_(...)
 	error(setmetatable({ log = string.format(...) }, PROTO_ERROR))
 end
 
-function client_i:read_(count)
+function client_i:read_wait_(count)
 	while true do
 		if self.status_ ~= "running" then
 			self:proto_stop_()
@@ -36,7 +36,22 @@ function client_i:read_(count)
 		end
 		util.cqueues_poll(self.wake_, self.read_wake_)
 	end
+end
+
+function client_i:read_(count)
+	self:read_wait_(count)
 	return self.rx_:get(count)
+end
+
+function client_i:read_bytes_(count)
+	self:read_wait_(count)
+	local data, first, last = self.rx_:next()
+	if last - first + 1 >= count then
+		-- * Less memory-intensive path.
+		self.rx_:pop(count)
+		return data:byte(first, first + count - 1)
+	end
+	return self.rx_:get(count):byte(1, count)
 end
 
 function client_i:read_str24_()
@@ -63,65 +78,65 @@ function client_i:read_nullstr_(max)
 	return table.concat(collect)
 end
 
-function client_i:read_bytes_(count)
-	return self:read_(count):byte(1, count)
-end
-
 function client_i:send_handshake_failure_(message)
 	self:write_("\0")
 	self:write_nullstr_(message)
+	self:write_flush_()
 end
 
 function client_i:send_handshake_success_()
 	self:write_("\1")
 	self:write_str8_(self.nick_)
 	self:write_bytes_(self.guest_ and 1 or 0)
+	self:write_flush_()
 end
 
 function client_i:send_disconnect_reason_(message)
 	self:write_("\2")
 	self:write_str8_(message)
+	self:write_flush_()
 end
 
 function client_i:send_ping_()
-	self:write_("\3")
+	self:write_flush_("\3")
 end
 
 function client_i:send_quickauth_failure()
-	self:write_("\4")
+	self:write_flush_("\4")
 end
 
-function client_i:send_room(id, name, item_count)
+function client_i:send_room(id, name, items)
 	self:write_("\16")
 	self:write_str8_(name)
-	self:write_bytes_(id, item_count)
-end
-
-function client_i:send_room_item(id, nick)
-	self:write_bytes_(id)
-	self:write_str8_(nick)
-end
-
-function client_i:send_room_chunks(chunks)
-	for i = 1, #chunks do
-		self:write_(chunks[i])
+	self:write_bytes_(id, #items)
+	for i = 1, #items do
+		self:write_bytes_(items[i].id)
+		self:write_str8_(items[i].nick)
 	end
+	self:write_flush_()
+end
+
+function client_i:send_room_chunk(chunk)
+	self:write_flush_(chunk)
 end
 
 function client_i:send_join(id, nick)
 	self:write_("\17")
 	self:write_bytes_(id)
 	self:write_str8_(nick)
+	self:write_flush_()
 end
 
 function client_i:send_leave(id)
 	self:write_("\18")
 	self:write_bytes_(id)
+	self:write_flush_()
 end
 
 function client_i:send_server(message)
 	self:write_("\22")
 	self:write_str8_(message)
+	self:write_flush_()
 end
 
 function client_i:send_sync_request(target)
@@ -130,14 +145,13 @@ function client_i:send_sync_request(target)
 		return
 	end
 	self.syncing_for_ = { [ target ] = true }
-	self:write_("\128")
+	self:write_flush_("\128")
 end
 
 local function forward_to_room(name, packet_id, payload_size)
 	local packet_id_chr = string.char(packet_id)
 	client_i["handle_" .. name .. "_" .. packet_id .. "_"] = function(self)
-		local payload = self:read_(payload_size)
-		self.room_:broadcast(self, { packet_id_chr, self.room_id_str_, payload })
+		self.room_:broadcast(self, packet_id_chr .. self.room_id_str_ .. self:read_(payload_size))
 	end
 end
 
@@ -164,7 +178,7 @@ function client_i:forward_message_(format, packet, message)
 		return
 	end
 	self.room_:log(format, self.nick_, message)
-	self.room_:broadcast_ciw(self, { packet, self.room_id_str_, string.char(#message), message })
+	self.room_:broadcast_ciw(self, packet .. self.room_id_str_ .. string.char(#message) .. message)
 end
 
 function client_i:handle_say_19_()
@@ -199,13 +213,15 @@ end
 function client_i:handle_sync_30_()
 	local location = self:read_(3)
 	local data = self:read_str24_()
-	self.room_:broadcast(self, { "\30", self.room_id_str_, location, header_24be(#data), data })
+	self.room_:broadcast(self, "\30" .. self.room_id_str_ .. location .. header_24be(#data))
+	self.room_:broadcast(self, data)
 end
 
 function client_i:handle_pastestamp_31_()
 	local location = self:read_(3)
 	local data = self:read_str24_()
-	self.room_:broadcast(self, { "\31", self.room_id_str_, location, header_24be(#data), data })
+	self.room_:broadcast(self, "\31" .. self.room_id_str_ .. location .. header_24be(#data))
+	self.room_:broadcast(self, data)
 end
 
 forward_to_room(    "mousepos", 32, 3)
@@ -247,28 +263,29 @@ end
 
 function client_i:handle_sync_done_128_()
 	local data = {
-		self:proto_assert_(self:read_(1), "\69"), -- * loadonline_69
+		self:proto_assert_(self:read_bytes_(1), 69), -- * loadonline_69
 		self.room_id_str_,
 		self:read_(9),
-		self:proto_assert_(self:read_(1), "\30"), -- * sync_30
+		self:proto_assert_(self:read_bytes_(1), 30), -- * sync_30
 		self.room_id_str_,
 		self:read_(3),
 		self:read_str24_(),
-		self:proto_assert_(self:read_(1), "\38"), -- * simstate_38
+		self:proto_assert_(self:read_bytes_(1), 38), -- * simstate_38
 		self.room_id_str_,
 		self:read_(5),
 	}
 	for target in pairs(self.syncing_for_) do
-		target:write_(      data[ 1])
+		target:write_bytes_(data[ 1])
 		target:write_(      data[ 2])
 		target:write_(      data[ 3])
-		target:write_(      data[ 4])
+		target:write_bytes_(data[ 4])
 		target:write_(      data[ 5])
 		target:write_(      data[ 6])
 		target:write_str24_(data[ 7])
-		target:write_(      data[ 8])
+		target:write_bytes_(data[ 8])
 		target:write_(      data[ 9])
 		target:write_(      data[10])
+		target:write_flush_()
 	end
 	self.syncing_for_ = nil
 end
@@ -517,10 +534,10 @@ function client_i:proto_()
 		end)
 		self:handshake_()
 		while true do
-			local packet_id = self:read_(1)
+			local packet_id = self:read_bytes_(1)
 			local handler = packet_handlers[packet_id]
 			if not handler then
-				self:proto_error_("invalid packet ID (%i)", packet_id:byte())
+				self:proto_error_("invalid packet ID (%i)", packet_id)
 			end
 			handler(self)
 		end
@@ -565,7 +582,22 @@ function client_i:expect_ping_()
 end
 
 function client_i:write_(data)
-	local pushed, count = self.tx_:push(data)
+	if not self.write_buf_ then
+		self.write_buf_ = data
+	elseif type(self.write_buf_) == "string" then
+		self.write_buf_ = { self.write_buf_, data }
+	else
+		table.insert(self.write_buf_, data)
+	end
+end
+
+function client_i:write_flush_(data)
+	if data then
+		self:write_(data)
+	end
+	local buf = self.write_buf_
+	self.write_buf_ = nil
+	local pushed, count = self.tx_:push(type(buf) == "string" and buf or table.concat(buf))
 	if pushed < count then
 		self.log_inf_("send queue limit exceeded")
 		self:stop_()
@@ -665,7 +697,7 @@ end
 for key, value in pairs(client_i) do
 	local packet_id = key:match("^handle_.+_(%d+)_$")
 	if packet_id then
-		local packet_id_chr = string.char(tonumber(packet_id))
+		local packet_id_chr = tonumber(packet_id)
 		assert(not packet_handlers[packet_id_chr])
 		packet_handlers[packet_id_chr] = value
 	end
