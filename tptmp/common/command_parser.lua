@@ -13,6 +13,7 @@ function command_parser_i:parse(ctx, message)
 		return
 	end
 	local initial_cmd = words[1]
+	words[1] = words[1]:lower()
 	while true do
 		local cmd = self.commands_[self.aliases_[words[1]] or words[1]]
 		if not cmd then
@@ -33,6 +34,7 @@ function command_parser_i:parse(ctx, message)
 			if #words == 0 then
 				return
 			end
+			words[1] = words[1]:lower()
 			offsets = {}
 			local offset = 0
 			for i = 1, #words do
@@ -60,6 +62,8 @@ end
 
 function command_parser_i:help_(ctx, from)
 	from = from or self.help_name_
+	local initial_from = from
+	from = from:lower()
 	local to = self.aliases_[from]
 	if to then
 		self.respond_(ctx, self.alias_format_:format(from, to))
@@ -71,7 +75,7 @@ function command_parser_i:help_(ctx, from)
 		return true
 	end
 	if self.help_fallback_ then
-		if self.help_fallback_(ctx, from) then
+		if self.help_fallback_(ctx, initial_from) then
 			return true
 		end
 	end
@@ -94,6 +98,7 @@ local function new(params)
 	local collect = {}
 	for name, info in pairs(params.commands) do
 		table.insert(collect, "/" .. name)
+		name = name:lower()
 		if info.role == "help" then
 			cmd.help_name_ = name
 			cmd.commands_[name] = {
