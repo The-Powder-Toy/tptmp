@@ -100,7 +100,8 @@ for i = 1, #tools do
 	xid_first[class] = math.min(xid_first[class] or math.huge, xtype)
 end
 for key, value in pairs(elem) do
-	if key:find("^[^_]+_PT_") then
+	-- * TODO[opt]: support custom elements
+	if key:find("^DEFAULT_PT_") or key == "TPTMP_PT_UNKNOWN" then
 		from_tool[key] = value
 		to_tool[value] = key
 	end

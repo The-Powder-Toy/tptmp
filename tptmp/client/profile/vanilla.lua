@@ -20,15 +20,17 @@ local toolwarn_tools = {
 	[ "DEFAULT_PT_SPAWN"    ] = "stkm",
 	[ "DEFAULT_PT_SPAWN2"   ] = "stkm",
 	[ "DEFAULT_PT_FIGH"     ] = "stkm",
+	[ "TPTMP_PT_UNKNOWN"    ] = "unknown",
 }
 local toolwarn_messages = {
-	prop   =        "The PROP tool does not sync, you will have to use /sync",
-	cycl   =        "The CYCL tool does not sync, you will have to use /sync",
-	mix    =         "The MIX tool does not sync, you will have to use /sync",
-	ligh   =                 "LIGH does not sync, you will have to use /sync",
-	stkm   =               "Stickmen do not sync, you will have to use /sync",
-	cbrush =         "Custom brushes do not sync, you will have to use /sync",
-	ipcirc = "The old circle brush does not sync, you will have to use /sync",
+	prop    =                     "The PROP tool does not sync, you will have to use /sync",
+	cycl    =                     "The CYCL tool does not sync, you will have to use /sync",
+	mix     =                      "The MIX tool does not sync, you will have to use /sync",
+	ligh    =                              "LIGH does not sync, you will have to use /sync",
+	stkm    =                            "Stickmen do not sync, you will have to use /sync",
+	cbrush  =                      "Custom brushes do not sync, you will have to use /sync",
+	ipcirc  =              "The old circle brush does not sync, you will have to use /sync",
+	unknown = "This custom element is not supported, please avoid using it while connected",
 }
 
 local log_event = print
@@ -669,10 +671,8 @@ function profile_i:update_tools_()
 	end
 	local new_tool = util.to_tool[self[index_to_lrax[self.last_toolslot_]]]
 	if self.last_tool_ ~= new_tool then
-		for tool, key in pairs(toolwarn_tools) do
-			if new_tool == tool then
-				self.display_toolwarn_[key] = true
-			end
+		if toolwarn_tools[new_tool] then
+			self.display_toolwarn_[toolwarn_tools[new_tool]] = true
 		end
 		self.last_tool_ = new_tool
 	end
