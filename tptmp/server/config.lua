@@ -1,3 +1,5 @@
+-- * TODO[imm]: document non-trivial options
+
 local common_config = require("tptmp.common.config")
 
 return {
