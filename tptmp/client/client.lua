@@ -978,7 +978,7 @@ function client_i:tick_write_()
 			end
 			local closed = false
 			local count = last - first + 1
-			if self.socket_:status() ~= "connected" then
+			if not socket.bind and self.socket_:status() ~= "connected" then
 				break
 			end
 			local written_up_to, err, partial_up_to = self.socket_:send(data, first, last)
