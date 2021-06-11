@@ -511,6 +511,9 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 		if scan == 41 then -- * SDL_SCANCODE_ESCAPE
 			self.in_focus = false
 			self.input_autocomplete_ = nil
+			if shift then
+				self.hide_window_func_()
+			end
 		elseif scan == 43 then -- * SDL_SCANCODE_TAB
 			local left_word_first, left_word
 			local cursor = self.input_cursor_
