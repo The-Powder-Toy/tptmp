@@ -38,7 +38,7 @@ sudo luarocks install --lua-version=5.3 luafilesystem
 ### Static configuration
 
 Static configuration is the collection of settings that only ever change when
-you, the server administrator, changes them. This includes things such as which
+the server administrator changes them. This includes things such as which
 interface to listen on, how many clients are allowed to connect at once, the
 path to the dynamic configuration file, etc. All static configuration happens
 in [tptmp/server/config.lua](tptmp/server/config.lua), see that file for further
@@ -46,11 +46,15 @@ details on configuration options.
 
 ### Dynamic configuration
 
-Dynamic configuration is all the configuration that is not static. This is
-includes things like room ownership, 
-
-_I was interrupted by a bug report when writing this so it is currently
-incomplete_.
+Dynamic configuration is the collection of settings that are not part of
+static configuration. This includes things like room ownership,
+block lists, MOTDs, etc. The dynamic configuration is a JSON file,
+the path to which is specified by the static configuration options
+`dynamic_config_main` and `dynamic_config_xchg` (the
+latter being the path to the backup configuration in case the main one is
+somehow corrupted while being modified). See
+[tptmp/server/plugins](tptmp/server/plugins) for details on how plugins use
+the dynamic configuration store.
 
 ### Running the server
 
@@ -90,4 +94,11 @@ these objects.
 
 - [ ] more administration facilities, such as room ownership management, via the
       remote console
-- [ ] some sort of support for custom elements
+- [ ] some sort of support for custom elements, maybe room-level element
+      negotiation
+- [ ] add APIs to TPT in order to get rid of a few hideous hacks on
+      the TPTMP side
+- [ ] more consistent logging
+- [ ] temporary guest invites
+- [ ] smarter foul language filtering
+- [ ] mouse selection in the chat window
