@@ -8,7 +8,7 @@ local config = {
 	-- ***********************************************************************
 
 	-- * Specifies whether connections made without specifying the port number
-	--   should be end-to-end encrypted.
+	--   should be encrypted.
 	default_secure = false, -- * TODO[fin]: Enable.
 
 	-- * Size of the buffer passed to the recv system call. Bigger values

@@ -1,4 +1,10 @@
 return {
+	-- ***********************************************************************
+	-- *** The following options apply to both the server and the clients. ***
+	-- *** Handle with care; changing options here means having to update  ***
+	-- *** the client you ship.                                            ***
+	-- ***********************************************************************
+
 	-- * Protocol version, between 0 and 254. 255 is reserved for future use.
 	version = 15, -- * TODO[fin]: Give this a bump.
 
@@ -22,7 +28,7 @@ return {
 
 	-- * Username to UID backend timeout in seconds.
 	uid_backend_timeout = 3,
-	
+
 	-- * Host to connect to by default.
 	host = "tptmp.trigraph.net", -- * TODO[fin]: Replace with tptmp.starcatcher.us
 

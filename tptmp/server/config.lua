@@ -43,8 +43,8 @@ return {
 	--   auth = true.
 	guests_allowed = true,
 
-	-- * End-to-end encrypt traffic between player clients and the server.
-	--   Requires some experience with TLS.
+	-- * Encrypt traffic between player clients and the server. Requires some
+	--   experience with TLS.
 	secure = false, -- TODO[fin]: Enable.
 
 	-- * Hostname to check the SNI field in the TLS handshake against. Only
@@ -74,8 +74,8 @@ return {
 
 
 	-- ***********************************************************************
-	-- *** The following options should customised in accordance with the  ***
-	-- *** policies in effect on your server.                              ***
+	-- *** The following options should be customised in accordance with   ***
+	-- *** the policies in effect on your server.                          ***
 	-- ***********************************************************************
 
 	-- * Maximum amount of clients connected to the server at any given time.
@@ -145,7 +145,7 @@ return {
 	-- * Port to listen on for player connections.
 	port = common_config.port,
 
-	-- * Protocol version, between 0 and 254. 255 is reserved for future use.
+	-- * Protocol version.
 	version = common_config.version,
 
 	-- * Client-to-server message size limit.
