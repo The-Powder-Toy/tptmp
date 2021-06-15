@@ -18,6 +18,14 @@ function window_i:backlog_push_leave(formatted_nick)
 	self:backlog_push_str(colours.commonstr.leave .. "* " .. formatted_nick .. colours.commonstr.leave .. " has left", true)
 end
 
+function window_i:backlog_push_fpssync_enable(formatted_nick)
+	self:backlog_push_str(colours.commonstr.fpssyncenable .. "* " .. formatted_nick .. colours.commonstr.fpssyncenable .. " has enabled FPS synchronization", true)
+end
+
+function window_i:backlog_push_fpssync_disable(formatted_nick)
+	self:backlog_push_str(colours.commonstr.fpssyncdisable .. "* " .. formatted_nick .. colours.commonstr.fpssyncdisable .. " has disabled FPS synchronization", true)
+end
+
 function window_i:backlog_push_error(str)
 	self:backlog_push_str(colours.commonstr.error .. "* " .. str, true)
 end
@@ -63,6 +71,32 @@ function window_i:backlog_push_room(room, members, prefix)
 		end
 	else
 		table.insert(collect, "nobody else present")
+	end
+	self:backlog_push_str(table.concat(collect), true)
+end
+
+function window_i:backlog_push_fpssync(members)
+	local sep = colours.commonstr.normal .. ", "
+	local collect = { colours.commonstr.normal, "* " }
+	if members == true then
+		table.insert(collect, "FPS synchronization is enabled")
+	elseif members then
+		if next(members) then
+			table.insert(collect, "FPS synchronization is enabled, in sync with: ")
+			local first = true
+			for id, member in pairs(members) do
+				if first then
+					first = false
+				else
+					table.insert(collect, sep)
+				end
+				table.insert(collect, member.formatted_nick)
+			end
+		else
+			table.insert(collect, "FPS synchronization is enabled, not in sync with anyone")
+		end
+	else
+		table.insert(collect, "FPS synchronization is disabled")
 	end
 	self:backlog_push_str(table.concat(collect), true)
 end

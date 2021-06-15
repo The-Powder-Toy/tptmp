@@ -38,6 +38,8 @@ for key, value in pairs({
 	event           = { 255, 255, 255 },
 	join            = { 100, 255, 100 },
 	leave           = { 255, 255, 100 },
+	fpssyncenable   = { 255, 100, 255 },
+	fpssyncdisable  = { 130, 130, 255 },
 	lobby           = {   0, 200, 200 },
 	normal          = { 200, 200, 200 },
 	room            = { 200, 200,   0 },

@@ -45,6 +45,43 @@ local cmdp = command_parser.new({
 		S = {
 			alias = "sync",
 		},
+		fpssync = {
+			func = function(localcmd, message, words, offsets)
+				local cli = localcmd.client_func_()
+				if words[2] == "on" then
+					localcmd.fps_sync_ = true
+					manager.set("fpssyn", "on")
+					if cli then
+						cli:fps_sync(localcmd.fps_sync_)
+					end
+					localcmd.window:backlog_push_neutral("* FPS synchronization enabled")
+					localcmd.window:backlog_push_neutral("* Note: FPS synchronization is not currently implemented, this command is just a placeholder") -- * TODO[imm]: remove this
+					return true
+				elseif words[2] == "check" or not words[2] then
+					if localcmd.fps_sync_ then
+						local cli = localcmd.client_func_()
+						if cli then
+							cli:push_fpssync()
+						else
+							localcmd.window:backlog_push_fpssync(true)
+						end
+					else
+						localcmd.window:backlog_push_fpssync(false)
+					end
+					return true
+				elseif words[2] == "off" then
+					localcmd.fps_sync_ = false
+					manager.set("fpssyn", "off")
+					if cli then
+						cli:fps_sync(localcmd.fps_sync_)
+					end
+					localcmd.window:backlog_push_neutral("* FPS synchronization disabled")
+					return true
+				end
+				return false
+			end,
+			help = "/fpssync on\\check\\off: enables or disables FPS synchronization with those in the room who also have it enabled",
+		},
 		connect = {
 			macro = function(localcmd, message, words, offsets)
 				return { "connectroom", "", unpack(words, 2) }
@@ -89,6 +126,7 @@ local cmdp = command_parser.new({
 						localcmd = localcmd,
 					})
 					new_cli:nick_colour_seed(localcmd.nick_colour_seed_)
+					new_cli:fps_sync(localcmd.fps_sync_)
 					new_cli:start()
 				end
 				return true
@@ -226,6 +264,7 @@ local function new(params)
 		reconnect = nil
 	end
 	return setmetatable({
+		fps_sync_ = manager.get("fpssyn", "") == "on",
 		reconnect_ = reconnect,
 		client_func_ = params.client_func,
 		new_client_func_ = params.new_client_func,

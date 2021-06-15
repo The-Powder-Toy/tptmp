@@ -2,6 +2,50 @@ local common_config = require("tptmp.common.config")
 
 local config = {
 	-- ***********************************************************************
+	-- *** The following options are purely cosmetic and should be         ***
+	-- *** customised in accordance with your taste.                       ***
+	-- ***********************************************************************
+
+	-- * Version string to display in the window title.
+	versionstr = "2.0",
+
+	-- * Amount of incoming messages to remember, counted from the
+	--   last one received.
+	backlog_size = 1000,
+
+	-- * Amount of outgoing messages to remember, counted from the
+	--   last one sent.
+	history_size = 1000,
+
+	-- * Default window width. Overridden by the value loaded from the manager
+	--   backend, if any.
+	default_width = 210,
+
+	-- * Default window height. Similar to default_width.
+	default_height = 155,
+
+	-- * Default window background alpha. Similar to default_width.
+	default_alpha = 150,
+
+	-- * Minimum window width.
+	min_width = 150,
+
+	-- * Minimum window height.
+	min_height = 107,
+
+	-- * Amount of time in seconds that elapses between a notification bubble
+	--   appearing and settling in its final position.
+	notif_fly_time = 0.1,
+
+	-- * Distance in pixels between the position where a notification appears
+	--   and the position where it settles.
+	notif_fly_distance = 3,
+
+	-- * Prefix for messages logged.
+	print_prefix = "\bt[TPTMP]\bw ",
+
+
+	-- ***********************************************************************
 	-- *** The following options should only be changed if you know what   ***
 	-- *** you are doing. This usually involves consulting with the        ***
 	-- *** developers. Otherwise, these are sane values you should trust.  ***
@@ -60,49 +104,9 @@ local config = {
 	-- * Namespace for settings stored in the manager backend.
 	manager_namespace = "tptmp",
 
-
-	-- ***********************************************************************
-	-- *** The following options are purely cosmetic and should be         ***
-	-- *** customised in accordance with your taste.                       ***
-	-- ***********************************************************************
-
-	-- * Version string to display in the window title.
-	versionstr = "2.0",
-
-	-- * Amount of incoming messages to remember, counted from the
-	--   last one received.
-	backlog_size = 1000,
-
-	-- * Amount of outgoing messages to remember, counted from the
-	--   last one sent.
-	history_size = 1000,
-
-	-- * Default window width. Overridden by the value loaded from the manager
-	--   backend, if any.
-	default_width = 210,
-
-	-- * Default window height. Similar to default_width.
-	default_height = 155,
-
-	-- * Default window background alpha. Similar to default_width.
-	default_alpha = 150,
-
-	-- * Minimum window width.
-	min_width = 150,
-
-	-- * Minimum window height.
-	min_height = 107,
-
-	-- * Amount of time in seconds that elapses between a notification bubble
-	--   appearing and settling in its final position.
-	notif_fly_time = 0.1,
-
-	-- * Distance in pixels between the position where a notification appears
-	--   and the position where it settles.
-	notif_fly_distance = 3,
-
-	-- * Prefix for messages logged.
-	print_prefix = "\bt[TPTMP]\bw ",
+	-- * Grace period in seconds after which another client is deemed to not
+	--   have FPS synchronization enabled.
+	fps_sync_timeout = 3,
 
 
 	-- ***********************************************************************

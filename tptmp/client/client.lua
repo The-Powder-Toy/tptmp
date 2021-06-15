@@ -140,11 +140,22 @@ function client_i:add_member_(id, nick)
 	end
 	self.id_to_member[id] = setmetatable({
 		nick = nick,
+		fps_sync = false,
 	}, member_m)
 end
 
 function client_i:push_names(prefix)
 	self.window_:backlog_push_room(self.room_name_, self.id_to_member, prefix)
+end
+
+function client_i:push_fpssync()
+	local members = {}
+	for _, member in pairs(self.id_to_member) do
+		if member.fps_sync then
+			table.insert(members, member)
+		end
+	end
+	self.window_:backlog_push_fpssync(members)
 end
 
 function client_i:handle_room_16_()
@@ -575,6 +586,19 @@ function client_i:handle_sparksign_75_()
 	sim.partCreate(-1, x, y, elem.DEFAULT_PT_SPRK)
 end
 
+function client_i:handle_fpssync_76_()
+	local member = self:member_prefix_()
+	local pack = self:read_24be_()
+	local elapsed = bit.rshift(pack, 16)
+	local count = bit.band(pack, 0xFFFF)
+	if not member.fps_sync then
+		member.fps_sync = true
+		self.window_:backlog_push_fpssync_enable(member.formatted_nick)
+	end
+	member.fps_sync_last = socket.gettime()
+	-- * TODO: do something with this
+end
+
 function client_i:handle_sync_request_128_()
 	self:send_sync_done()
 end
@@ -897,6 +921,12 @@ function client_i:send_sparksign(x, y)
 	self:write_flush_()
 end
 
+function client_i:send_fpssync(elapsed, count)
+	self:write_("\76")
+	self:write_24be_(bit.bor(bit.lshift(elapsed, 16), count))
+	self:write_flush_()
+end
+
 function client_i:send_sync_done()
 	self:write_flush_("\128")
 	local id, hist = self.get_id_func_()
@@ -1015,7 +1045,7 @@ function client_i:tick_connect_()
 end
 
 function client_i:tick_ping_()
-	if self.socket_ then
+	if self.registered_ then
 		local now = socket.gettime()
 		if self.last_ping_sent_at_ + config.ping_interval < now then
 			self:send_ping()
@@ -1042,6 +1072,39 @@ function client_i:tick_sim_()
 	end
 end
 
+function client_i:tick_fpssync_()
+	if self.registered_ then
+		if self.fps_sync_ then
+			self.fps_sync_count_ = self.fps_sync_count_ + 1
+			local now_sec = math.floor(socket.gettime())
+			if now_sec > self.fps_sync_last_ then
+				local count = self.fps_sync_count_
+				local elapsed = now_sec - self.fps_sync_last_
+				if self.fps_sync_last_ == 0 then
+					elapsed = 0
+				end
+				if elapsed > 0xFF or count >= 0xFFFF then
+					self.fps_sync_last_ = 0
+					self.fps_sync_count_ = 0
+				else
+					self:send_fpssync(elapsed, count)
+					self.fps_sync_last_ = now_sec
+					self.fps_sync_count_ = 0
+				end
+			end
+		end
+		for _, member in pairs(self.id_to_member) do
+			if member.fps_sync then
+				if member.fps_sync_last + config.fps_sync_timeout < socket.gettime() then
+					self.window_:backlog_push_fpssync_disable(member.formatted_nick)
+					member.fps_sync = false
+				end
+				-- * TODO[imm]: do something with this
+			end
+		end
+	end
+end
+
 function client_i:tick()
 	if self.status_ ~= "running" then
 		return
@@ -1052,6 +1115,7 @@ function client_i:tick()
 	self:tick_connect_()
 	self:tick_ping_()
 	self:tick_sim_()
+	self:tick_fpssync_()
 end
 
 function client_i:stop(message)
@@ -1156,6 +1220,12 @@ function client_i:nick_colour_seed(seed)
 	self:reformat_nicks_()
 end
 
+function client_i:fps_sync(fps_sync)
+	self.fps_sync_ = fps_sync
+	self.fps_sync_last_ = 0
+	self.fps_sync_count_ = 0
+end
+
 function client_i:reformat_nicks_()
 	if self.nick_ then
 		self.formatted_nick_ = format.nick(self.nick_, self.nick_colour_seed_)
@@ -1198,6 +1268,7 @@ local function new(params)
 		should_not_reconnect_func_ = params.should_not_reconnect_func,
 		id_to_member = {},
 		nick_colour_seed_ = 0,
+		fps_sync_ = false,
 	}, client_m)
 end
 

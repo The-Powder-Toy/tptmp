@@ -253,6 +253,7 @@ forward_to_room("selectstatus", 72, 4)
 forward_to_room(   "zoomstart", 73, 4)
 forward_to_room(     "zoomend", 74, 0)
 forward_to_room(   "sparksign", 75, 3)
+forward_to_room(     "fpssync", 76, 3)
 
 function client_i:proto_assert_(got, expected)
 	if got ~= expected then
