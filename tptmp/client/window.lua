@@ -4,6 +4,7 @@ local format  = require("tptmp.client.format")
 local utf8    = require("tptmp.client.utf8")
 local util    = require("tptmp.client.util")
 local manager = require("tptmp.client.manager")
+local sdl     = require("tptmp.client.sdl")
 
 local window_i = {}
 local window_m = { __index = window_i }
@@ -529,12 +530,12 @@ function window_i:handle_mousewheel(px, py, dir)
 end
 
 local modkey_scan = {
-	[ 224 ] = true, -- * SDL_SCANCODE_LCTRL
-	[ 225 ] = true, -- * SDL_SCANCODE_LSHIFT
-	[ 226 ] = true, -- * SDL_SCANCODE_LALT
-	[ 228 ] = true, -- * SDL_SCANCODE_RCTRL
-	[ 229 ] = true, -- * SDL_SCANCODE_RSHIFT
-	[ 230 ] = true, -- * SDL_SCANCODE_RALT
+	[ sdl.SDL_SCANCODE_LCTRL  ] = true,
+	[ sdl.SDL_SCANCODE_LSHIFT ] = true,
+	[ sdl.SDL_SCANCODE_LALT   ] = true,
+	[ sdl.SDL_SCANCODE_RCTRL  ] = true,
+	[ sdl.SDL_SCANCODE_RSHIFT ] = true,
+	[ sdl.SDL_SCANCODE_RALT   ] = true,
 }
 function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	if not self.in_focus and not self.window_hidden_func_() and scan == 40 then
@@ -542,13 +543,13 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 		return true
 	end
 	if self.in_focus then
-		if scan == 41 then -- * SDL_SCANCODE_ESCAPE
+		if scan == sdl.SDL_SCANCODE_ESCAPE then
 			self.in_focus = false
 			self.input_autocomplete_ = nil
 			if shift then
 				self.hide_window_func_()
 			end
-		elseif scan == 43 then -- * SDL_SCANCODE_TAB
+		elseif scan == sdl.SDL_SCANCODE_TAB then
 			local left_word_first, left_word
 			local cursor = self.input_cursor_
 			local check_offset = 0
@@ -590,7 +591,7 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 			else
 				self.input_autocomplete_ = nil
 			end
-		elseif scan == 42 or scan == 76 then -- * SDL_SCANCODE_BACKSPACE, SDL_SCANCODE_DELETE
+		elseif scan == sdl.SDL_SCANCODE_BACKSPACE or scan == sdl.SDL_SCANCODE_DELETE then
 			local start, length
 			if self.input_has_selection_ then
 				start = self.input_sel_low_
@@ -630,7 +631,7 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 				self:input_update_()
 			end
 			self.input_autocomplete_ = nil
-		elseif scan == 40 then -- * SDL_SCANCODE_RETURN
+		elseif scan == sdl.SDL_SCANCODE_RETURN then
 			if #self.input_collect_ > 0 then
 				local str = self:input_text_to_send_()
 				local sent = str ~= "" and not self.message_overlong_
@@ -672,19 +673,19 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 				self.in_focus = false
 			end
 			self.input_autocomplete_ = nil
-		elseif scan == 82 then -- * SDL_SCANCODE_UP
+		elseif scan == sdl.SDL_SCANCODE_UP then
 			local to_select = self.input_history_select_ - 1
 			if self.input_history_[to_select] then
 				self:input_select_(to_select)
 			end
 			self.input_autocomplete_ = nil
-		elseif scan == 81 then -- * SDL_SCANCODE_DOWN
+		elseif scan == sdl.SDL_SCANCODE_DOWN then
 			local to_select = self.input_history_select_ + 1
 			if self.input_history_[to_select] then
 				self:input_select_(to_select)
 			end
 			self.input_autocomplete_ = nil
-		elseif scan == 74 or scan == 77 or scan == 79 or scan == 80 then -- * SDL_SCANCODE_HOME, SDL_SCANCODE_END, SDL_SCANCODE_RIGHT, SDL_SCANCODE_LEFT
+		elseif scan == sdl.SDL_SCANCODE_HOME or scan == sdl.SDL_SCANCODE_END or scan == sdl.SDL_SCANCODE_RIGHT or scan == sdl.SDL_SCANCODE_LEFT then
 			self.input_cursor_prev_ = self.input_cursor_
 			if scan == 74 then
 				self.input_cursor_ = 0
@@ -721,24 +722,24 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 			self.input_sel_second_ = self.input_cursor_
 			self:input_update_()
 			self.input_autocomplete_ = nil
-		elseif ctrl and scan == 4 then -- * SDL_SCANCODE_A
+		elseif ctrl and scan == sdl.SDL_SCANCODE_A then
 			self.input_cursor_ = #self.input_collect_
 			self.input_sel_first_ = 0
 			self.input_sel_second_ = self.input_cursor_
 			self:input_update_()
 			self.input_autocomplete_ = nil
-		elseif ctrl and scan == 6 then -- * SDL_SCANCODE_C
+		elseif ctrl and scan == sdl.SDL_SCANCODE_C then
 			if self.input_has_selection_ then
 				plat.clipboardPaste(self:input_collect_range_(self.input_sel_low_ + 1, self.input_sel_high_))
 			end
 			self.input_autocomplete_ = nil
-		elseif ctrl and scan == 25 then -- * SDL_SCANCODE_V
+		elseif ctrl and scan == sdl.SDL_SCANCODE_V then
 			local text = plat.clipboardCopy()
 			if text then
 				self:input_insert_(text)
 			end
 			self.input_autocomplete_ = nil
-		elseif ctrl and scan == 27 then -- * SDL_SCANCODE_X
+		elseif ctrl and scan == sdl.SDL_SCANCODE_X then
 			if self.input_has_selection_ then
 				local start = self.input_sel_low_
 				local length = self.input_sel_high_ - self.input_sel_low_
@@ -751,7 +752,7 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 		end
 		return not modkey_scan[scan]
 	else
-		if scan == 41 then -- * SDL_SCANCODE_ESCAPE
+		if scan == sdl.SDL_SCANCODE_ESCAPE then
 			self.hide_window_func_()
 			return true
 		end

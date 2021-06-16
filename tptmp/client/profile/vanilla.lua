@@ -1,5 +1,6 @@
 local util   = require("tptmp.client.util")
 local config = require("tptmp.client.config")
+local sdl    = require("tptmp.client.sdl")
 
 local profile_i = {}
 local profile_m = { __index = profile_i }
@@ -1076,9 +1077,9 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	-- * Here the assumption is made that no Lua hook cancels the keypress event.
 	if not rep then
 		if not self.stk2_out_ or ctrl then
-			if scan == 26 then -- * SDL_SCANCODE_W
+			if scan == sdl.SDL_SCANCODE_W then
 				self.simstate_invalid_ = true
-			elseif scan == 22 then -- * SDL_SCANCODE_S
+			elseif scan == sdl.SDL_SCANCODE_S then
 				self.select_mode_ = "stamp"
 				self:cancel_drawing_()
 			end
@@ -1089,19 +1090,19 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 		-- * Note: Sadly, there's absolutely no way to know how these operations
 		--         affect the save being placed, as it only grows if particles
 		--         in it would go beyond its border.
-		if key == 0x40000000 + 79 then -- * SDLK_RIGHT
+		if key == sdl.SDLK_RIGHT then
 			-- * Move. See note above.
 			return
-		elseif key == 0x40000000 + 80 then -- * SDLK_LEFT
+		elseif key == sdl.SDLK_LEFT then
 			-- * Move. See note above.
 			return
-		elseif key == 0x40000000 + 81 then -- * SDLK_DOWN
+		elseif key == sdl.SDLK_DOWN then
 			-- * Move. See note above.
 			return
-		elseif key == 0x40000000 + 82 then -- * SDLK_UP
+		elseif key == sdl.SDLK_UP then
 			-- * Move. See note above.
 			return
-		elseif scan == 21 and not rep then -- * SDL_SCANCODE_R
+		elseif scan == sdl.SDL_SCANCODE_R and not rep then
 			if ctrl and shift then
 				-- * Rotate. See note above.
 			elseif not ctrl and shift then
@@ -1116,14 +1117,14 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 		return
 	end
 	local did_shortcut = true
-	if scan == 44 then -- * SDL_SCANCODE_SPACE
+	if scan == sdl.SDL_SCANCODE_SPACE then
 		self.simstate_invalid_ = true
-	elseif scan == 53 then -- * SDL_SCANCODE_GRAVE
+	elseif scan == sdl.SDL_SCANCODE_GRAVE then
 		if self.registered_func_() and not alt then
 			log_event(config.print_prefix .. "The console is disabled because it does not sync (press the Alt key to override)")
 			return true
 		end
-	elseif scan == 29 then -- * SDL_SCANCODE_Z
+	elseif scan == sdl.SDL_SCANCODE_Z then
 		if self.select_mode_ == "none" or not self.dragging_mouse_ then
 			if ctrl and not self.dragging_mouse_ then
 				if self.registered_func_() and not alt then
@@ -1136,18 +1137,18 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 				self.zoom_invalid_ = true
 			end
 		end
-	elseif scan == 62 or (ctrl and scan == 21) then -- * SDL_SCANCODE_F5, SDL_SCANCODE_R
+	elseif scan == sdl.SDL_SCANCODE_F5 or (ctrl and scan == sdl.SDL_SCANCODE_R) then
 		self:button_reload_()
-	elseif scan == 9 and not ctrl then -- * SDL_SCANCODE_F
+	elseif scan == sdl.SDL_SCANCODE_F and not ctrl then
 		if ren.debugHUD() == 1 and (shift or alt) then
 			if self.registered_func_() and not alt then
 				log_event(config.print_prefix .. "Partial framesteps do not sync, you will have to use /sync")
 			end
 		end
 		self:report_framestep_()
-	elseif scan == 5 and not ctrl then -- * SDL_SCANCODE_B
+	elseif scan == sdl.SDL_SCANCODE_B and not ctrl then
 		self.simstate_invalid_ = true
-	elseif scan == 28 then -- * SDL_SCANCODE_Y
+	elseif scan == sdl.SDL_SCANCODE_Y then
 		if ctrl then
 			if self.registered_func_() and not alt then
 				log_event(config.print_prefix .. "Redo is disabled because it does not sync (press the Alt key to override)")
@@ -1156,50 +1157,50 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 		else
 			self.simstate_invalid_ = true
 		end
-	elseif scan == 24 then -- * SDL_SCANCODE_U
+	elseif scan == sdl.SDL_SCANCODE_U then
 		self.simstate_invalid_ = true
-	elseif scan == 17 then -- * SDL_SCANCODE_N
+	elseif scan == sdl.SDL_SCANCODE_N then
 		self.simstate_invalid_ = true
-	elseif scan == 46 then -- * SDL_SCANCODE_EQUALS
+	elseif scan == sdl.SDL_SCANCODE_EQUALS then
 		if ctrl then
 			self:report_reset_spark_()
 		else
 			self:report_reset_air_()
 		end
-	elseif scan == 6 and ctrl then -- * SDL_SCANCODE_C
+	elseif scan == sdl.SDL_SCANCODE_C and ctrl then
 		self.select_mode_ = "copy"
 		self:cancel_drawing_()
-	elseif scan == 27 and ctrl then -- * SDL_SCANCODE_X
+	elseif scan == sdl.SDL_SCANCODE_X and ctrl then
 		self.select_mode_ = "cut"
 		self:cancel_drawing_()
-	elseif scan == 25 and ctrl then -- * SDL_SCANCODE_V
+	elseif scan == sdl.SDL_SCANCODE_V and ctrl then
 		if self.clipsize_x_ then
 			self.select_mode_ = "place"
 			self:cancel_drawing_()
 			self.place_x_, self.place_y_ = self.clipsize_x_, self.clipsize_y_
 		end
-	elseif scan == 15 then -- * SDL_SCANCODE_L
+	elseif scan == sdl.SDL_SCANCODE_L then
 		self.select_mode_ = "place"
 		self:cancel_drawing_()
 		self.want_stamp_size_ = true
-	elseif scan == 14 then -- * SDL_SCANCODE_K
+	elseif scan == sdl.SDL_SCANCODE_K then
 		self.select_mode_ = "place"
 		self:cancel_drawing_()
 		self.want_stamp_size_ = true
-	elseif scan == 48 then -- * SDL_SCANCODE_RIGHTBRACKET
+	elseif scan == sdl.SDL_SCANCODE_RIGHTBRACKET then
 		if self.placing_zoom_ then
 			self.zoom_invalid_ = true
 		end
-	elseif scan == 47 then -- * SDL_SCANCODE_LEFTBRACKET
+	elseif scan == sdl.SDL_SCANCODE_LEFTBRACKET then
 		if self.placing_zoom_ then
 			self.zoom_invalid_ = true
 		end
-	elseif scan == 12 and not ctrl then -- * SDL_SCANCODE_I
+	elseif scan == sdl.SDL_SCANCODE_I and not ctrl then
 		self:report_airinvert_()
-	elseif scan == 51 then -- * SDL_SCANCODE_SEMICOLON
+	elseif scan == sdl.SDL_SCANCODE_SEMICOLON then
 		self.bmode_invalid_ = true
 	end
-	if key == 0x40000000 + 73 or key == 127 then -- * SDLK_INSERT, SDLK_DELETE
+	if key == sdl.SDLK_INSERT or key == sdl.SDLK_DELETE then
 		self.bmode_invalid_ = true
 	end
 end
@@ -1221,7 +1222,7 @@ function profile_i:handle_keyrelease(key, scan, rep, shift, ctrl, alt)
 	if rep then
 		return
 	end
-	if scan == 29 then -- * SDL_SCANCODE_Z
+	if scan == sdl.SDL_SCANCODE_Z then
 		if self.placing_zoom_ and not alt then
 			self.placing_zoom_ = false
 			self.zoom_invalid_ = true

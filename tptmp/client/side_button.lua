@@ -3,6 +3,7 @@ local util    = require("tptmp.client.util")
 local utf8    = require("tptmp.client.utf8")
 local config  = require("tptmp.client.config")
 local manager = require("tptmp.client.manager")
+local sdl     = require("tptmp.client.sdl")
 
 local jacobsmod = rawget(_G, "jacobsmod")
 
@@ -92,7 +93,7 @@ function side_button_i:handle_mousewheel(pos_x, pos_y, dir)
 end
 
 function side_button_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
-	if shift and scan == 41 then -- * SDL_SCANCODE_ESCAPE
+	if shift and scan == sdl.SDL_SCANCODE_ESCAPE then
 		self.show_window_func_()
 		return true
 	end
