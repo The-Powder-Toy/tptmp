@@ -230,7 +230,7 @@ local cmdp = command_parser.new({
 	end,
 	alias_format = "/%s is an alias for /%s",
 	list_format = "Client commands: %s",
-	unknown_format = "No such command (maybe it is server-only, connect and try again)",
+	unknown_format = "No such command, try /list (maybe it is server-only, connect and try again)",
 })
 
 function localcmd_i:parse(str)

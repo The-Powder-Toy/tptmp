@@ -398,7 +398,7 @@ local function new(params)
 		end,
 		alias_format = "/%s is an alias for /%s",
 		list_format = "Server commands: %s",
-		unknown_format = "No such command",
+		unknown_format = "No such command, try /list",
 	})
 	local server = setmetatable({
 		auth_ = params.auth,
