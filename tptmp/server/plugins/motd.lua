@@ -79,5 +79,13 @@ return {
 			end,
 			after = { "private" },
 		},
+		reserve_room = {
+			func = function(server, name, info)
+				if info.motd then
+					local room_info = server:dconf():root().rooms[name]
+					room_info.motd = info.motd
+				end
+			end,
+		},
 	},
 }

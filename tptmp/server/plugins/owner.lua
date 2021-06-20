@@ -233,16 +233,27 @@ return {
 				local dconf = server:dconf()
 				if not dconf:root().rooms then
 					local rooms = {}
-					local function reserve(name)
+					local reserve = {
+						null = {
+							-- motd = "Welcome to TPTMPv2!",
+							motd = "Welcome to TPTMPv2! This test server is run by LBPHacker, report bugs and suggestions to him. If you got v2 from the script manager and want to go back to v1, disable v2 in the script manager.",
+						},
+						guest = {
+							motd = "Welcome to TPTMPv2! You have landed in the guest lobby as you do not seem to be logged in.",
+						},
+						kicked = {
+						},
+					}
+					for name, info in pairs(reserve) do
 						rooms[name] = {
 							reserved = true,
 							owners = {},
 						}
 					end
-					reserve("null")
-					reserve("guest")
-					reserve("kicked")
 					dconf:root().rooms = rooms
+					for name, info in pairs(reserve) do
+						server:phost():call_hook("reserve_room", server, name, info)
+					end
 				end
 				dconf:commit()
 			end,
