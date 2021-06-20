@@ -783,11 +783,11 @@ function window_i:handle_blur()
 end
 
 function window_i:save_window_rect_()
-	manager.set("winx", tostring(self.pos_x_))
-	manager.set("winy", tostring(self.pos_y_))
-	manager.set("winw", tostring(self.width_))
-	manager.set("winh", tostring(self.height_))
-	manager.set("wina", tostring(self.alpha_))
+	manager.set("windowLeft", tostring(self.pos_x_))
+	manager.set("windowTop", tostring(self.pos_y_))
+	manager.set("windowWidth", tostring(self.width_))
+	manager.set("windowHeight", tostring(self.height_))
+	manager.set("windowAlpha", tostring(self.alpha_))
 end
 
 function window_i:insert_wrapped_line_(tbl, msg, line)
@@ -986,11 +986,11 @@ function window_i:set_subtitle_secondary(formatted_text)
 end
 
 local function new(params)
-	local pos_x = tonumber(manager.get("winx", "")) or config.default_x
-	local pos_y = tonumber(manager.get("winy", "")) or config.default_y
-	local width = tonumber(manager.get("winw", "")) or config.default_width
-	local height = tonumber(manager.get("winh", "")) or config.default_height
-	local alpha = tonumber(manager.get("wina", "")) or config.default_alpha
+	local pos_x = tonumber(manager.get("windowLeft", "")) or config.default_x
+	local pos_y = tonumber(manager.get("windowTop", "")) or config.default_y
+	local width = tonumber(manager.get("windowWidth", "")) or config.default_width
+	local height = tonumber(manager.get("windowHeight", "")) or config.default_height
+	local alpha = tonumber(manager.get("windowAlpha", "")) or config.default_alpha
 	local title = "TPT Multiplayer v" .. config.versionstr
 	local title_width = gfx.textSize(title)
 	local win = setmetatable({

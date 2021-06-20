@@ -50,7 +50,7 @@ local cmdp = command_parser.new({
 				local cli = localcmd.client_func_()
 				if words[2] == "on" then
 					localcmd.fps_sync_ = true
-					manager.set("fpssyn", "on")
+					manager.set("fpsSync", "on")
 					if cli then
 						cli:fps_sync(localcmd.fps_sync_)
 					end
@@ -71,7 +71,7 @@ local cmdp = command_parser.new({
 					return true
 				elseif words[2] == "off" then
 					localcmd.fps_sync_ = false
-					manager.set("fpssyn", "off")
+					manager.set("fpsSync", "off")
 					if cli then
 						cli:fps_sync(localcmd.fps_sync_)
 					end
@@ -193,7 +193,7 @@ local cmdp = command_parser.new({
 		ncseed = {
 			func = function(localcmd, message, words, offsets)
 				localcmd.nick_colour_seed_ = words[2] or tostring(math.random())
-				manager.set("clincs", tostring(localcmd.nick_colour_seed_))
+				manager.set("nickColourSeed", tostring(localcmd.nick_colour_seed_))
 				local cli = localcmd.client_func_()
 				if cli then
 					cli:nick_colour_seed(localcmd.nick_colour_seed_)
@@ -247,29 +247,29 @@ function localcmd_i:reconnect_commit(reconnect)
 		port = tostring(reconnect.port),
 		secr = reconnect.secure and "+" or "",
 	}
-	manager.set("rcroom", self.reconnect_.room)
-	manager.set("rchost", self.reconnect_.host)
-	manager.set("rcport", self.reconnect_.port)
-	manager.set("rcsecr", self.reconnect_.secr)
+	manager.set("reconnectRoom", self.reconnect_.room)
+	manager.set("reconnectHost", self.reconnect_.host)
+	manager.set("reconnectPort", self.reconnect_.port)
+	manager.set("reconnectSecure", self.reconnect_.secr)
 end
 
 local function new(params)
 	local reconnect = {
-		room = manager.get("rcroom", ""),
-		host = manager.get("rchost", ""),
-		port = manager.get("rcport", ""),
-		secr = manager.get("rcsecr", ""),
+		room = manager.get("reconnectRoom", ""),
+		host = manager.get("reconnectHost", ""),
+		port = manager.get("reconnectPort", ""),
+		secr = manager.get("reconnectSecure", ""),
 	}
 	if #reconnect.room == 0 or #reconnect.host == 0 or #reconnect.port == 0 then
 		reconnect = nil
 	end
 	return setmetatable({
-		fps_sync_ = manager.get("fpssyn", "") == "on",
+		fps_sync_ = manager.get("fpsSync", "") == "on",
 		reconnect_ = reconnect,
 		client_func_ = params.client_func,
 		new_client_func_ = params.new_client_func,
 		kill_client_func_ = params.kill_client_func,
-		nick_colour_seed_ = manager.get("clincs", "0"),
+		nick_colour_seed_ = manager.get("nickColourSeed", "0"),
 	}, localcmd_m)
 end
 

@@ -39,10 +39,10 @@ local function run()
 	local function get_id()
 		return current_id, current_hist
 	end
-	local quickauth = manager.get("quickauth", "")
+	local quickauth = manager.get("quickauthToken", "")
 	local function set_qa(qa)
 		quickauth = qa
-		manager.set("quickauth", quickauth)
+		manager.set("quickauthToken", quickauth)
 	end
 	local function get_qa()
 		return quickauth
