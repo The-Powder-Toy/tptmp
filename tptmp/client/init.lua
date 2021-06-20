@@ -7,6 +7,7 @@ local client      = require("tptmp.client.client")
 local util        = require("tptmp.client.util")
 local profile     = require("tptmp.client.profile")
 local format      = require("tptmp.client.format")
+local manager     = require("tptmp.client.manager")
 
 local function run()
 	assert(sim.CELL == 4, "CELL size is not 4") -- * Required by cursor snapping functions.
@@ -37,6 +38,14 @@ local function run()
 	end
 	local function get_id()
 		return current_id, current_hist
+	end
+	local quickauth = manager.get("quickauth", "")
+	local function set_qa(qa)
+		quickauth = qa
+		manager.set("quickauth", quickauth)
+	end
+	local function get_qa()
+		return quickauth
 	end
 	local should_reconnect_at
 	local cli
@@ -84,6 +93,8 @@ local function run()
 			params.profile = prof
 			params.set_id_func = set_id
 			params.get_id_func = get_id
+			params.set_qa_func = set_qa
+			params.get_qa_func = get_qa
 			params.should_reconnect_func = function()
 				should_reconnect = true
 			end

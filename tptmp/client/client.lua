@@ -3,7 +3,6 @@ local colours     = require("tptmp.client.colours")
 local config      = require("tptmp.client.config")
 local util        = require("tptmp.client.util")
 local format      = require("tptmp.client.format")
-local manager     = require("tptmp.client.manager")
 
 local log_event = print
 
@@ -641,7 +640,7 @@ function client_i:handshake_()
 	self:write_bytes_(tpt.version.major, tpt.version.minor, config.version)
 	self:write_nullstr_((name or tpt.get_name() or ""):sub(1, 255))
 	self:write_bytes_(0) -- * Flags, currently unused.
-	local qa_uid, qa_token = manager.get("quickauth", ""):match("^([^:]+):([^:]+)$")
+	local qa_uid, qa_token = self.get_qa_func_():match("^([^:]+):([^:]+)$")
 	self:write_str8_(qa_token and qa_uid == uid and qa_token or "")
 	self:write_str8_(self.initial_room_ or "")
 	self:write_flush_()
@@ -664,7 +663,7 @@ function client_i:handshake_()
 		self:write_flush_()
 		conn_status = self:read_bytes_(1)
 		if uid then
-			manager.set("quickauth", (conn_status == 1) and (uid .. ":" .. token) or "")
+			self.set_qa_func_((conn_status == 1) and (uid .. ":" .. token) or "")
 		end
 	end
 	if conn_status == 1 then
@@ -1264,6 +1263,8 @@ local function new(params)
 		initial_room_ = params.initial_room,
 		set_id_func_ = params.set_id_func,
 		get_id_func_ = params.get_id_func,
+		set_qa_func_ = params.set_qa_func,
+		get_qa_func_ = params.get_qa_func,
 		should_reconnect_func_ = params.should_reconnect_func,
 		should_not_reconnect_func_ = params.should_not_reconnect_func,
 		id_to_member = {},
