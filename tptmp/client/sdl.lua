@@ -46,4 +46,7 @@ return {
     SDLK_LEFT                 = 0x40000000 + 80,
     SDLK_DOWN                 = 0x40000000 + 81,
     SDLK_UP                   = 0x40000000 + 82,
+    SDL_BUTTON_LEFT           = 1,
+    SDL_BUTTON_MIDDLE         = 2,
+    SDL_BUTTON_RIGHT          = 3,
 }

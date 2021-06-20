@@ -868,7 +868,7 @@ function profile_i:handle_mousedown(px, py, button)
 	self:update_pos_(px, py)
 	self.last_in_zoom_window_ = in_zoom_window(px, py)
 	-- * Here the assumption is made that no Lua hook cancels the mousedown event.
-	if not self.kmod_c_ and not self.kmod_s_ and self.kmod_a_ and button == 1 then
+	if not self.kmod_c_ and not self.kmod_s_ and self.kmod_a_ and button == sdl.SDL_BUTTON_LEFT then
 		button = 2
 	end
 	for _, btn in pairs(self.buttons_) do
@@ -887,11 +887,11 @@ function profile_i:handle_mousedown(px, py, button)
 			return
 		end
 		if px < sim.XRES and py < sim.YRES then
-			if button == 1 then
+			if button == sdl.SDL_BUTTON_LEFT then
 				self.last_toolslot_ = 0
-			elseif button == 2 then
+			elseif button == sdl.SDL_BUTTON_MIDDLE then
 				self.last_toolslot_ = 2
-			elseif button == 3 then
+			elseif button == sdl.SDL_BUTTON_RIGHT then
 				self.last_toolslot_ = 1
 			else
 				return

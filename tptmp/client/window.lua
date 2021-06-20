@@ -438,7 +438,7 @@ function window_i:handle_mousedown(px, py, button)
 		return
 	end
 	-- * TODO[opt]: mouse selection
-	if button == 1 then
+	if button == sdl.SDL_BUTTON_LEFT then
 		if util.inside_rect(self.pos_x_, self.pos_y_, self.width_, self.height_, util.mouse_pos()) then
 			self.in_focus = true
 		end
@@ -456,7 +456,7 @@ function window_i:handle_mousedown(px, py, button)
 			self.close_active_ = true
 			return true
 		end
-	elseif button == 3 then
+	elseif button == sdl.SDL_BUTTON_RIGHT then
 		if util.inside_rect(self.pos_x_ + 1, self.pos_y_ + 15, self.width_ - 2, self.height_ - 30, util.mouse_pos()) then
 			local _, y = util.mouse_pos()
 			local line = 1 + math.floor((y - self.backlog_text_y_ - self.pos_y_) / 12)
@@ -486,7 +486,7 @@ function window_i:handle_mousedown(px, py, button)
 end
 
 function window_i:handle_mouseup(px, py, button)
-	if button == 1 then
+	if button == sdl.SDL_BUTTON_LEFT then
 		if self.close_active_ then
 			self.hide_window_func_()
 		end
@@ -538,7 +538,7 @@ local modkey_scan = {
 	[ sdl.SDL_SCANCODE_RALT   ] = true,
 }
 function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
-	if not self.in_focus and not self.window_hidden_func_() and scan == 40 then
+	if not self.in_focus and not self.window_hidden_func_() and scan == sdl.SDL_SCANCODE_RETURN then
 		self.in_focus = true
 		return true
 	end
@@ -597,10 +597,10 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 				start = self.input_sel_low_
 				length = self.input_sel_high_ - self.input_sel_low_
 				self.input_cursor_ = self.input_sel_low_
-			elseif (scan == 42 and self.input_cursor_ > 0) or (scan == 76 and self.input_cursor_ < #self.input_collect_) then
+			elseif (scan == sdl.SDL_SCANCODE_BACKSPACE and self.input_cursor_ > 0) or (scan == sdl.SDL_SCANCODE_DELETE and self.input_cursor_ < #self.input_collect_) then
 				if ctrl then
-					local cursor_step = scan == 76 and 1 or -1
-					local check_offset = scan == 76 and 1 or  0
+					local cursor_step = scan == sdl.SDL_SCANCODE_DELETE and 1 or -1
+					local check_offset = scan == sdl.SDL_SCANCODE_DELETE and 1 or  0
 					local cursor = self.input_cursor_
 					while self.input_collect_[cursor + check_offset] and self.input_collect_[cursor + check_offset]:find(config.whitespace_pattern) do
 						cursor = cursor + cursor_step
@@ -619,7 +619,7 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 					end
 					self.input_cursor_ = start
 				else
-					if scan == 42 then
+					if scan == sdl.SDL_SCANCODE_BACKSPACE then
 						self.input_cursor_ = self.input_cursor_ - 1
 					end
 					start = self.input_cursor_
@@ -687,14 +687,14 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 			self.input_autocomplete_ = nil
 		elseif scan == sdl.SDL_SCANCODE_HOME or scan == sdl.SDL_SCANCODE_END or scan == sdl.SDL_SCANCODE_RIGHT or scan == sdl.SDL_SCANCODE_LEFT then
 			self.input_cursor_prev_ = self.input_cursor_
-			if scan == 74 then
+			if scan == sdl.SDL_SCANCODE_HOME then
 				self.input_cursor_ = 0
-			elseif scan == 77 then
+			elseif scan == sdl.SDL_SCANCODE_END then
 				self.input_cursor_ = #self.input_collect_
 			else
-				if (scan == 79 and self.input_cursor_ < #self.input_collect_) or (scan == 80 and self.input_cursor_ > 0) then
-					local cursor_step = scan == 79 and 1 or -1
-					local check_offset = scan == 79 and 1 or  0
+				if (scan == sdl.SDL_SCANCODE_RIGHT and self.input_cursor_ < #self.input_collect_) or (scan == sdl.SDL_SCANCODE_LEFT and self.input_cursor_ > 0) then
+					local cursor_step = scan == sdl.SDL_SCANCODE_RIGHT and 1 or -1
+					local check_offset = scan == sdl.SDL_SCANCODE_RIGHT and 1 or  0
 					if ctrl then
 						local cursor = self.input_cursor_
 						while self.input_collect_[cursor + check_offset] and self.input_collect_[cursor + check_offset]:find(config.whitespace_pattern) do

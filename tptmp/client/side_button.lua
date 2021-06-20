@@ -65,7 +65,7 @@ function side_button_i:handle_tick()
 end
 
 function side_button_i:handle_mousedown(mx, my, button)
-	if button == 1 then
+	if button == sdl.SDL_BUTTON_LEFT then
 		if util.inside_rect(self.pos_x_, self.pos_y_, self.width_, self.height_, util.mouse_pos()) then
 			self.active_ = true
 		end
@@ -73,7 +73,7 @@ function side_button_i:handle_mousedown(mx, my, button)
 end
 
 function side_button_i:handle_mouseup(mx, my, button)
-	if button == 1 then
+	if button == sdl.SDL_BUTTON_LEFT then
 		if self.active_ then
 			if manager.minimize_conflict and not manager.hidden() then
 				manager.print("minimize the manager before opening TPTMP")
