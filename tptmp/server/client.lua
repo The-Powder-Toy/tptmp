@@ -696,11 +696,11 @@ function client_i:request_token()
 end
 
 for key, value in pairs(client_i) do
-	local packet_id = key:match("^handle_.+_(%d+)_$")
-	if packet_id then
-		local packet_id_chr = tonumber(packet_id)
-		assert(not packet_handlers[packet_id_chr])
-		packet_handlers[packet_id_chr] = value
+	local packet_id_str = key:match("^handle_.+_(%d+)_$")
+	if packet_id_str then
+		local packet_id = tonumber(packet_id_str)
+		assert(not packet_handlers[packet_id])
+		packet_handlers[packet_id] = value
 	end
 end
 

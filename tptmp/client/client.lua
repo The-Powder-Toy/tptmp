@@ -942,10 +942,10 @@ function client_i:start()
 			self:connect_()
 			self:handshake_()
 			while true do
-				local packet_id = self:read_(1)
+				local packet_id = self:read_bytes_(1)
 				local handler = packet_handlers[packet_id]
 				if not handler then
-					self:proto_error_("invalid packet ID (%i)", packet_id:byte())
+					self:proto_error_("invalid packet ID (%i)", packet_id)
 				end
 				handler(self)
 			end
@@ -1235,11 +1235,11 @@ function client_i:reformat_nicks_()
 end
 
 for key, value in pairs(client_i) do
-	local packet_id = key:match("^handle_.+_(%d+)_$")
-	if packet_id then
-		local packet_id_chr = string.char(tonumber(packet_id))
-		assert(not packet_handlers[packet_id_chr])
-		packet_handlers[packet_id_chr] = value
+	local packet_id_str = key:match("^handle_.+_(%d+)_$")
+	if packet_id_str then
+		local packet_id = tonumber(packet_id_str)
+		assert(not packet_handlers[packet_id])
+		packet_handlers[packet_id] = value
 	end
 end
 
