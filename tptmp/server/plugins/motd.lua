@@ -1,6 +1,6 @@
 local room_motd_i = {}
 
-function room_motd_i:motd_notify_owner_(client)
+function room_motd_i:motd_empty_notify_owner_(client)
 	local room_info = self:server():dconf():root().rooms[self:name()]
 	if not room_info.motd then
 		client:send_server("* This room does not have a message of the day set, use /motd to set one")
@@ -57,7 +57,7 @@ return {
 						client:send_server("* MOTD: " .. room_info.motd)
 					end
 					if room:is_owner(client) then
-						room:motd_notify_owner_(client)
+						room:motd_empty_notify_owner_(client)
 					end
 				end
 			end,
@@ -66,7 +66,7 @@ return {
 			func = function(room, uid)
 				local client = room:server():client_by_uid(uid)
 				if client then
-					room:motd_notify_owner_(client)
+					room:motd_empty_notify_owner_(client)
 				end
 			end,
 		},

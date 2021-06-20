@@ -34,78 +34,70 @@ function room_owner_i:is_reserved()
 end
 
 function room_owner_i:is_temporary()
-	if self:is_reserved() then
-		return false
-	end
-	local room_info = self:server():dconf():root().rooms[self:name()]
-	return not room_info or #room_info.owners == 0
+	return not self:server():dconf():root().rooms[self:name()]
 end
 
-function room_owner_i:insert_owner_(uid)
+function room_owner_i:uid_insert_owner_(uid)
+	local server = self:server()
+	local dconf = server:dconf()
+	local rooms = dconf:root().rooms
+	local room_info = rooms[self:name()] or {
+		owners = {},
+	}
+	rooms[self:name()] = room_info
+	local idx = util.array_find(room_info.owners, uid)
+	if not idx then
+		table.insert(room_info.owners, uid)
+		room_info.owners[0] = #room_info.owners
+		server:phost():call_hook("insert_room_owner", self, uid)
+		dconf:commit()
+	end
+end
+
+function room_owner_i:uid_owns_(src)
+	if type(src) ~= "number" then
+		if src:guest() then
+			return false
+		end
+		src = src:uid()
+	end
 	local server = self:server()
 	local dconf = server:dconf()
 	local rooms = dconf:root().rooms
 	local room_info = rooms[self:name()]
-	if not room_info then
-		room_info = {
-			owners = {},
-		}
-		rooms[self:name()] = room_info
-	end
-	local idx = util.array_find(room_info.owners, uid)
+	return room_info and util.array_find(room_info.owners, src)
+end
+
+function room_owner_i:uid_remove_owner_(uid)
+	local server = self:server()
+	local dconf = server:dconf()
+	local rooms = dconf:root().rooms
+	local room_info = rooms[self:name()]
+	local idx = room_info and util.array_find(room_info.owners, uid)
 	if idx then
-		return false
+		table.remove(room_info.owners, idx)
+		room_info.owners[0] = #room_info.owners
+		dconf:commit()
 	end
-	table.insert(room_info.owners, uid)
-	room_info.owners[0] = #room_info.owners
-	local client = server:client_by_uid(uid)
-	if client then
-		client.rooms_owned_ = client.rooms_owned_ + 1
-	end
-	server:phost():call_hook("insert_room_owner", self, uid)
-	dconf:commit()
-	return true
 end
 
-function room_owner_i:check_owner_(uid)
-	local server = self:server()
-	local dconf = server:dconf()
-	local rooms = dconf:root().rooms
-	local room_info = rooms[self:name()]
-	local idx = util.array_find(room_info.owners, uid)
-	if not idx then
-		return false
-	end
-	return true
-end
+local server_owner_i = {}
 
-function room_owner_i:remove_owner_(uid)
-	local server = self:server()
-	local dconf = server:dconf()
-	local rooms = dconf:root().rooms
-	local room_info = rooms[self:name()]
-	local idx = util.array_find(room_info.owners, uid)
-	if not idx then
-		return false
+function server_owner_i:uid_rooms_owned_(src)
+	if type(src) ~= "number" then
+		src = src:uid()
 	end
-	table.remove(room_info.owners, idx)
-	room_info.owners[0] = #room_info.owners
-	local client = server:client_by_uid(uid)
-	if client then
-		client.rooms_owned_ = client.rooms_owned_ - 1
+	local count = 0
+	if not client:guest() then
+		for _, room in pairs(client:server():dconf():root().rooms) do
+			for _, uid in pairs(room.owners) do
+				if uid == src then
+					count = count + 1
+				end
+			end
+		end
 	end
-	if self:is_temporary() then
-		server:phost():call_hook("unregister_room", self)
-		rooms[self:name()] = nil
-	end
-	dconf:commit()
-	return true
-end
-
-local client_owner_i = {}
-
-function client_owner_i:rooms_owned()
-	return self.rooms_owned_
+	return count
 end
 
 return {
@@ -125,18 +117,14 @@ return {
 					client:send_server("* Guests cannot register rooms")
 					return true
 				end
-				if room:owner_count() >= config.max_owners_per_room then
-					client:send_server("* The room has too many owners, have one of them use /disown to disown it")
-					return true
-				end
 				if client:rooms_owned() >= config.max_rooms_per_owner then
-					client:send_server("* You own too many rooms, use /disown to disown one")
+					client:send_server("* You own too many rooms, use /owner remove to disown one")
 					return true
 				end
 				room:set_temp_owner_(nil)
+				room:uid_insert_owner_(client:uid())
 				room:log("$ registered the room and gained room ownership", client:nick())
 				client:send_server("* Room successfully registered")
-				room:insert_owner_(client:uid())
 				return true
 			end,
 			help = "/register, no arguments: registers and claims ownership of the room",
@@ -146,9 +134,31 @@ return {
 				if not words[3] then
 					return false
 				end
-				local rnick = words[3]
 				local room = client:room()
 				local server = client:server()
+				local other_uid, other_nick = server:offline_user_by_nick(words[3])
+				local other = server:client_by_nick(words[3])
+				if other then
+					if not other_uid then
+						other_nick = other:nick()
+					end
+					other_uid = other
+				end
+				if not other_uid then
+					client:send_server("* No such user")
+					return true
+				end
+				if words[2] == "check" then
+					if room:uid_owns_(other_uid) then
+						client:send_server("* User currently owns this room")
+					else
+						client:send_server("* User does not currently own this room")
+					end
+					return true
+				end
+				if words[2] ~= "add" and words[2] ~= "remove" then
+					return false
+				end
 				if not room:is_owner(client) then
 					client:send_server("* You are not an owner of this room")
 					return true
@@ -158,81 +168,56 @@ return {
 					return true
 				end
 				if words[2] == "add" then
-					local other = server:client_by_nick(rnick)
-					if not (other and other:room() == room) then
-						client:send_server("* User not present in this room")
+					if not (type(src) ~= "number" and src:room() == room) then
+						client:send_server("* User is not present in this room")
 						return true
 					end
 					if room:owner_count() >= config.max_owners_per_room then
 						client:send_server("* The room has too many owners, have one of them use /disown to disown it")
 						return true
 					end
-					if other:rooms_owned() >= config.max_rooms_per_owner then
-						client:send_server(("* %s owns too many rooms, have them use /disown to disown one"):format(other:nick()))
+					if server:uid_rooms_owned_(other_uid) >= config.max_rooms_per_owner then
+						client:send_server("* User owns too many rooms, have them use /disown to disown one")
 						return true
 					end
-					if not room:insert_owner_(other:uid()) then
-						client:send_server(("* %s already owns this room"):format(other:nick()))
+					if room:uid_owns_(other_uid) then
+						client:send_server("* User already owns this room")
 						return true
 					end
-					room:log("$ shared room ownership with $", client:nick(), other:nick())
+					local client_to_notify
+					local src = other_uid
+					if type(src) ~= "number" then
+						client_to_notify = src
+						src = src:uid()
+					end
+					room:uid_insert_owner_(src)
+					room:log("$ shared room ownership with $", client:nick(), other_nick)
 					client:send_server("* Room ownership successfully shared")
-					other:send_server("* You now have shared ownership of this room")
-				elseif words[2] == "check" then
-					local other_uid, other_nick = server:offline_user_by_nick(rnick)
-					if not other_uid then
-						client:send_server("* No such user")
-						return true
-					end
-					if room:check_owner_(other_uid) then
-						client:send_server(("* %s currently owns this room"):format(other_nick))
-					else
-						client:send_server(("* %s does not currently own this room"):format(other_nick))
+					if client_to_notify then
+						client_to_notify:send_server("* You now have shared ownership of this room")
 					end
 				elseif words[2] == "remove" then
-					local other_uid, other_nick = server:offline_user_by_nick(rnick)
-					if not other_uid then
-						client:send_server("* No such user")
+					if not room:uid_owns_(other_uid) then
+						client:send_server("* User does not currently own this room")
 						return true
 					end
-					if room:remove_owner_(other_uid) then
-						client:send_server("* Room ownership successfully stripped")
-						local other = server:client_by_nick(other_nick)
-						if other and other:room() == room then
-							other:send_server("* You no longer have shared ownership of this room")
-						end
-					else
-						client:send_server(("* %s does not currently own this room"):format(other_nick))
+					local client_to_notify
+					local src = other_uid
+					if type(src) ~= "number" then
+						client_to_notify = src
+						src = src:uid()
+					end
+					room:uid_remove_owner_(src)
+					room:log("$ stripped $ of room ownership", client:nick(), other_nick)
+					if client_to_notify and client_to_notify:room() == room then
+						client_to_notify:send_server("* You no longer have shared ownership of this room")
 					end
 				else
 					return false
 				end
 				return true
 			end,
-			help = "/owner add | check | remove <user>: shares ownership of the room with a user, checks if a user is an owner, or strips a user of their ownership",
-		},
-		disown = {
-			func = function(client, message, words, offsets)
-				local room = client:room()
-				if room:is_temporary() then
-					client:send_server("* Temporary rooms cannot be disowned")
-					return true
-				end
-				if not room:is_owner(client) then
-					client:send_server("* You are not an owner of this room")
-					return true
-				end
-				room:remove_owner_(client:uid())
-				room:log("$ relinquished room ownership", client:nick())
-				if room:is_temporary() then
-					client:send_server("* Room unregistered")
-					room:set_temp_owner_(client)
-				else
-					client:send_server("* You no longer have shared ownership of this room")
-				end
-				return true
-			end,
-			help = "/disown, no arguments: relinquishes ownership of the room",
+			help = "/owner add\\check\\remove <user>: shares ownership of the room with a user, checks if a user is an owner, or strips a user of their ownership",
 		},
 	},
 	hooks = {
@@ -240,7 +225,7 @@ return {
 			func = function(mtidx_augment)
 				assert(config.auth)
 				mtidx_augment("room", room_owner_i)
-				mtidx_augment("client", client_owner_i)
+				mtidx_augment("server", server_owner_i)
 			end,
 		},
 		init = {
@@ -280,21 +265,6 @@ return {
 						end
 					end
 				end
-			end,
-		},
-		join = {
-			func = function(client)
-				local count = 0
-				if not client:guest() then
-					for _, room in pairs(client:server():dconf():root().rooms) do
-						for _, uid in pairs(room.owners) do
-							if uid == client:uid() then
-								count = count + 1
-							end
-						end
-					end
-				end
-				client.rooms_owned_ = count
 			end,
 		},
 		room_info = {

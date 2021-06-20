@@ -10,6 +10,9 @@ return {
 				local other = server:client_by_nick(words[2])
 				if not other then
 					client:send_server("* User not online")
+					if client.reply_to_ == words[2] then
+						client.reply_to_ = nil
+					end
 					return true
 				end
 				local ok, err = server:phost():call_check_all("content_ok", server, message)

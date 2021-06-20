@@ -5,7 +5,7 @@ return {
 	hooks = {
 		connect = {
 			func = function(client)
-				client.last_message_ = 0
+				client.last_message_at_ = 0
 			end,
 		},
 	},
@@ -13,8 +13,8 @@ return {
 		message_ok = {
 			func = function(client, message)
 				local now = cqueues.monotime()
-				local last = client.last_message_
-				client.last_message_ = now
+				local last = client.last_message_at_
+				client.last_message_at_ = now
 				if last + config.message_interval >= now then
 					client.message_interval_violations_ = (client.message_interval_violations_ or 0) + 1
 					if client.message_interval_violations_ >= config.max_message_interval_violations then

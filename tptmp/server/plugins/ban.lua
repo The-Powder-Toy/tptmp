@@ -3,11 +3,7 @@ local jnet   = require("jnet")
 
 local server_ban_i = {}
 
-function server_ban_i:insert_host_ban_(host_str)
-	local ok, host = pcall(jnet, host_str)
-	if not ok then
-		return nil, "einval", "invalid subnet"
-	end
+function server_ban_i:insert_host_ban_(host)
 	if not self.host_bans_:insert(host) then
 		return nil, "eexist", "already banned"
 	end
@@ -15,11 +11,7 @@ function server_ban_i:insert_host_ban_(host_str)
 	return true
 end
 
-function server_ban_i:remove_host_ban_(host_str)
-	local ok, host = pcall(jnet, host_str)
-	if not ok then
-		return nil, "einval", "invalid subnet"
-	end
+function server_ban_i:remove_host_ban_(host)
 	if not self.host_bans_:remove(host) then
 		return nil, "enoent", "not currently banned"
 	end
@@ -97,53 +89,54 @@ return {
 			func = function(rcon, data)
 				local server = rcon:server()
 				if type(data.nick) ~= "string" then
-					return { status = "badnick", human = "invalid nick", nick = data.nick }
+					return { status = "badnick", human = "invalid nick" }
 				end
 				local uid = server:offline_user_by_nick(data.nick)
 				if not uid then
-					return { status = "nouser", human = "no such user", nick = data.nick }
+					return { status = "nouser", human = "no such user" }
 				end
 				if data.action == "insert" then
 					local ok, err, human = server:insert_uid_ban_(uid)
 					if not ok then
-						return { status = err, human = human, uid = uid }
+						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "remove" then
 					local ok, err, human = server:remove_uid_ban_(uid)
 					if not ok then
-						return { status = err, human = human, uid = uid }
+						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
 					return { status = "ok", banned = server:uid_banned_(uid) }
 				end
-				return { status = "badaction", human = "unrecognized action", action = data.action }
+				return { status = "badaction", human = "unrecognized action" }
 			end,
 		},
 		ipban = {
 			func = function(rcon, data)
 				local server = rcon:server()
-				if type(data.host) ~= "string" then
-					return { status = "badhost", human = "invalid host", host = data.host }
+				local ok, host = pcall(jnet, data.host)
+				if not ok then
+					return { status = "badhost", human = "invalid host: " .. host, reason = host }
 				end
 				if data.action == "insert" then
-					local ok, err, human = server:insert_host_ban_(data.host)
+					local ok, err, human = server:insert_host_ban_(host)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "remove" then
-					local ok, err, human = server:remove_host_ban_(data.host)
+					local ok, err, human = server:remove_host_ban_(host)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					local banned_subnet = server:host_banned_(data.host)
+					local banned_subnet = server:host_banned_(host)
 					return { status = "ok", banned = banned_subnet and tostring(banned_subnet) or false }
 				end
-				return { status = "badaction", human = "unrecognized action", action = data.action }
+				return { status = "badaction", human = "unrecognized action" }
 			end,
 		},
 	},

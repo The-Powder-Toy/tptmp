@@ -38,10 +38,14 @@ function server_i:rooms_full()
 	return self.room_count_ >= config.max_rooms
 end
 
+function server_i:rooms()
+	return self.name_to_room_
+end
+
 function server_i:insert_client_(client)
 	local host_string = tostring(client:host())
 	self.host_connections_[host_string] = (self.host_connections_[host_string] or 0) + 1
-	self.clients_[client] = true
+	self.name_to_client_[client:name()] = client
 	self.log_inf_("$ connected from $", client:name(), client:host())
 end
 
@@ -71,7 +75,6 @@ function server_i:cache_uid_to_nick_(uid, nick)
 end
 
 function server_i:remove_client(client)
-	self.clients_[client] = nil
 	if client:registered() then
 		self.phost_:call_hook("disconnect", client)
 		self.client_count_ = self.client_count_ - 1
@@ -80,12 +83,18 @@ function server_i:remove_client(client)
 			self.uid_to_client_[client:uid()] = nil
 		end
 	end
+	self.phost_:call_hook("cleanup_client", client)
+	self.name_to_client_[client:name()] = nil
 	local host_string = tostring(client:host())
 	self.host_connections_[host_string] = self.host_connections_[host_string] - 1
 	if self.host_connections_[host_string] == 0 then
 		self.host_connections_[host_string] = nil
 	end
 	self.log_inf_("$ disconnected", client:name())
+end
+
+function server_i:clients()
+	return self.name_to_client_
 end
 
 function server_i:listen_()
@@ -114,7 +123,7 @@ function server_i:listen_()
 			end
 		end
 	end
-	for client in util.safe_pairs(self.clients_) do
+	for _, client in util.safe_pairs(self.name_to_client_) do
 		client:drop("server closed")
 	end
 	server_socket:close()
@@ -405,7 +414,7 @@ local function new(params)
 		version_ = params.version,
 		wake_ = condition.new(),
 		status_ = "ready",
-		clients_ = {},
+		name_to_client_ = {},
 		client_unique_ = 0,
 		client_count_ = 0,
 		room_count_ = 0,

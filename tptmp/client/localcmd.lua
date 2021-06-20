@@ -80,7 +80,7 @@ local cmdp = command_parser.new({
 				end
 				return false
 			end,
-			help = "/fpssync on\\check\\off: enables or disables FPS synchronization with those in the room who also have it enabled",
+			help = "/fpssync on\\check\\off: enables or disables FPS synchronization with those in the room who also have it enabled (not yet implemented)",
 		},
 		connect = {
 			macro = function(localcmd, message, words, offsets)
