@@ -27,8 +27,8 @@ return {
 					server.log_inf_("$ >> $: $", client:nick(), other:nick(), message)
 					server:rconlog({
 						event = "msg",
-						client_nick = client:nick(),
-						other_client_nick = other:nick(),
+						client_name = client:name(),
+						other_client_name = other:name(),
 					})
 				end
 				return true

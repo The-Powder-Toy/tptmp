@@ -127,7 +127,7 @@ return {
 				room:log("$ registered the room and gained room ownership", client:nick())
 				client:server():rconlog({
 					event = "room_register",
-					client_nick = client:nick(),
+					client_name = client:name(),
 					room_name = room:name(),
 				})
 				return true
@@ -199,7 +199,7 @@ return {
 					room:log("$ shared room ownership with $", client:nick(), other_nick)
 					server:rconlog({
 						event = "room_owner_add",
-						client_nick = client:nick(),
+						client_name = client:name(),
 						room_name = room:name(),
 						other_nick = other_nick,
 					})
@@ -222,7 +222,7 @@ return {
 					room:log("$ stripped $ of room ownership", client:nick(), other_nick)
 					server:rconlog({
 						event = "room_owner_remove",
-						client_nick = client:nick(),
+						client_name = client:name(),
 						room_name = room:name(),
 						other_nick = other_nick,
 					})

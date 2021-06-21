@@ -12,24 +12,25 @@ local function token_payload(token)
 	local payload = token:match("^[^%.]+%.([^%.]+)%.[^%.]+$")
 	if not payload then
 		return nil, "no payload", {
-			err = "match",
+			substage = "match",
 		}
 	end
 	local unb64 = basexx.from_url64(payload)
 	if not unb64 then
 		return nil, "bad base64", {
-			err = "base64",
+			substage = "base64",
 		}
 	end
 	local ok, json = pcall(lunajson.decode, unb64)
 	if not ok then
 		return nil, "bad json: " .. json, {
-			err = "json",
+			substage = "json",
+			message = json,
 		}
 	end
 	if type(json) ~= "table" or not json.sub or json.sub:find("[^0-9]") then
 		return nil, "bad payload", {
-			err = "subject",
+			substage = "subject",
 		}
 	end
 	return json
@@ -38,26 +39,44 @@ end
 local function check_external_auth(client, token)
 	local req, err = http_request.new_from_uri(config.auth_backend .. "?Action=Check&MaxAge=" .. config.token_max_age .. "&Token=" .. token)
 	if not req then
-		return nil, err
+		return nil, err, {
+			substage = "new_from_uri",
+			reason = err,
+		}
 	end
 	local headers, stream = req:go(config.auth_backend_timeout)
 	if not headers then
-		return nil, stream
+		return nil, stream, {
+			substage = "go",
+			reason = stream,
+		}
 	end
 	local code = headers:get(":status")
 	if code ~= "200" then
-		return nil, "status code " .. code
+		return nil, "status code " .. code, {
+			substage = "get_status",
+			code = tonumber(code),
+		}
 	end
 	local body, err = stream:get_body_as_string()
 	if not body then
-		return nil, err
+		return nil, err, {
+			substage = "get_body_as_string",
+			reason = err,
+		}
 	end
 	local ok, json = pcall(lunajson.decode, body)
 	if not ok then
-		return nil, json
+		return nil, json, {
+			substage = "json",
+			reason = json,
+		}
 	end
 	if json.Status ~= "OK" then
-		return nil, json.Status
+		return nil, json.Status, {
+			substage = "status",
+			reason = json.Status,
+		}
 	end
 	return true
 end

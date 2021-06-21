@@ -145,7 +145,7 @@ function server_i:listen_()
 		end
 	end
 	for _, client in util.safe_pairs(self.name_to_client_) do
-		client:drop("server closed", {
+		client:drop("server closed", nil, {
 			reason = "server_closed",
 		})
 	end
@@ -209,7 +209,7 @@ function server_i:join_room(client, name)
 		if #name > config.max_room_name_length then
 			self:rconlog({
 				event = "room_join_fail",
-				client_nick = client:nick(),
+				client_name = client:name(),
 				room_name = name,
 				reason = "room_name_too_long",
 			})
@@ -218,7 +218,7 @@ function server_i:join_room(client, name)
 		if not name:find("^[a-z0-9-_]+$") then
 			self:rconlog({
 				event = "room_join_fail",
-				client_nick = client:nick(),
+				client_name = client:name(),
 				room_name = name,
 				reason = "invalid_room_name",
 			})
@@ -227,7 +227,7 @@ function server_i:join_room(client, name)
 		if self:rooms_full() then
 			self:rconlog({
 				event = "room_join_fail",
-				client_nick = client:nick(),
+				client_name = client:name(),
 				room_name = name,
 				reason = "room_limit_exceeded",
 			})
@@ -240,14 +240,14 @@ function server_i:join_room(client, name)
 	if not ok then
 		self:rconlog(util.info_merge({
 			event = "room_join_fail",
-			client_nick = client:nick(),
+			client_name = client:name(),
 			room_name = name,
 		}, rconinfo))
 		rm:cleanup()
 	end
 	self:rconlog({
 		event = "room_join",
-		client_nick = client:nick(),
+		client_name = client:name(),
 		room_name = name,
 	})
 	return ok, err
@@ -312,7 +312,6 @@ local function fetch_user(nick)
 			event = "fetch_user_fail",
 			input = nick,
 			stage = "get_status",
-			reason = "non200",
 			code = tonumber(code),
 		})
 		return nil, "status code " .. code

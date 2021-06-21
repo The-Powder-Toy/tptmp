@@ -88,7 +88,7 @@ return {
 						server.log_inf_("$ blocked $", client:nick(), other_nick)
 						server:rconlog({
 							event = "block_add",
-							client_nick = client:nick(),
+							client_name = client:name(),
 							other_nick = other_nick,
 						})
 					else
@@ -109,7 +109,7 @@ return {
 						server.log_inf_("$ unblocked $", client:nick(), other_nick)
 						server:rconlog({
 							event = "block_add",
-							client_nick = client:nick(),
+							client_name = client:name(),
 							other_nick = other_nick,
 						})
 					else
@@ -140,7 +140,7 @@ return {
 				client.blocks_clients_ = {}
 			end,
 		},
-		client_cleanup = {
+		client_disconnect = {
 			func = function(client)
 				for _, other in pairs(client:server():clients()) do
 					other.blocks_clients_[client] = nil

@@ -20,7 +20,9 @@ end
 
 function remote_console_i:send_json_(json)
 	if self.client_sock_ then
-		self.client_sock_:write(lunajson.encode(json):gsub("\n", "") .. "\n")
+		pcall(function()
+			self.client_sock_:write(lunajson.encode(json):gsub("\n", "") .. "\n")
+		end)
 	end
 end
 
@@ -45,52 +47,80 @@ function remote_console_i:listen_()
 			local last_ping_in = cqueues.monotime()
 			local last_ping_out = cqueues.monotime()
 			while self.status_ == "running" do
-				local wait_for = math.min(
-					last_ping_in + config.rcon_ping_timeout - cqueues.monotime(),
-					last_ping_out + config.rcon_ping_interval - cqueues.monotime()
-				)
-				local ready = util.cqueues_poll(client_pollable, self.wake_, wait_for)
+				local wait_ping_in = math.max(last_ping_in + config.rcon_ping_timeout - cqueues.monotime(), 0)
+				local wait_ping_out = math.max(last_ping_out + config.rcon_ping_interval - cqueues.monotime(), 0)
+				local ready = util.cqueues_poll(client_pollable, self.wake_, math.min(wait_ping_in, wait_ping_out))
 				if ready[client_pollable] then
-					local line, err = self.client_sock_:read("*l")
-					if not line then
-						self.log_inf_("read failed with code $", err)
-						break
-					end
-					local ok, data = pcall(lunajson.decode, line, nil, nil, true)
-					if ok then
-						local handler = self.handlers_[data.type]
-						if handler then
-							self:send_json_({
-								type = "response",
-								status = "handled",
-								data = handler.func(self, data),
-							})
-						elseif data.type == "ping" then
-							last_ping_in = cqueues.monotime()
-							self:send_json_({
-								type = "pong",
-							})
-						elseif data.type == "pong" then
-							-- * Nothing.
+					local break_outer = false
+					while true do
+						local ok, line, err = pcall(function()
+							return self.client_sock_:read("*l")
+						end)
+						if not ok then
+							self.log_inf_("read failed: " .. line)
+							break_outer = true
+							break
+						end
+						if not line then
+							self.log_inf_("read failed with code $", err)
+							break_outer = true
+							break
+						end
+						local ok, data = pcall(lunajson.decode, line, nil, nil, true)
+						if ok then
+							if data.type == "request" then
+								local handler = self.handlers_[data.request]
+								if handler then
+									self:send_json_({
+										type = "response",
+										status = "handled",
+										data = handler.func(self, data.data),
+									})
+								else
+									self:send_json_({
+										type = "response",
+										status = "nohandler",
+										human = "no such handler",
+									})
+									self.log_wrn_("no handler for request type $", data.request)
+									break_outer = true
+									break
+								end
+							elseif data.type == "ping" then
+								last_ping_in = cqueues.monotime()
+								self:send_json_({
+									type = "pong",
+								})
+							elseif data.type == "pong" then
+								-- * Nothing.
+							else
+								self:send_json_({
+									type = "response",
+									status = "notype",
+									human = "no such type",
+								})
+								self.log_wrn_("no handler for type $", data.type)
+								break_outer = true
+								break
+							end
 						else
 							self:send_json_({
 								type = "response",
-								status = "nohandler",
-								human = "no such handler",
-								type = data.type,
+								status = "badjson",
+								human = "invalid json",
+								line = line,
+								reason = data,
 							})
-							self.log_wrn_("no handler for request type $", data.type)
+							self.log_wrn_("bad json: $", data)
+							break_outer = true
 							break
 						end
-					else
-						self:send_json_({
-							type = "response",
-							status = "badjson",
-							human = "invalid json",
-							line = line,
-							reason = data,
-						})
-						self.log_wrn_("bad json: $", data)
+						local recvq = self.client_sock_:pending()
+						if break_outer or recvq == 0 then
+							break
+						end
+					end
+					if break_outer then
 						break
 					end
 				end

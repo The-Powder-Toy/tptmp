@@ -31,7 +31,7 @@ return {
 					room:log("$ set motd: $", client:nick(), motd)
 					server:rconlog({
 						event = "motd_set",
-						client_nick = client:nick(),
+						client_name = client:name(),
 						room_name = room:name(),
 						motd = motd,
 					})
@@ -40,7 +40,7 @@ return {
 					room:log("$ cleared motd", client:nick())
 					server:rconlog({
 						event = "motd_clear",
-						client_nick = client:nick(),
+						client_name = client:name(),
 						room_name = room:name(),
 					})
 					client:send_server("* MOTD cleared")

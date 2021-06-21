@@ -19,7 +19,7 @@ function client_i:proto_stop_()
 end
 
 function client_i:proto_close_(message, log, rconinfo)
-	error(setmetatable({ msg = message, log = log or message, rconinfo = rconinfo }, PROTO_CLOSE))
+	error(setmetatable({ msg = message, log = log, rconinfo = rconinfo }, PROTO_CLOSE))
 end
 
 function client_i:proto_error_(log, rconinfo)
@@ -179,7 +179,7 @@ function client_i:forward_message_(format, event, packet, message)
 		self:send_server("* Cannot send message: " .. err)
 		self:server():rconlog(util.info_merge({
 			event = event .. "_fail",
-			client_nick = self.nick_,
+			client_name = self.name_,
 			room_name = self.room_:name(),
 			message = message,
 		}, rconinfo))
@@ -189,7 +189,7 @@ function client_i:forward_message_(format, event, packet, message)
 	self.room_:log(format, self.nick_, message)
 	self:server():rconlog({
 		event = event,
-		client_nick = self.nick_,
+		client_name = self.name_,
 		room_name = self.room_:name(),
 		message = message,
 	})
@@ -206,7 +206,7 @@ function client_i:handle_say_19_()
 		message = message:sub(2)
 		self:server():rconlog({
 			event = "command",
-			client_nick = self.nick_,
+			client_name = self.name_,
 			room_name = self.room_:name(),
 			command = message,
 		})
@@ -344,7 +344,7 @@ function client_i:deduplicate_nick_(keep_existing)
 				other_client_name = other.name_,
 			})
 		else
-			other:drop("logged in from another location", {
+			other:drop("logged in from another location", nil, {
 				reason = "ghosted",
 				other_client_name = self.name_,
 			})
@@ -359,6 +359,11 @@ function client_i:handshake_()
 	local tpt_major, tpt_minor, version = self:read_bytes_(3)
 	self.initial_nick_ = self:read_nullstr_(255)
 	self.log_inf_("initial nick is $", self.initial_nick_)
+	self.server_:rconlog({
+		event = "client_initial_nick",
+		client_name = self.name_,
+		client_nick = self.initial_nick_,
+	})
 	local tpt_version = { tpt_major, tpt_minor }
 	local version_ok = self.server_:version()
 	if version ~= version_ok then
@@ -444,7 +449,7 @@ function client_i:handshake_()
 	if initial_room == "" then
 		local ok, err = self.server_:join_room(self, self:lobby_name())
 		if not ok then
-			self:proto_close_("cannot join lobby: " .. err, {
+			self:proto_close_("cannot join lobby: " .. err, nil, {
 				reason = "critical_join_room_fail",
 				room_name = self:lobby_name(),
 			})
@@ -452,7 +457,7 @@ function client_i:handshake_()
 	else
 		local ok, err = self.server_:join_room(self, initial_room)
 		if not ok then
-			self:proto_close_("cannot join room: " .. err, {
+			self:proto_close_("cannot join room: " .. err, nil, {
 				reason = "critical_join_room_fail",
 				room_name = initial_room,
 			})
@@ -655,7 +660,7 @@ function client_i:expect_ping_()
 			timeout_at = cqueues.monotime() + config.ping_timeout
 		end
 		if timeout_at < cqueues.monotime() then
-			self:drop("ping timeout", {
+			self:drop("ping timeout", nil, {
 				reason = "ping_timeout",
 			})
 			break

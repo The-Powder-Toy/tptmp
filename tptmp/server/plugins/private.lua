@@ -159,7 +159,7 @@ return {
 						room:log("$ invited $", client:nick(), other_nick)
 						server:rconlog({
 							event = "invite_add",
-							client_nick = client:nick(),
+							client_name = client:name(),
 							room_name = room:name(),
 							other_nick = other_nick,
 						})
@@ -169,7 +169,7 @@ return {
 						room:log("$ uninvited $", client:nick(), other_nick)
 						server:rconlog({
 							event = "invite_remove",
-							client_nick = client:nick(),
+							client_name = client:name(),
 							room_name = room:name(),
 							other_nick = other_nick,
 						})
@@ -225,7 +225,7 @@ return {
 						room:log("$ set private status", client:nick())
 						server:rconlog({
 							event = "private_set",
-							client_nick = client:nick(),
+							client_name = client:name(),
 							room_name = room:name(),
 						})
 					end
@@ -243,7 +243,7 @@ return {
 						room:log("$ cleared private status", client:nick())
 						server:rconlog({
 							event = "private_clear",
-							client_nick = client:nick(),
+							client_name = client:name(),
 							room_name = room:name(),
 						})
 					else

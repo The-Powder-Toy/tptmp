@@ -2,12 +2,12 @@ local util = require("tptmp.server.util")
 
 local function serialize_client(client)
 	return {
-		name = client:name(),
-		nick = client:nick(),
+		client_name = client:name(),
+		client_nick = client:nick(),
 		guest = client:guest(),
 		uid = client:uid(),
 		host = tostring(client:host()),
-		room = client:room():name(),
+		room_name = client:room():name(),
 	}
 end
 
@@ -16,7 +16,7 @@ return {
 		kick = {
 			func = function(rcon, data)
 				local server = rcon:server()
-				if type(data.nick) ~= "string" then
+				if type(data.client_nick) ~= "string" then
 					return { status = "badnick", human = "invalid nick" }
 				end
 				local reason = "bye"
@@ -26,11 +26,11 @@ return {
 					end
 					reason = data.reason
 				end
-				local client = server:client_by_nick(data.nick)
+				local client = server:client_by_nick(data.client_nick)
 				if not client then
 					return { status = "enoent", human = "user not online" }
 				end
-				client:drop("kicked: " .. reason, {
+				client:drop("kicked: " .. reason, nil, {
 					reason = "kicked",
 					message = reason,
 				})
@@ -51,13 +51,13 @@ return {
 		msg_user = {
 			func = function(rcon, data)
 				local server = rcon:server()
-				if type(data.nick) ~= "string" then
+				if type(data.client_nick) ~= "string" then
 					return { status = "badnick", human = "invalid nick" }
 				end
 				if type(data.message) ~= "string" then
-					return { status = "badreason", human = "invalid message" }
+					return { status = "badmessage", human = "invalid message" }
 				end
-				local client = server:client_by_nick(data.nick)
+				local client = server:client_by_nick(data.client_nick)
 				if not client then
 					return { status = "enoent", human = "user not online" }
 				end
@@ -68,13 +68,13 @@ return {
 		msg_room = {
 			func = function(rcon, data)
 				local server = rcon:server()
-				if type(data.room) ~= "string" then
+				if type(data.room_name) ~= "string" then
 					return { status = "badroom", human = "invalid room" }
 				end
 				if type(data.message) ~= "string" then
-					return { status = "badreason", human = "invalid message" }
+					return { status = "badmessage", human = "invalid message" }
 				end
-				local room = server:room_by_name(data.room)
+				local room = server:room_by_name(data.room_name)
 				if not room then
 					return { status = "enoent", human = "no such room" }
 				end
@@ -86,7 +86,7 @@ return {
 			func = function(rcon, data)
 				local server = rcon:server()
 				if type(data.message) ~= "string" then
-					return { status = "badreason", human = "invalid message" }
+					return { status = "badmessage", human = "invalid message" }
 				end
 				for _, client in util.safe_pairs(server:clients()) do
 					client:send_server(data.message)
