@@ -83,16 +83,20 @@ return {
 					end
 					other_uid = other
 				end
+				if words[2] ~= "add" and words[2] ~= "check" and words[2] ~= "remove" then
+					return false
+				end
+				if not other_uid then
+					client:send_server(("* No user named %s"):format(words[3]))
+					return
+				end
 				if words[2] == "check" then
 					if self:is_invited(other_uid) then
-						client:send_server("* User is currently invited")
+						client:send_server(("* %s is currently invited"):format(other_nick))
 					else
-						client:send_server("* User is not currently invited")
+						client:send_server(("* %s is not currently invited"):format(other_nick))
 					end
 					return true
-				end
-				if words[2] ~= "add" and words[2] ~= "remove" then
-					return false
 				end
 				if room:is_private() and not room:is_owner(client) then
 					client:send_server("* You are not an owner of this room")
@@ -101,11 +105,7 @@ return {
 				if room:is_temporary() or (type(other_uid) ~= "number" and other_uid:guest()) then
 					function invitef()
 						if type(other_uid) == "number" then
-							client:send_server("* User not online")
-							return
-						end
-						if not other_uid then
-							client:send_server("* No such user")
+							client:send_server(("* %s not online"):format(other_nick))
 							return
 						end
 						room.invites_clients_[other_uid] = true
@@ -114,21 +114,17 @@ return {
 					end
 					function uninvitef()
 						if room.invites_clients_[other_uid] then
-							client:send_server("* User is not currently invited")
+							client:send_server(("* %s is not currently invited"):format(other_nick))
 							return
 						end
 						room.invites_clients_[other_uid] = nil
-						client:send_server("* User is no longer invited")
+						client:send_server(("* %s is no longer invited"):format(other_nick))
 						return true
 					end
 				else
 					function invitef()
-						if not other_uid then
-							client:send_server("* No such user")
-							return
-						end
 						if room:is_invited(other_uid) then
-							client:send_server("* User is already invited")
+							client:send_server(("* %s is already invited"):format(other_nick))
 							return
 						end
 						local src = other_uid
@@ -137,16 +133,12 @@ return {
 							src = src:uid()
 						end
 						room:uid_insert_invite_(src)
-						client:send_server("* User is now invited")
+						client:send_server(("* %s is now invited"):format(other_nick))
 						return true
 					end
 					function uninvitef()
-						if not other_uid then
-							client:send_server("* No such user")
-							return
-						end
 						if not room:is_invited(other_uid) then
-							client:send_server("* User is not currently invited")
+							client:send_server(("* %s is not currently invited"):format(other_nick))
 							return
 						end
 						local src = other_uid
@@ -155,9 +147,9 @@ return {
 						end
 						room:uid_remove_invite_(src)
 						if room:is_private() then
-							client:send_server("* User is no longer invited")
+							client:send_server(("* %s is no longer invited"):format(other_nick))
 						else
-							client:send_server("* User is no longer invited, but can still join as the room is not private")
+							client:send_server(("* %s is no longer invited, but can still join as the room is not private"):format(other_nick))
 						end
 						return true
 					end

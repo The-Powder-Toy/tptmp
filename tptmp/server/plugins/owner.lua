@@ -145,14 +145,14 @@ return {
 					other_uid = other
 				end
 				if not other_uid then
-					client:send_server("* No such user")
+					client:send_server(("* No user named %s"):format(words[3]))
 					return true
 				end
 				if words[2] == "check" then
 					if room:uid_owns_(other_uid) then
-						client:send_server("* User currently owns this room")
+						client:send_server(("* %s currently owns this room"):format(other_nick))
 					else
-						client:send_server("* User does not currently own this room")
+						client:send_server(("* %s does not currently own this room"):format(other_nick))
 					end
 					return true
 				end
@@ -169,7 +169,7 @@ return {
 				end
 				if words[2] == "add" then
 					if not (type(src) ~= "number" and src:room() == room) then
-						client:send_server("* User is not present in this room")
+						client:send_server(("* %s is not present in this room"):format(other_nick))
 						return true
 					end
 					if room:owner_count() >= config.max_owners_per_room then
@@ -177,11 +177,11 @@ return {
 						return true
 					end
 					if server:uid_rooms_owned_(other_uid) >= config.max_rooms_per_owner then
-						client:send_server("* User owns too many rooms, have them use /disown to disown one")
+						client:send_server(("* %s owns too many rooms, have them use /disown to disown one"):format(other_nick))
 						return true
 					end
 					if room:uid_owns_(other_uid) then
-						client:send_server("* User already owns this room")
+						client:send_server(("* %s already owns this room"):format(other_nick))
 						return true
 					end
 					local client_to_notify
@@ -198,7 +198,7 @@ return {
 					end
 				elseif words[2] == "remove" then
 					if not room:uid_owns_(other_uid) then
-						client:send_server("* User does not currently own this room")
+						client:send_server(("* %s does not currently own this room"):format(other_nick))
 						return true
 					end
 					local client_to_notify

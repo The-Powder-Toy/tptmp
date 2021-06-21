@@ -9,7 +9,7 @@ return {
 				local server = client:server()
 				local other = server:client_by_nick(words[2])
 				if not other then
-					client:send_server("* User not online")
+					client:send_server(("* %s is not online"):format(words[2]))
 					if client.reply_to_ == words[2] then
 						client.reply_to_ = nil
 					end

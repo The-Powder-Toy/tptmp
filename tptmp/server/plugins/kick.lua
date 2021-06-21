@@ -14,7 +14,7 @@ return {
 				end
 				local other = server:client_by_nick(words[2])
 				if not (other and other:room() == room) then
-					client:send_server("* User not present in this room")
+					client:send_server(("* %s is not present in this room"):format(words[2]))
 					return true
 				end
 				other:send_server(("* You have been kicked by %s: %s"):format(client:nick(), reason))

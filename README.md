@@ -99,6 +99,5 @@ these objects.
 - [ ] add APIs to TPT in order to get rid of a few hideous hacks on
       the TPTMP side
 - [ ] more consistent logging
-- [ ] temporary guest invites
 - [ ] smarter foul language filtering
 - [ ] mouse selection in the chat window
