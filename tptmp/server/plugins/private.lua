@@ -157,10 +157,22 @@ return {
 				if words[2] == "add" then
 					if invitef() then
 						room:log("$ invited $", client:nick(), other_nick)
+						server:rconlog({
+							event = "invite_add",
+							client_nick = client:nick(),
+							room_name = room:name(),
+							other_nick = other_nick,
+						})
 					end
 				elseif words[2] == "remove" then
 					if uninvitef() then
 						room:log("$ uninvited $", client:nick(), other_nick)
+						server:rconlog({
+							event = "invite_remove",
+							client_nick = client:nick(),
+							room_name = room:name(),
+							other_nick = other_nick,
+						})
 					end
 				end
 				if client_to_invite then
@@ -211,6 +223,11 @@ return {
 						dconf:commit()
 						client:send_server("* Private status set")
 						room:log("$ set private status", client:nick())
+						server:rconlog({
+							event = "private_set",
+							client_nick = client:nick(),
+							room_name = room:name(),
+						})
 					end
 				elseif words[2] == "check" then
 					if room:is_private() then
@@ -224,6 +241,11 @@ return {
 						dconf:commit()
 						client:send_server("* Private status cleared")
 						room:log("$ cleared private status", client:nick())
+						server:rconlog({
+							event = "private_clear",
+							client_nick = client:nick(),
+							room_name = room:name(),
+						})
 					else
 						client:send_server("* Room is not currently private")
 					end
@@ -236,12 +258,12 @@ return {
 		},
 	},
 	hooks = {
-		load = {
+		plugin_load = {
 			func = function(mtidx_augment)
 				mtidx_augment("room", room_private_i)
 			end,
 		},
-		create_room = {
+		room_create = {
 			func = function(room)
 				room.invites_clients_ = {}
 			end,
@@ -267,7 +289,7 @@ return {
 			end,
 			after = { "owner" },
 		},
-		cleanup_client = {
+		client_cleanup = {
 			func = function(client)
 				for _, room in pairs(client:server():rooms()) do
 					room.invites_clients_[client] = nil
@@ -279,7 +301,9 @@ return {
 		can_join_room = {
 			func = function(room, client)
 				if room:is_private() and not room:is_invited(client) then
-					return false, "private room, ask for an invite"
+					return false, "private room, ask for an invite", {
+						reason = "private",
+					}
 				end
 				return true
 			end,

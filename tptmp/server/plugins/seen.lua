@@ -53,14 +53,14 @@ return {
 		},
 	},
 	hooks = {
-		init = {
+		server_init = {
 			func = function(server)
 				local dconf = server:dconf()
 				dconf:root().seen = dconf:root().seen or {}
 				dconf:commit()
 			end,
 		},
-		disconnect = {
+		client_disconnect = {
 			func = function(client)
 				if not client:guest() then
 					local dconf = client:server():dconf()

@@ -86,6 +86,11 @@ return {
 						blockf()
 						client:send_server(("* %s is now blocked"):format(other_nick))
 						server.log_inf_("$ blocked $", client:nick(), other_nick)
+						server:rconlog({
+							event = "block_add",
+							client_nick = client:nick(),
+							other_nick = other_nick,
+						})
 					else
 						client:send_server(("* %s is already blocked"):format(other_nick))
 					end
@@ -102,6 +107,11 @@ return {
 						unblockf()
 						client:send_server(("* %s is no longer blocked"):format(other_nick))
 						server.log_inf_("$ unblocked $", client:nick(), other_nick)
+						server:rconlog({
+							event = "block_add",
+							client_nick = client:nick(),
+							other_nick = other_nick,
+						})
 					else
 						client:send_server(("* %s is not currently blocked"):format(other_nick))
 					end
@@ -113,24 +123,24 @@ return {
 		},
 	},
 	hooks = {
-		load = {
+		plugin_load = {
 			func = function(mtidx_augment)
 				mtidx_augment("server", server_block_i)
 			end,
 		},
-		init = {
+		server_init = {
 			func = function(server)
 				local dconf = server:dconf()
 				dconf:root().block = dconf:root().block or {}
 				dconf:commit()
 			end,
 		},
-		connect = {
+		client_register = {
 			func = function(client)
 				client.blocks_clients_ = {}
 			end,
 		},
-		cleanup_client = {
+		client_cleanup = {
 			func = function(client)
 				for _, other in pairs(client:server():clients()) do
 					other.blocks_clients_[client] = nil

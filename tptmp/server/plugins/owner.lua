@@ -49,7 +49,7 @@ function room_owner_i:uid_insert_owner_(uid)
 	if not idx then
 		table.insert(room_info.owners, uid)
 		room_info.owners[0] = #room_info.owners
-		server:phost():call_hook("insert_room_owner", self, uid)
+		server:phost():call_hook("room_insert_owner", self, uid)
 		dconf:commit()
 	end
 end
@@ -123,8 +123,13 @@ return {
 				end
 				room:set_temp_owner_(nil)
 				room:uid_insert_owner_(client:uid())
-				room:log("$ registered the room and gained room ownership", client:nick())
 				client:send_server("* Room successfully registered")
+				room:log("$ registered the room and gained room ownership", client:nick())
+				client:server():rconlog({
+					event = "room_register",
+					client_nick = client:nick(),
+					room_name = room:name(),
+				})
 				return true
 			end,
 			help = "/register, no arguments: registers and claims ownership of the room",
@@ -192,6 +197,12 @@ return {
 					end
 					room:uid_insert_owner_(src)
 					room:log("$ shared room ownership with $", client:nick(), other_nick)
+					server:rconlog({
+						event = "room_owner_add",
+						client_nick = client:nick(),
+						room_name = room:name(),
+						other_nick = other_nick,
+					})
 					client:send_server("* Room ownership successfully shared")
 					if client_to_notify then
 						client_to_notify:send_server("* You now have shared ownership of this room")
@@ -209,6 +220,12 @@ return {
 					end
 					room:uid_remove_owner_(src)
 					room:log("$ stripped $ of room ownership", client:nick(), other_nick)
+					server:rconlog({
+						event = "room_owner_remove",
+						client_nick = client:nick(),
+						room_name = room:name(),
+						other_nick = other_nick,
+					})
 					if client_to_notify and client_to_notify:room() == room then
 						client_to_notify:send_server("* You no longer have shared ownership of this room")
 					end
@@ -221,14 +238,14 @@ return {
 		},
 	},
 	hooks = {
-		load = {
+		plugin_load = {
 			func = function(mtidx_augment)
 				assert(config.auth)
 				mtidx_augment("room", room_owner_i)
 				mtidx_augment("server", server_owner_i)
 			end,
 		},
-		init = {
+		server_init = {
 			func = function(server)
 				local dconf = server:dconf()
 				if not dconf:root().rooms then
@@ -252,20 +269,20 @@ return {
 					end
 					dconf:root().rooms = rooms
 					for name, info in pairs(reserve) do
-						server:phost():call_hook("reserve_room", server, name, info)
+						server:phost():call_hook("room_reserve", server, name, info)
 					end
 				end
 				dconf:commit()
 			end,
 		},
-		join_room = {
+		room_join = {
 			func = function(room, client)
 				if room:is_temporary() and not room.temp_owner_ then
 					room:set_temp_owner_(client)
 				end
 			end,
 		},
-		leave_room = {
+		room_leave = {
 			func = function(room, client)
 				if room:is_temporary() and room.temp_owner_ == client then
 					room:set_temp_owner_(nil)

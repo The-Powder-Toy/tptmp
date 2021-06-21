@@ -1,6 +1,6 @@
 return {
 	hooks = {
-		init = {
+		server_init = {
 			func = function(server)
 				local dconf = server:dconf()
 				local bad_words = dconf:root().bad_words or {}
@@ -18,7 +18,9 @@ return {
 				local bad_words = dconf:root().bad_words
 				for i = 1, #bad_words do
 					if message:lower():find(bad_words[i]) then
-						return false, "bad language"
+						return false, "bad language", {
+							reason = "bad_language",
+						}
 					end
 				end
 				return true

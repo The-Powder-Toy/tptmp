@@ -29,9 +29,20 @@ return {
 						return true
 					end
 					room:log("$ set motd: $", client:nick(), motd)
+					server:rconlog({
+						event = "motd_set",
+						client_nick = client:nick(),
+						room_name = room:name(),
+						motd = motd,
+					})
 					client:send_server("* MOTD set")
 				else
 					room:log("$ cleared motd", client:nick())
+					server:rconlog({
+						event = "motd_clear",
+						client_nick = client:nick(),
+						room_name = room:name(),
+					})
 					client:send_server("* MOTD cleared")
 				end
 				local dconf = server:dconf()
@@ -44,12 +55,12 @@ return {
 		},
 	},
 	hooks = {
-		load = {
+		plugin_load = {
 			func = function(mtidx_augment)
 				mtidx_augment("room", room_motd_i)
 			end,
 		},
-		join_room = {
+		room_join = {
 			func = function(room, client)
 				local room_info = room:server():dconf():root().rooms[room:name()]
 				if room_info then
@@ -62,7 +73,7 @@ return {
 				end
 			end,
 		},
-		insert_room_owner = {
+		room_insert_owner = {
 			func = function(room, uid)
 				local client = room:server():client_by_uid(uid)
 				if client then
@@ -79,7 +90,7 @@ return {
 			end,
 			after = { "private" },
 		},
-		reserve_room = {
+		room_reserve = {
 			func = function(server, name, info)
 				if info.motd then
 					local room_info = server:dconf():root().rooms[name]

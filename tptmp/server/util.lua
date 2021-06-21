@@ -78,6 +78,13 @@ local function array_find(tbl, thing)
 	end
 end
 
+local function info_merge(tbl, thing)
+	for key, value in pairs(thing) do
+		tbl[key] = value
+	end
+	return tbl
+end
+
 return {
 	cqueues_poll = cqueues_poll,
 	cqueues_wrap = cqueues_wrap,
@@ -88,4 +95,5 @@ return {
 	argpack = argpack,
 	argunpack = argunpack,
 	array_find = array_find,
+	info_merge = info_merge,
 }

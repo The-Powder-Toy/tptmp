@@ -25,6 +25,11 @@ return {
 					other:send_server(("* %s >> %s"):format(client:nick(), message))
 					other.reply_to_ = client:nick()
 					server.log_inf_("$ >> $: $", client:nick(), other:nick(), message)
+					server:rconlog({
+						event = "msg",
+						client_nick = client:nick(),
+						other_client_nick = other:nick(),
+					})
 				end
 				return true
 			end,

@@ -93,6 +93,10 @@ end
 function remote_console_i:start()
 	assert(self.status_ == "ready", "not ready")
 	self.status_ = "running"
+	self.server_:rcon(self)
+	if self.auth_ then
+		self.auth_:rcon(self)
+	end
 	util.cqueues_wrap(cqueues.running(), function()
 		self:listen_()
 	end)
@@ -103,6 +107,10 @@ function remote_console_i:stop()
 		return
 	end
 	assert(self.status_ == "running", "not running")
+	self.server_:rcon(nil)
+	if self.auth_ then
+		self.auth_:rcon(nil)
+	end
 	self.status_ = "stopping"
 	self.wake_:signal()
 end
@@ -120,6 +128,7 @@ local function new(params)
 		status_ = "ready",
 		handlers_ = handlers,
 		server_ = params.server,
+		auth_ = params.server:auth(),
 		wake_ = condition.new(),
 		log_inf_ = log.derive(log.inf, "[" .. params.name .. "] "),
 		log_wrn_ = log.derive(log.err, "[" .. params.name .. "] "),

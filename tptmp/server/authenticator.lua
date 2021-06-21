@@ -11,18 +11,26 @@ local authenticator_m = { __index = authenticator_i }
 local function token_payload(token)
 	local payload = token:match("^[^%.]+%.([^%.]+)%.[^%.]+$")
 	if not payload then
-		return nil, "no payload"
+		return nil, "no payload", {
+			err = "match",
+		}
 	end
 	local unb64 = basexx.from_url64(payload)
 	if not unb64 then
-		return nil, "bad base64"
+		return nil, "bad base64", {
+			err = "base64",
+		}
 	end
 	local ok, json = pcall(lunajson.decode, unb64)
 	if not ok then
-		return nil, "bad json: " .. json
+		return nil, "bad json: " .. json, {
+			err = "json",
+		}
 	end
 	if type(json) ~= "table" or not json.sub or json.sub:find("[^0-9]") then
-		return nil, "bad payload"
+		return nil, "bad payload", {
+			err = "subject",
+		}
 	end
 	return json
 end
@@ -66,25 +74,57 @@ function authenticator_i:authenticate(client, quickauth_token)
 end
 
 function authenticator_i:authenticate_token_(client, token)
-	local payload, err = token_payload(token)
+	local payload, err, rconinfo = token_payload(token)
 	if not payload then
+		self:rconlog(util.info_merge({
+			event = "authenticate_fail",
+			client_name = client:name(),
+			token = token,
+			stage = "payload",
+		}, rconinfo))
 		self.log_inf_("authentication token from $ refused: $", client:name(), err)
 		return
 	end
 	local uid = tonumber(payload.sub)
 	if self.quickauth_[uid] == token and os.time() <= payload.iat + config.token_max_age then
+		self:rconlog({
+			event = "authenticate",
+			client_name = client:name(),
+			token = token,
+		})
 		self.log_inf_("cached authentication token reused by $", client:name())
 	else
-		local ok, err = check_external_auth(client, token)
+		local ok, err, rconinfo = check_external_auth(client, token)
 		if not ok then
+			self:rconlog(util.info_merge({
+				event = "authenticate_fail",
+				client_name = client:name(),
+				token = token,
+				stage = "check",
+			}, rconinfo))
 			self.log_inf_("authentication token from $ refused: $", client:name(), err)
 			return
 		end
+		self:rconlog({
+			event = "authenticate",
+			client_name = client:name(),
+			token = token,
+		})
 		self.quickauth_[uid] = token
 		self.log_inf_("accepted and cached authentication token from $", client:name())
 	end
 	self.log_inf_("authenticated $ as $", client:name(), payload.name)
 	return payload.name, uid
+end
+
+function authenticator_i:rcon(rcon)
+	self.rcon_ = rcon
+end
+
+function authenticator_i:rconlog(data)
+	if self.rcon_ then
+		self.rcon_:log(data)
+	end
 end
 
 local function new(params)

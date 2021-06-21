@@ -39,25 +39,31 @@ end
 
 function room_i:can_join_(client)
 	if self.name_ == "null" and client:guest() then
-		return nil, "guests cannot join the main lobby"
+		return nil, "guests cannot join the main lobby", {
+			reason = "guest_in_main_lobby",
+		}
 	end
-	local ok, err = self.server_:phost():call_check_all("can_join_room", self, client)
+	local ok, err, rconinfo = self.server_:phost():call_check_all("can_join_room", self, client)
 	if not ok then
-		return nil, err
+		return nil, err, rconinfo
 	end
 	return true
 end
 
 function room_i:join(client)
 	if client:room() == self then
-		return nil, "already in room"
+		return nil, "already in room", {
+			reason = "already_in_room",
+		}
 	end
 	if not self.free_ then
-		return nil, "room is full"
+		return nil, "room is full", {
+			reason = "room_is_full",
+		}
 	end
-	local ok, err = self:can_join_(client)
+	local ok, err, rconinfo = self:can_join_(client)
 	if not ok then
-		return nil, err
+		return nil, err, rconinfo
 	end
 	if client:room() then
 		client:room():leave(client)
@@ -90,7 +96,7 @@ function room_i:join(client)
 	if sync_source then
 		sync_source:send_sync_request(client)
 	end
-	self.server_:phost():call_hook("join_room", self, client)
+	self.server_:phost():call_hook("room_join", self, client)
 	return true
 end
 
@@ -135,7 +141,7 @@ function room_i:leave(client)
 	if client:room() ~= self then
 		return
 	end
-	self.server_:phost():call_hook("leave_room", self, client)
+	self.server_:phost():call_hook("room_leave", self, client)
 	local id = self.client_to_id_[client].id
 	self.client_to_id_[client].dead = true
 	self.dead_ids_[id] = client
@@ -175,7 +181,7 @@ local function new(params)
 		clients_ = 0,
 		log_inf_ = log_inf,
 	}, room_m)
-	rm.server_:phost():call_hook("create_room", rm)
+	rm.server_:phost():call_hook("room_create", rm)
 	return rm
 end
 

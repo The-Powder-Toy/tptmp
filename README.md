@@ -98,6 +98,7 @@ these objects.
       negotiation
 - [ ] add APIs to TPT in order to get rid of a few hideous hacks on
       the TPTMP side
-- [ ] more consistent logging
 - [ ] smarter foul language filtering
 - [ ] mouse selection in the chat window
+- [ ] make initial syncs more resilient to problems such as the client chosen
+      to send its simulation data disconnecting

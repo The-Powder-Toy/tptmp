@@ -18,12 +18,12 @@ function client_i:proto_stop_()
 	error(setmetatable({}, PROTO_STOP))
 end
 
-function client_i:proto_close_(message, format, ...)
-	error(setmetatable({ msg = message, log = format and string.format(format, ...) or message }, PROTO_CLOSE))
+function client_i:proto_close_(message, log, rconinfo)
+	error(setmetatable({ msg = message, log = log or message, rconinfo = rconinfo }, PROTO_CLOSE))
 end
 
-function client_i:proto_error_(...)
-	error(setmetatable({ log = string.format(...) }, PROTO_ERROR))
+function client_i:proto_error_(log, rconinfo)
+	error(setmetatable({ log = log, rconinfo = rconinfo }, PROTO_ERROR))
 end
 
 function client_i:read_wait_(count)
@@ -71,7 +71,9 @@ function client_i:read_nullstr_(max)
 			break
 		end
 		if #collect == max then
-			self:proto_error_("overlong nullstr")
+			self:proto_error_("overlong nullstr", {
+				kind = "overlong_nullstr",
+			})
 		end
 		table.insert(collect, string.char(byte))
 	end
@@ -170,15 +172,27 @@ function client_i:check_message_(message)
 	return true
 end
 
-function client_i:forward_message_(format, packet, message)
+function client_i:forward_message_(format, event, packet, message)
 	local server = self:server()
-	local ok, err = server:phost():call_check_all("content_ok", server, message)
+	local ok, err, rconinfo = server:phost():call_check_all("content_ok", server, message)
 	if not ok then
 		self:send_server("* Cannot send message: " .. err)
+		self:server():rconlog(util.info_merge({
+			event = event .. "_fail",
+			client_nick = self.nick_,
+			room_name = self.room_:name(),
+			message = message,
+		}, rconinfo))
 		return
 	end
-	self.room_:log(format, self.nick_, message)
 	self.room_:broadcast_ciw(self, packet .. self.room_id_str_ .. string.char(#message) .. message)
+	self.room_:log(format, self.nick_, message)
+	self:server():rconlog({
+		event = event,
+		client_nick = self.nick_,
+		room_name = self.room_:name(),
+		message = message,
+	})
 end
 
 function client_i:handle_say_19_()
@@ -189,10 +203,17 @@ function client_i:handle_say_19_()
 	if message:find("^//") then
 		message = message:sub(2)
 	elseif message:find("^/") then
-		self.server_:parse(self, message:sub(2))
+		message = message:sub(2)
+		self:server():rconlog({
+			event = "command",
+			client_nick = self.nick_,
+			room_name = self.room_:name(),
+			command = message,
+		})
+		self.server_:parse(self, message)
 		return
 	end
-	self:forward_message_("<$> $", "\19", message)
+	self:forward_message_("<$> $", "say", "\19", message)
 end
 
 function client_i:handle_say3rd_20_()
@@ -200,7 +221,7 @@ function client_i:handle_say3rd_20_()
 	if not self:check_message_(message) then
 		return
 	end
-	self:forward_message_("* $ $", "\20", message)
+	self:forward_message_("* $ $", "say3rd", "\20", message)
 end
 
 local function header_24be(d24)
@@ -211,6 +232,7 @@ local function header_24be(d24)
 end
 
 function client_i:handle_sync_30_()
+	-- * Update handle_sync_done_128_ if you change this.
 	local location = self:read_(3)
 	local data = self:read_str24_()
 	self.room_:broadcast(self, "\30" .. self.room_id_str_ .. location .. header_24be(#data))
@@ -230,7 +252,7 @@ forward_to_room(   "brushsize", 34, 2)
 forward_to_room(  "brushshape", 35, 1)
 forward_to_room(    "keybdmod", 36, 1)
 forward_to_room(  "selecttool", 37, 2)
-forward_to_room(    "simstate", 38, 5)
+forward_to_room(    "simstate", 38, 5) -- * Update handle_sync_done_128_ if you change this.
 forward_to_room(       "flood", 39, 4)
 forward_to_room(     "lineend", 40, 3)
 forward_to_room(     "rectend", 41, 3)
@@ -246,7 +268,7 @@ forward_to_room(    "clearsim", 63, 0)
 forward_to_room(   "brushdeco", 65, 4)
 forward_to_room(   "clearrect", 67, 6)
 forward_to_room(  "canceldraw", 68, 0)
-forward_to_room(  "loadonline", 69, 9)
+forward_to_room(  "loadonline", 69, 9) -- * Update handle_sync_done_128_ if you change this.
 forward_to_room(   "reloadsim", 70, 0)
 forward_to_room( "placestatus", 71, 4)
 forward_to_room("selectstatus", 72, 4)
@@ -257,7 +279,11 @@ forward_to_room(     "fpssync", 76, 3)
 
 function client_i:proto_assert_(got, expected)
 	if got ~= expected then
-		self:proto_error_("unexpected packet ID (%i ~= %i)", got, expected)
+		self:proto_error_(("unexpected packet ID (%i ~= %i)"):format(got, expected), {
+			kind = "unexpected_packet_id",
+			got = got,
+			expected = expected,
+		})
 	end
 	return got
 end
@@ -313,9 +339,15 @@ function client_i:deduplicate_nick_(keep_existing)
 	local other = self.server_:client_by_nick(self.nick_)
 	if other then
 		if keep_existing then
-			self:proto_close_("nick already in use", "nick already in use (by %s)", other.name_)
+			self:proto_close_("nick already in use", ("nick already in use (by %s)"):format(other.name_), {
+				reason = "nick_collision",
+				other_client_name = other.name_,
+			})
 		else
-			other:drop("logged in from another location")
+			other:drop("logged in from another location", {
+				reason = "ghosted",
+				other_client_name = self.name_,
+			})
 			while self.status_ ~= "dead" and other.status_ ~= "dead" do
 				util.cqueues_poll(self.wake_, other.wake_)
 			end
@@ -330,20 +362,33 @@ function client_i:handshake_()
 	local tpt_version = { tpt_major, tpt_minor }
 	local version_ok = self.server_:version()
 	if version ~= version_ok then
-		self:proto_close_("protocol version mismatch; try updating TPTMP", "protocol version mismatch (%i ~= %i)", version, version_ok)
+		self:proto_close_("protocol version mismatch; try updating TPTMP", ("protocol version mismatch (%i ~= %i)"):format(version, version_ok), {
+			reason = "proto_mismatch",
+			got = version,
+		})
 	end
 	if util.version_less(tpt_version, config.tpt_version_min) then
-		self:proto_close_("TPT version older than first compatible; try updating TPT", "TPT version older than first compatible (%i.%i < %i.%i)", tpt_version[1], tpt_version[2], config.tpt_version_min[1], config.tpt_version_min[2])
+		self:proto_close_("TPT version older than first compatible; try updating TPT", ("TPT version older than first compatible (%i.%i < %i.%i)"):format(tpt_version[1], tpt_version[2], config.tpt_version_min[1], config.tpt_version_min[2]), {
+			reason = "tpt_min_violation",
+			got_major = tpt_version[1],
+			got_minor = tpt_version[2],
+		})
 	end
 	if util.version_less(config.tpt_version_max, tpt_version) then
-		self:proto_close_("TPT version newer than last compatible; contact the server owner", "TPT version newer than last compatible (%i.%i > %i.%i)", tpt_version[1], tpt_version[2], config.tpt_version_max[1], config.tpt_version_max[2])
+		self:proto_close_("TPT version newer than last compatible; contact the server owner", ("TPT version newer than last compatible (%i.%i > %i.%i)"):format(tpt_version[1], tpt_version[2], config.tpt_version_max[1], config.tpt_version_max[2]), {
+			reason = "tpt_max_violation",
+			got_major = tpt_version[1],
+			got_minor = tpt_version[2],
+		})
 	end
 	if self.server_:full() then
-		self:proto_close_("server is full", "server is full")
+		self:proto_close_("server is full", nil, {
+			reason = "server_full",
+		})
 	end
-	local ok, err, err2 = self.server_:phost():call_check_all("can_connect", self)
+	local ok, err, err2, rconinfo = self.server_:phost():call_check_all("can_connect", self)
 	if not ok then
-		self:proto_close_(err, "%s", err2)
+		self:proto_close_(err, err2, rconinfo)
 	end
 	self.flags_ = self:read_bytes_(1)
 	self.guest_ = false
@@ -354,19 +399,25 @@ function client_i:handshake_()
 		if not self.nick_ then
 			self.guest_ = true
 		end
-		local ok, err, err2 = self.server_:phost():call_check_all("can_join", self)
+		local ok, err, err2, rconinfo = self.server_:phost():call_check_all("can_join", self)
 		if not ok then
-			self:proto_close_(err, "%s", err2)
+			self:proto_close_(err, err2, rconinfo)
 		end
 		if self.guest_ then
 			self:unique_guest_nick_()
 		end
 	else
 		if #self.initial_nick_ > config.max_nick_length then
-			self:proto_error_("nick too long", "nick too long (%i > %i)", #self.initial_nick_, config.max_nick_length)
+			self:proto_error_(("nick too long (%i > %i)"):format(#self.initial_nick_, config.max_nick_length), {
+				kind = "nick_too_long",
+				got_length = #self.initial_nick_,
+			})
 		end
 		if self.initial_nick_:find("[^A-Za-z0-9-_]") then
-			self:proto_error_("invalid nick")
+			self:proto_error_("invalid nick", {
+				kind = "nick_invalid",
+				got = self.initial_nick_,
+			})
 		end
 		if self.initial_nick_ == "" then
 			self:unique_guest_nick_()
@@ -390,16 +441,21 @@ function client_i:handshake_()
 	util.cqueues_wrap(cqueues.running(), function()
 		self:ping_()
 	end)
-	self.server_:phost():call_hook("join", self)
 	if initial_room == "" then
 		local ok, err = self.server_:join_room(self, self:lobby_name())
 		if not ok then
-			self:proto_close_("cannot join lobby: " .. err)
+			self:proto_close_("cannot join lobby: " .. err, {
+				reason = "critical_join_room_fail",
+				room_name = self:lobby_name(),
+			})
 		end
 	else
 		local ok, err = self.server_:join_room(self, initial_room)
 		if not ok then
-			self:proto_close_("cannot join room: " .. err)
+			self:proto_close_("cannot join room: " .. err, {
+				reason = "critical_join_room_fail",
+				room_name = initial_room,
+			})
 		end
 	end
 end
@@ -410,18 +466,14 @@ function client_i:early_drop(message)
 	self:close_socket_()
 end
 
-function client_i:drop(message, log_message)
+function client_i:drop(message, log_message, rconinfo)
 	self.log_inf_("dropped: $", log_message or message)
 	if self.handshake_done_ then
 		self:send_disconnect_reason_(message)
 	else
 		self:send_handshake_failure_(message:sub(1, 255))
 	end
-	self:disconnect_()
-end
-
-function client_i:disconnect_()
-	self:stop_()
+	self:stop_(rconinfo)
 end
 
 function client_i:server()
@@ -458,10 +510,17 @@ function client_i:manage_socket_()
 				end
 				if self.socket_:eof("r") then
 					self.log_inf_("connection reached eof")
+					self:stop_({
+						reason = "recv_failed",
+						eof = true,
+					})
 				else
 					self.log_inf_("recv failed with code $", err)
+					self:stop_({
+						reason = "recv_failed",
+						code = err,
+					})
 				end
-				self:stop_()
 				break
 			end
 			if not data then
@@ -470,7 +529,9 @@ function client_i:manage_socket_()
 			local pushed, count = self.rx_:push(data)
 			if pushed < count then
 				self.log_inf_("recv queue limit exceeded")
-				self:stop_()
+				self:stop_({
+					reason = "recvq_exceeded",
+				})
 				break
 			end
 			self.read_wake_:signal()
@@ -492,10 +553,17 @@ function client_i:manage_socket_()
 				end
 				if self.socket_:eof("w") then
 					self.log_inf_("connection closed")
+					self:stop_({
+						reason = "send_failed",
+						eof = true,
+					})
 				else
 					self.log_inf_("send failed with code $", err)
+					self:stop_({
+						reason = "send_failed",
+						code = err,
+					})
 				end
-				self:stop_()
 				break
 			end
 			if written < count then
@@ -520,11 +588,17 @@ function client_i:proto_()
 				assert(self.socket_:starttls(self.server_:tls_context()))
 			end)
 			if not ok then
-				self:proto_error_("starttls failed: %s", err)
+				self:proto_error_(("starttls failed: %s"):format(err), {
+					kind = "starttls_failed",
+					err = err,
+				})
 			end
 			local hostname = self.socket_:checktls():getHostName()
 			if hostname ~= config.secure_hostname then
-				self:proto_error_("incorrect hostname: (%s ~= %s)", hostname, config.secure_hostname)
+				self:proto_error_(("incorrect hostname: (%s ~= %s)"):format(hostname, config.secure_hostname), {
+					kind = "incorrect_hostname",
+					got = hostname,
+				})
 			end
 		end
 		util.cqueues_wrap(cqueues.running(), function()
@@ -538,16 +612,21 @@ function client_i:proto_()
 			local packet_id = self:read_bytes_(1)
 			local handler = packet_handlers[packet_id]
 			if not handler then
-				self:proto_error_("invalid packet ID (%i)", packet_id)
+				self:proto_error_(("invalid packet ID (%i)"):format(packet_id), {
+					kind = "invalid_packet_id",
+					got = packet_id,
+				})
 			end
 			handler(self)
 		end
 	end, function(err)
 		if getmetatable(err) == PROTO_ERROR then
 			self.log_wrn_("protocol error: $", err.log)
-			self:disconnect_()
+			self:stop_(util.info_merge({
+				reason = "protocol_error",
+			}, err.rconinfo))
 		elseif getmetatable(err) == PROTO_CLOSE then
-			self:drop(err.msg, err.log)
+			self:drop(err.msg, err.log, err.rconinfo)
 		elseif getmetatable(err) == PROTO_STOP then
 			-- * Nothing.
 		else
@@ -562,7 +641,7 @@ function client_i:proto_()
 	if self.room_ then
 		self.room_:leave(self)
 	end
-	self.server_:remove_client(self)
+	self.server_:remove_client(self, self.stop_rconinfo_)
 	self.wake_:signal()
 end
 
@@ -576,7 +655,9 @@ function client_i:expect_ping_()
 			timeout_at = cqueues.monotime() + config.ping_timeout
 		end
 		if timeout_at < cqueues.monotime() then
-			self:drop("ping timeout")
+			self:drop("ping timeout", {
+				reason = "ping_timeout",
+			})
 			break
 		end
 	end
@@ -601,7 +682,9 @@ function client_i:write_flush_(data)
 	local pushed, count = self.tx_:push(type(buf) == "string" and buf or table.concat(buf))
 	if pushed < count then
 		self.log_inf_("send queue limit exceeded")
-		self:stop_()
+		self:stop_({
+			reason = "sendq_exceeded",
+		})
 	end
 	self.write_wake_:signal()
 end
@@ -642,9 +725,10 @@ function client_i:start()
 	end)
 end
 
-function client_i:stop_()
+function client_i:stop_(rconinfo)
 	if self.status_ ~= "dead" and self.status_ ~= "stopping" then
 		assert(self.status_ == "running", "not running")
+		self.stop_rconinfo_ = rconinfo
 		self.status_ = "stopping"
 		self.wake_:signal()
 	end
@@ -710,7 +794,6 @@ local function new(params)
 	return setmetatable({
 		server_ = params.server,
 		socket_ = params.socket,
-		socket_readable_ = { pollfd = params.socket:pollfd(), events = "r" },
 		name_ = params.name,
 		host_ = host,
 		status_ = "ready",

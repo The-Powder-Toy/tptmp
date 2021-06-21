@@ -3,7 +3,7 @@ local config  = require("tptmp.server.config")
 
 return {
 	hooks = {
-		connect = {
+		client_register = {
 			func = function(client)
 				client.last_message_at_ = 0
 			end,
@@ -18,7 +18,9 @@ return {
 				if last + config.message_interval >= now then
 					client.message_interval_violations_ = (client.message_interval_violations_ or 0) + 1
 					if client.message_interval_violations_ >= config.max_message_interval_violations then
-						client:proto_close_("kicked for spam")
+						client:proto_close_("kicked for spam", nil, {
+							reason = "kicked_for_spam",
+						})
 					end
 					return false, "you are sending messages too quickly"
 				end

@@ -148,10 +148,10 @@ local no_shape = {
 	[ from_tool.DEFAULT_PT_FIGH  ] = true,
 }
 local no_create = {
-	[ from_tool.DEFAULT_UI_PROPERTY   ] = true,
-	[ from_tool.DEFAULT_UI_SAMPLE     ] = true,
-	[ from_tool.DEFAULT_UI_SIGN       ] = true,
-	[ from_tool.TPTMP_PT_UNKNOWN      ] = true,
+	[ from_tool.DEFAULT_UI_PROPERTY ] = true,
+	[ from_tool.DEFAULT_UI_SAMPLE   ] = true,
+	[ from_tool.DEFAULT_UI_SIGN     ] = true,
+	[ from_tool.TPTMP_PT_UNKNOWN    ] = true,
 }
 local line_only = {
 	[ from_tool.DEFAULT_UI_WIND ] = true,
@@ -170,10 +170,14 @@ local function stamp_load(x, y, data, reset)
 	if reset then
 		sim.clearSim()
 	end
-	-- * TODO[api]: maybe have loadStamp return a real error message
-	if not sim.loadStamp(config.stamp_temp, x, y) then
+	local ok, err = sim.loadStamp(config.stamp_temp, x, y)
+	if not ok then
 		os.remove(config.stamp_temp)
-		return nil, "cannot load stamp data"
+		if err then
+			return nil, "cannot load stamp data: " .. err
+		else
+			return nil, "cannot load stamp data"
+		end
 	end
 	os.remove(config.stamp_temp)
 	return true

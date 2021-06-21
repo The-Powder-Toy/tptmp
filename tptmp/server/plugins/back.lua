@@ -15,7 +15,7 @@ return {
 		},
 	},
 	hooks = {
-		leave_room = {
+		room_leave = {
 			func = function(room, client)
 				client.back_target_ = room:name()
 			end,

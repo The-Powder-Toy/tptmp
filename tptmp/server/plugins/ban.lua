@@ -141,12 +141,12 @@ return {
 		},
 	},
 	hooks = {
-		load = {
+		plugin_load = {
 			func = function(mtidx_augment)
 				mtidx_augment("server", server_ban_i)
 			end,
 		},
-		init = {
+		server_init = {
 			func = function(server)
 				server:load_host_bans_()
 				server:load_uid_bans_()
@@ -158,7 +158,10 @@ return {
 			func = function(client)
 				local banned_subnet = client:server():host_banned_(client:host())
 				if banned_subnet then
-					return nil, "you are banned from this server", ("host %s is banned (subnet %s)"):format(client:host(), tostring(banned_subnet))
+					return nil, "you are banned from this server", ("host %s is banned (subnet %s)"):format(client:host(), tostring(banned_subnet)), {
+						reason = "host_banned",
+						subnet = tostring(banned_subnet),
+					}
 				end
 				return true
 			end,
@@ -167,11 +170,15 @@ return {
 			func = function(client)
 				if client:guest() then
 					if not config.guests_allowed then
-						return nil, "authentication failed and guests are not allowed on this server"
+						return nil, "authentication failed and guests are not allowed on this server", nil, {
+							reason = "guests_banned",
+						}
 					end
 				else
 					if client:server():uid_banned_(client:uid()) then
-						return nil, "you are banned from this server", ("%s, uid %i is banned"):format(client:nick(), client:uid())
+						return nil, "you are banned from this server", ("%s, uid %i is banned"):format(client:nick(), client:uid()), {
+							reason = "uid_banned",
+						}
 					end
 				end
 				return true

@@ -2,6 +2,7 @@ local util = require("tptmp.server.util")
 
 local function serialize_client(client)
 	return {
+		name = client:name(),
 		nick = client:nick(),
 		guest = client:guest(),
 		uid = client:uid(),
@@ -29,7 +30,10 @@ return {
 				if not client then
 					return { status = "enoent", human = "user not online" }
 				end
-				client:drop("kicked: " .. reason)
+				client:drop("kicked: " .. reason, {
+					reason = "kicked",
+					message = reason,
+				})
 				return { status = "ok" }
 			end,
 		},

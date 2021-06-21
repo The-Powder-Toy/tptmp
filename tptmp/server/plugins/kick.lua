@@ -19,9 +19,18 @@ return {
 				end
 				other:send_server(("* You have been kicked by %s: %s"):format(client:nick(), reason))
 				room:log("$ kicked $: $", client:nick(), other:nick(), reason)
+				server:rconlog({
+					event = "kick",
+					client_nick = client:nick(),
+					other_client_nick = other:nick(),
+					message = reason,
+				})
 				local ok, err = server:join_room(other, "kicked")
 				if not ok then
-					other:drop("cannot join kicked: " .. err)
+					other:drop("cannot join kicked: " .. err, {
+						reason = "critical_join_room_fail",
+						room_name = "kicked",
+					})
 				end
 				return true
 			end,

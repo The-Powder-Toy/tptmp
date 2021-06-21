@@ -26,7 +26,7 @@ end
 function server_i:init()
 	self.dconf_:hold()
 	self:load_uid_to_nick_()
-	self.phost_:call_hook("init", self)
+	self.phost_:call_hook("server_init", self)
 	self.dconf_:unhold()
 end
 
@@ -46,7 +46,7 @@ function server_i:insert_client_(client)
 	local host_string = tostring(client:host())
 	self.host_connections_[host_string] = (self.host_connections_[host_string] or 0) + 1
 	self.name_to_client_[client:name()] = client
-	self.log_inf_("$ connected from $", client:name(), client:host())
+	self.log_inf_("$ connected from $", client:name(), host_string)
 end
 
 function server_i:connection_limit_(host)
@@ -60,10 +60,17 @@ function server_i:register_client(client)
 	if not client:guest() then
 		self.uid_to_client_[client:uid()] = client
 	end
-	self.phost_:call_hook("connect", client)
+	self.phost_:call_hook("client_register", client)
 	if not client:guest() then
 		self:cache_uid_to_nick_(client:uid(), client:nick())
 	end
+	self:rconlog({
+		event = "client_register",
+		client_name = client:name(),
+		client_nick = client:nick(),
+		uid = client:uid(),
+		guest = client:guest(),
+	})
 end
 
 function server_i:cache_uid_to_nick_(uid, nick)
@@ -74,16 +81,16 @@ function server_i:cache_uid_to_nick_(uid, nick)
 	end
 end
 
-function server_i:remove_client(client)
+function server_i:remove_client(client, rconinfo)
 	if client:registered() then
-		self.phost_:call_hook("disconnect", client)
+		self.phost_:call_hook("client_disconnect", client)
 		self.client_count_ = self.client_count_ - 1
 		self.nick_to_client_[client:inick()] = nil
 		if not client:guest() then
 			self.uid_to_client_[client:uid()] = nil
 		end
 	end
-	self.phost_:call_hook("cleanup_client", client)
+	self.phost_:call_hook("client_cleanup", client)
 	self.name_to_client_[client:name()] = nil
 	local host_string = tostring(client:host())
 	self.host_connections_[host_string] = self.host_connections_[host_string] - 1
@@ -91,6 +98,10 @@ function server_i:remove_client(client)
 		self.host_connections_[host_string] = nil
 	end
 	self.log_inf_("$ disconnected", client:name())
+	self:rconlog(util.info_merge({
+		event = "client_disconnect",
+		client_name = client:name(),
+	}, rconinfo))
 end
 
 function server_i:clients()
@@ -115,8 +126,18 @@ function server_i:listen_()
 				socket = server_socket:accept(),
 				name = "client-" .. self.client_unique_,
 			})
+			self:rconlog({
+				event = "client_connect",
+				client_name = client:name(),
+				host = tostring(client:host()),
+			})
 			if self:connection_limit_(client:host()) then
 				client:early_drop("connection limit exceeded")
+				self:rconlog(util.info_merge({
+					event = "client_disconnect",
+					client_name = client:name(),
+					reason = "connection_limit_exceeded",
+				}, rconinfo))
 			else
 				self:insert_client_(client)
 				client:start()
@@ -124,7 +145,9 @@ function server_i:listen_()
 		end
 	end
 	for _, client in util.safe_pairs(self.name_to_client_) do
-		client:drop("server closed")
+		client:drop("server closed", {
+			reason = "server_closed",
+		})
 	end
 	server_socket:close()
 	self.status_ = "dead"
@@ -153,6 +176,10 @@ function server_i:create_room(name)
 		server = self,
 		name = name,
 	})
+	self:rconlog({
+		event = "room_create",
+		room_name = name,
+	})
 end
 
 function server_i:phost()
@@ -170,27 +197,59 @@ end
 function server_i:cleanup_room(name)
 	self.name_to_room_[name] = nil
 	self.room_count_ = self.room_count_ - 1
+	self:rconlog({
+		event = "room_cleanup",
+		room_name = name,
+	})
 end
 
 function server_i:join_room(client, name)
 	name = name:lower()
 	if not self.name_to_room_[name] then
 		if #name > config.max_room_name_length then
+			self:rconlog({
+				event = "room_join_fail",
+				client_nick = client:nick(),
+				room_name = name,
+				reason = "room_name_too_long",
+			})
 			return nil, "room name too long"
 		end
 		if not name:find("^[a-z0-9-_]+$") then
+			self:rconlog({
+				event = "room_join_fail",
+				client_nick = client:nick(),
+				room_name = name,
+				reason = "invalid_room_name",
+			})
 			return nil, "invalid room name"
 		end
 		if self:rooms_full() then
+			self:rconlog({
+				event = "room_join_fail",
+				client_nick = client:nick(),
+				room_name = name,
+				reason = "room_limit_exceeded",
+			})
 			return nil, "room limit exceeded"
 		end
 		self:create_room(name)
 	end
 	local rm = self.name_to_room_[name]
-	local ok, err = rm:join(client)
+	local ok, err, rconinfo = rm:join(client)
 	if not ok then
+		self:rconlog(util.info_merge({
+			event = "room_join_fail",
+			client_nick = client:nick(),
+			room_name = name,
+		}, rconinfo))
 		rm:cleanup()
 	end
+	self:rconlog({
+		event = "room_join",
+		client_nick = client:nick(),
+		room_name = name,
+	})
 	return ok, err
 end
 
@@ -229,24 +288,61 @@ end
 local function fetch_user(nick)
 	local req, err = http_request.new_from_uri(config.uid_backend .. "?Name=" .. nick)
 	if not req then
+		self:rconlog({
+			event = "fetch_user_fail",
+			input = nick,
+			stage = "new_from_uri",
+			reason = err,
+		})
 		return nil, err
 	end
 	local headers, stream = req:go(config.uid_backend_timeout)
 	if not headers then
+		self:rconlog({
+			event = "fetch_user_fail",
+			input = nick,
+			stage = "go",
+			reason = stream,
+		})
 		return nil, stream
 	end
 	local code = headers:get(":status")
 	if code ~= "200" then
+		self:rconlog({
+			event = "fetch_user_fail",
+			input = nick,
+			stage = "get_status",
+			reason = "non200",
+			code = tonumber(code),
+		})
 		return nil, "status code " .. code
 	end
 	local body, err = stream:get_body_as_string()
 	if not body then
+		self:rconlog({
+			event = "fetch_user_fail",
+			input = nick,
+			stage = "get_body_as_string",
+			err = err,
+		})
 		return nil, err
 	end
 	local ok, json = pcall(lunajson.decode, body)
 	if not ok then
+		self:rconlog({
+			event = "fetch_user_fail",
+			input = nick,
+			stage = "json",
+			err = json,
+		})
 		return nil, json
 	end
+	self:rconlog({
+		event = "fetch_user",
+		input = nick,
+		uid = json.User.ID,
+		nick = json.User.Username,
+	})
 	return json.User.ID, json.User.Username
 end
 
@@ -295,8 +391,22 @@ function server_i:offline_user_by_uid(uid)
 	end
 end
 
+function server_i:rcon(rcon)
+	self.rcon_ = rcon
+end
+
+function server_i:rconlog(data)
+	if self.rcon_ then
+		self.rcon_:log(data)
+	end
+end
+
 function server_i:tls_context()
 	return ssl.new(self.tls_context_)
+end
+
+function server_i:auth()
+	return self.auth_
 end
 
 local function tls_context()
