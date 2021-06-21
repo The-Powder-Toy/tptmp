@@ -42,8 +42,14 @@ function remote_console_i:listen_()
 			local _, host_str = self.client_sock_:peername()
 			self.log_inf_("connection from $", host_str)
 			local client_pollable = { pollfd = self.client_sock_:pollfd(), events = "r" }
+			local last_ping_in = cqueues.monotime()
+			local last_ping_out = cqueues.monotime()
 			while self.status_ == "running" do
-				local ready = util.cqueues_poll(client_pollable, self.wake_)
+				local wait_for = math.min(
+					last_ping_in + config.rcon_ping_timeout - cqueues.monotime(),
+					last_ping_out + config.rcon_ping_interval - cqueues.monotime()
+				)
+				local ready = util.cqueues_poll(client_pollable, self.wake_, wait_for)
 				if ready[client_pollable] then
 					local line, err = self.client_sock_:read("*l")
 					if not line then
@@ -59,6 +65,13 @@ function remote_console_i:listen_()
 								status = "handled",
 								data = handler.func(self, data),
 							})
+						elseif data.type == "ping" then
+							last_ping_in = cqueues.monotime()
+							self:send_json_({
+								type = "pong",
+							})
+						elseif data.type == "pong" then
+							-- * Nothing.
 						else
 							self:send_json_({
 								type = "response",
@@ -80,6 +93,16 @@ function remote_console_i:listen_()
 						self.log_wrn_("bad json: $", data)
 						break
 					end
+				end
+				if cqueues.monotime() > last_ping_in + config.rcon_ping_timeout then
+					self.log_wrn_("ping timeout")
+					break
+				end
+				if cqueues.monotime() > last_ping_out + config.rcon_ping_interval then
+					self:send_json_({
+						type = "ping",
+					})
+					last_ping_out = cqueues.monotime()
 				end
 			end
 			self:close_()

@@ -212,6 +212,16 @@ return {
 	--   side or more.
 	ping_timeout = 120,
 
+	-- * Amount of time in seconds between pings being sent to the remote
+	--   console client. Should be half of the ping timeout on the client side
+	--   or less.
+	rcon_ping_interval = 60,
+
+	-- * Amount of time in seconds a remote console client is allowed to stay
+	--   connected without sending a ping. Should be twice the ping interval on
+	--   the client side or more.
+	rcon_ping_timeout = 120,
+
 
 	-- ***********************************************************************
 	-- *** The following options should not be changed as their values     ***
