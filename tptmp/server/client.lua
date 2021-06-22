@@ -46,7 +46,7 @@ end
 function client_i:read_bytes_(count)
 	self:read_wait_(count)
 	local data, first, last = self.rx_:next()
-	if last - first + 1 >= count then
+	if last >= first + count - 1 then
 		-- * Less memory-intensive path.
 		self.rx_:pop(count)
 		return data:byte(first, first + count - 1)

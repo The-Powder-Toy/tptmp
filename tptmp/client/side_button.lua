@@ -96,6 +96,9 @@ function side_button_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	if shift and scan == sdl.SDL_SCANCODE_ESCAPE then
 		self.show_window_func_()
 		return true
+	elseif alt and scan == sdl.SDL_SCANCODE_S then
+		self.sync_func_()
+		return true
 	end
 end
 
@@ -143,6 +146,7 @@ local function new(params)
 		show_window_func_ = params.show_window_func,
 		hide_window_func_ = params.hide_window_func,
 		window_hidden_func_ = params.window_hidden_func,
+		sync_func_ = params.sync_func,
 	}, side_button_m)
 end
 

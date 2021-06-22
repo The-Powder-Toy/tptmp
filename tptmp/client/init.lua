@@ -134,6 +134,9 @@ local function run()
 		show_window_func = show_window,
 		hide_window_func = hide_window,
 		window_hidden_func = window_hidden,
+		sync_func = function()
+			cmd:parse("/sync")
+		end,
 	})
 
 	local grab_drop_text_input
