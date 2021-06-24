@@ -41,16 +41,19 @@ function room_owner_i:uid_insert_owner_(uid)
 	local server = self:server()
 	local dconf = server:dconf()
 	local rooms = dconf:root().rooms
-	local room_info = rooms[self:name()] or {
-		owners = {},
-	}
-	rooms[self:name()] = room_info
-	local idx = util.array_find(room_info.owners, uid)
+	local room_info = rooms[self:name()]
+	local idx = room_info and util.array_find(room_info.owners, uid)
 	if not idx then
+		if not room_info then
+			room_info = {
+				owners = {},
+			}
+			rooms[self:name()] = room_info
+		end
 		table.insert(room_info.owners, uid)
 		room_info.owners[0] = #room_info.owners
-		server:phost():call_hook("room_insert_owner", self, uid)
 		dconf:commit()
+		server:phost():call_hook("room_insert_owner", self, uid)
 	end
 end
 
@@ -77,6 +80,9 @@ function room_owner_i:uid_remove_owner_(uid)
 	if idx then
 		table.remove(room_info.owners, idx)
 		room_info.owners[0] = #room_info.owners
+		if #room_info.owners == 0 then
+			rooms[self:name()] = nil
+		end
 		dconf:commit()
 	end
 end
@@ -88,12 +94,10 @@ function server_owner_i:uid_rooms_owned_(src)
 		src = src:uid()
 	end
 	local count = 0
-	if not client:guest() then
-		for _, room in pairs(client:server():dconf():root().rooms) do
-			for _, uid in pairs(room.owners) do
-				if uid == src then
-					count = count + 1
-				end
+	for _, room in pairs(self:dconf():root().rooms) do
+		for _, uid in pairs(room.owners) do
+			if uid == src then
+				count = count + 1
 			end
 		end
 	end
@@ -105,6 +109,7 @@ return {
 		register = {
 			func = function(client, message, words, offsets)
 				local room = client:room()
+				local server = client:server()
 				if room:is_reserved() then
 					client:send_server("* This room is reserved")
 					return true
@@ -117,7 +122,7 @@ return {
 					client:send_server("* Guests cannot register rooms")
 					return true
 				end
-				if client:rooms_owned() >= config.max_rooms_per_owner then
+				if server:uid_rooms_owned_(client:uid()) >= config.max_rooms_per_owner then
 					client:send_server("* You own too many rooms, use /owner remove to disown one")
 					return true
 				end
@@ -125,10 +130,16 @@ return {
 				room:uid_insert_owner_(client:uid())
 				client:send_server("* Room successfully registered")
 				room:log("$ registered the room and gained room ownership", client:nick())
-				client:server():rconlog({
+				server:rconlog({
 					event = "room_register",
 					client_name = client:name(),
 					room_name = room:name(),
+				})
+				server:rconlog({
+					event = "room_owner_add",
+					client_name = client:name(),
+					room_name = room:name(),
+					other_nick = client:nick(),
 				})
 				return true
 			end,
@@ -173,7 +184,7 @@ return {
 					return true
 				end
 				if words[2] == "add" then
-					if not (type(src) ~= "number" and src:room() == room) then
+					if not (type(other_uid) ~= "number" and other_uid:room() == room) then
 						client:send_server(("* %s is not present in this room"):format(other_nick))
 						return true
 					end
@@ -226,8 +237,19 @@ return {
 						room_name = room:name(),
 						other_nick = other_nick,
 					})
+					if room:is_temporary() then
+						client_to_notify:send_server("* Room successfully unregistered")
+						room:set_temp_owner_(client)
+						server:rconlog({
+							event = "room_unregister",
+							client_name = client:name(),
+							room_name = room:name(),
+						})
+					end
 					if client_to_notify and client_to_notify:room() == room then
-						client_to_notify:send_server("* You no longer have shared ownership of this room")
+						if not room:is_temporary() then
+							client_to_notify:send_server("* You no longer have shared ownership of this room")
+						end
 					end
 				else
 					return false

@@ -570,10 +570,14 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 					self.input_autocomplete_ = left_word
 				end
 				local nicks = {}
-				for _, member in pairs(cli.id_to_member) do
-					if member.nick:lower():find("^" .. util.escape_regex(self.input_autocomplete_)) then
-						table.insert(nicks, member.nick)
+				local function try_complete(nick)
+					if nick:lower():find("^" .. util.escape_regex(self.input_autocomplete_)) then
+						table.insert(nicks, nick)
 					end
+				end
+				try_complete(cli:nick())
+				for _, member in pairs(cli.id_to_member) do
+					try_complete(member.nick)
 				end
 				if next(nicks) then
 					table.sort(nicks)

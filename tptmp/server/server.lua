@@ -285,7 +285,7 @@ function server_i:dconf()
 	return self.dconf_
 end
 
-local function fetch_user(nick)
+function server_i:fetch_user_(nick)
 	local req, err = http_request.new_from_uri(config.uid_backend .. "?Name=" .. nick)
 	if not req then
 		self:rconlog({
@@ -367,7 +367,7 @@ function server_i:offline_user_by_nick(nick)
 	if client then
 		fuid, fnick = client:uid(), client:nick()
 	else
-		fuid, fnick = fetch_user(nick)
+		fuid, fnick = self:fetch_user_(nick)
 		if not fuid then
 			self.log_inf_("failed to fetch user $: $", nick, fnick)
 		end
