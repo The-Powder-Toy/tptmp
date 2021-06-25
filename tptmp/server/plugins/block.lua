@@ -143,7 +143,9 @@ return {
 		client_disconnect = {
 			func = function(client)
 				for _, other in pairs(client:server():clients()) do
-					other.blocks_clients_[client] = nil
+					if other.blocks_clients_ then
+						other.blocks_clients_[client] = nil
+					end
 				end
 			end,
 		},

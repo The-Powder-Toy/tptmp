@@ -167,23 +167,35 @@ return {
 				if words[2] == "check" then
 					if room:uid_owns_(other_uid) then
 						client:send_server(("* %s currently owns this room"):format(other_nick))
+					elseif room:is_temporary() and type(other_uid) ~= "number" and room:is_owner(other_uid) then
+						client:send_server(("* %s temporarily owns this room"):format(other_nick))
 					else
 						client:send_server(("* %s does not currently own this room"):format(other_nick))
 					end
 					return true
 				end
-				if words[2] ~= "add" and words[2] ~= "remove" then
+				if words[2] ~= "add" and words[2] ~= "remove" and words[2] ~= "temp" then
 					return false
 				end
 				if not room:is_owner(client) then
 					client:send_server("* You are not an owner of this room")
 					return true
 				end
-				if room:is_temporary() then
-					client:send_server("* This is a temporary room, use /register to make it permanent")
-					return true
-				end
-				if words[2] == "add" then
+				if words[2] == "temp" then
+					if not room:is_temporary() then
+						client:send_server("* This is not a temporary room, use /owner remove to disown it")
+						return true
+					end
+					if not (type(other_uid) ~= "number" and other_uid:room() == room) then
+						client:send_server(("* %s is not present in this room"):format(other_nick))
+						return true
+					end
+					room:set_temp_owner_(other_uid)
+				elseif words[2] == "add" then
+					if room:is_temporary() then
+						client:send_server("* This is a temporary room, use /register to make it permanent")
+						return true
+					end
 					if not (type(other_uid) ~= "number" and other_uid:room() == room) then
 						client:send_server(("* %s is not present in this room"):format(other_nick))
 						return true
@@ -219,6 +231,10 @@ return {
 						client_to_notify:send_server("* You now have shared ownership of this room")
 					end
 				elseif words[2] == "remove" then
+					if room:is_temporary() then
+						client:send_server("* This is a temporary room, use /register to make it permanent")
+						return true
+					end
 					if not room:uid_owns_(other_uid) then
 						client:send_server(("* %s does not currently own this room"):format(other_nick))
 						return true
@@ -256,7 +272,7 @@ return {
 				end
 				return true
 			end,
-			help = "/owner add\\check\\remove <user>: shares ownership of the room with a user, checks if a user is an owner, or strips a user of their ownership",
+			help = "/owner add\\check\\remove\\temp <user>: shares ownership of the room with a user, checks if a user is an owner, strips a user of their ownership, or transfers temporary ownership",
 		},
 	},
 	hooks = {
