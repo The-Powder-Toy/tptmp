@@ -12,9 +12,9 @@ local manager     = require("tptmp.client.manager")
 local function run()
 	assert(sim.CELL == 4, "CELL size is not 4") -- * Required by cursor snapping functions.
 	assert(sim.PMAPBITS < 13, "PMAPBITS is too large") -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
-	assert(rawget(_G, "bit"), "bit API not found")
-	local http = assert(rawget(_G, "http"), "TPT version not supported")
-	local socket = assert(rawget(_G, "socket"), "socket API not found")
+	assert(rawget(_G, "bit"), "no bit API")
+	local http = assert(rawget(_G, "http"), "no http API")
+	local socket = assert(rawget(_G, "socket"), "no socket API")
 
 	local hooks_enabled = false
 
@@ -141,7 +141,7 @@ local function run()
 
 	local grab_drop_text_input
 	do
-		if ui.grabTextInput then
+		if rawget(_G, "ui") and ui.grabTextInput then
 			local text_input_grabbed = false
 			function grab_drop_text_input(should_grab)
 				if text_input_grabbed and not should_grab then

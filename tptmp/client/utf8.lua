@@ -1,5 +1,5 @@
 local function code_points(str)
-	local code_points = {}
+	local cps = {}
 	local cursor = 0
 	while true do
 		local old_cursor = cursor
@@ -42,9 +42,9 @@ local function code_points(str)
 		or (head < 0x10000 and size > 3) then
 			return nil, pos
 		end
-		table.insert(code_points, { cp = head, pos = pos, size = size })
+		table.insert(cps, { cp = head, pos = pos, size = size })
 	end
-	return code_points
+	return cps
 end
 
 local function encode(code_point)
@@ -83,6 +83,23 @@ local function encode_multiple(cp, ...)
 		table.insert(collect, encode(cps[i]))
 	end
 	return table.concat(collect)
+end
+
+if tpt.version.jacob1s_mod then
+	function code_points(str)
+		local cps = {}
+		for pos in str:gmatch("().") do
+			table.insert(cps, { cp = str:byte(pos), pos = pos, size = 1 })
+		end
+		return cps
+	end
+
+	function encode(cp)
+		if cp >= 0xE000 then
+			cp = cp - 0xDF80
+		end
+		return string.char(cp)
+	end
 end
 
 return {

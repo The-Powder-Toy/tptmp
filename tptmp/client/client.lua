@@ -937,8 +937,12 @@ end
 function client_i:start()
 	assert(self.status_ == "ready")
 	self.status_ = "running"
+	local xpcall = rawget(_G, "jit") and xpcall or function(func)
+		func()
+		return true
+	end
 	self.proto_coro_ = coroutine.create(function()
-		assert(xpcall(function()
+		local ok, err = xpcall(function()
 			self:connect_()
 			self:handshake_()
 			while true do
@@ -951,8 +955,10 @@ function client_i:start()
 			end
 		end, function(err)
 			print(debug.traceback(err, 2))
-			self.proto_coro_ = nil
-		end))
+		end)
+		if not ok then
+			error(err)
+		end
 	end)
 end
 
@@ -991,9 +997,13 @@ end
 
 function client_i:tick_resume_()
 	if self.proto_coro_ then
-		assert(coroutine.resume(self.proto_coro_))
+		local ok, err = coroutine.resume(self.proto_coro_)
+		if not ok then
+			self.proto_coro_ = nil
+			error(err)
+		end
 		if self.proto_coro_ and coroutine.status(self.proto_coro_) == "dead" then
-			self:stop("proto coroutine died")
+			error("proto coroutine terminated")
 		end
 	end
 end

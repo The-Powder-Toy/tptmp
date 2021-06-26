@@ -337,6 +337,12 @@ function window_i:backlog_reset()
 	self:backlog_update_()
 end
 
+local close_button_off_x = -12
+local close_button_off_y = 3
+if tpt.version.jacob1s_mod then
+	close_button_off_x = -11
+	close_button_off_y = 4
+end
 function window_i:tick_close_()
 	local border_colour = colours.appearance.inactive.border
 	local close_fg = colours.appearance.inactive.text
@@ -353,7 +359,7 @@ function window_i:tick_close_()
 		gfx.fillRect(self.pos_x_ + self.width_ - 14, self.pos_y_ + 1, 13, 13, unpack(close_bg))
 	end
 	gfx.drawLine(self.pos_x_ + self.width_ - 15, self.pos_y_ + 1, self.pos_x_ + self.width_ - 15, self.pos_y_ + 13, unpack(border_colour))
-	gfx.drawText(self.pos_x_ + self.width_ - 12, self.pos_y_ + 3, utf8.encode_multiple(0xE02A), unpack(close_fg))
+	gfx.drawText(self.pos_x_ + self.width_ + close_button_off_x, self.pos_y_ + close_button_off_y, utf8.encode_multiple(0xE02A), unpack(close_fg))
 	if self.close_active_ and not inside_close then
 		self.close_active_ = false
 	end
