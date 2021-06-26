@@ -237,7 +237,13 @@ function server_i:join_room(client, name)
 	end
 	local rm = self.name_to_room_[name]
 	local ok, err, rconinfo = rm:join(client)
-	if not ok then
+	if ok then
+		self:rconlog({
+			event = "room_join",
+			client_name = client:name(),
+			room_name = name,
+		})
+	else
 		self:rconlog(util.info_merge({
 			event = "room_join_fail",
 			client_name = client:name(),
@@ -245,11 +251,6 @@ function server_i:join_room(client, name)
 		}, rconinfo))
 		rm:cleanup()
 	end
-	self:rconlog({
-		event = "room_join",
-		client_name = client:name(),
-		room_name = name,
-	})
 	return ok, err
 end
 
