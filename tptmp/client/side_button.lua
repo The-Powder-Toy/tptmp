@@ -5,7 +5,7 @@ local config  = require("tptmp.client.config")
 local manager = require("tptmp.client.manager")
 local sdl     = require("tptmp.client.sdl")
 
-local jacobsmod = tpt.version.jacob1s_mod
+local jacobsmod = tpt.version.jacob1s_mod -- * TODO[imm]: this is not how it should be done
 
 local side_button_i = {}
 local side_button_m = { __index = side_button_i }

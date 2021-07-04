@@ -339,7 +339,7 @@ end
 
 local close_button_off_x = -12
 local close_button_off_y = 3
-if tpt.version.jacob1s_mod then
+if tpt.version.jacob1s_mod then -- * TODO[imm]: this is not how it should be done
 	close_button_off_x = -11
 	close_button_off_y = 4
 end
@@ -826,9 +826,9 @@ function window_i:subtitle_update_()
 	if gfx.textSize(self.subtitle_text_) > max_width then
 		self.subtitle_text_ = self.subtitle_text_:sub(1, util.binary_search_implicit(1, #self.subtitle_text_, function(idx)
 			local str = self.subtitle_text_:sub(1, idx)
-			str = str:gsub("\15[\194\195].", "\15"):gsub("\15.", "\15")
-			str = str:gsub("\15[\194\195].", "\15"):gsub("\15.", "\15")
-			str = str:gsub("\15[\194\195].", "\15"):gsub("\15.", "\15")
+			str = str:gsub("\15[\194\195].", "\15"):gsub("\15[^\128-\255]", "\15")
+			str = str:gsub("\15[\194\195].", "\15"):gsub("\15[^\128-\255]", "\15")
+			str = str:gsub("\15[\194\195].", "\15"):gsub("\15[^\128-\255]", "\15")
 			str = str:gsub("\15", "")
 			return gfx.textSize(str .. "...") > max_width
 		end) - 1) .. "..."
