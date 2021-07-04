@@ -6,23 +6,23 @@ return {
 					return false
 				end
 				if client:guest() then
-					client:send_server("Guests have no reason to use /seen")
+					client:send_server("\ae* Guests have no reason to use /seen")
 					return true
 				end
 				local server = client:server()
 				local other = server:client_by_nick(words[2])
 				if other then
-					client:send_server(("* %s is currently online"):format(other:nick()))
+					client:send_server(("\an* \au%s\an is currently online"):format(other:nick()))
 					return true
 				end
 				local other_uid, other_nick = server:offline_user_by_nick(words[2])
 				if not other_uid then
-					client:send_server(("* No user named %s"):format(words[2]))
+					client:send_server(("\ae* No user named \au%s"):format(words[2]))
 					return true
 				end
 				local seen = server:dconf():root().seen[tostring(other_uid)]
 				if not seen then
-					client:send_server(("* %s has never been online"):format(other_nick))
+					client:send_server(("\an* \au%s\an has never been online"):format(other_nick))
 					return true
 				end
 				local diff = os.time() - seen
@@ -46,7 +46,7 @@ return {
 					count = secs
 					unit = secs == 1 and "second" or "seconds"
 				end
-				client:send_server(("* %s was ast online %s %s ago"):format(other_nick, count, unit))
+				client:send_server(("\an* \au%s\an was ast online %s %s ago"):format(other_nick, count, unit))
 				return true
 			end,
 			help = "/seen <user>: tells you when a user was last seen online",

@@ -18,7 +18,7 @@ end
 function room_private_i:uid_insert_invite_(src)
 	local dconf = self:server():dconf()
 	local room_info = dconf:root().rooms[self:name()]
-	local idx = room_info.invites and util.array_find(room_info.invites, other_uid)
+	local idx = room_info.invites and util.array_find(room_info.invites, src)
 	if not idx then
 		room_info.invites = room_info.invites or {}
 		table.insert(room_info.invites, src)
@@ -30,7 +30,7 @@ end
 function room_private_i:uid_remove_invite_(src)
 	local dconf = self:server():dconf()
 	local room_info = dconf:root().rooms[self:name()]
-	local idx = room_info.invites and util.array_find(room_info.invites, other_uid)
+	local idx = room_info.invites and util.array_find(room_info.invites, src)
 	if idx then
 		table.remove(room_info.invites, idx)
 		room_info.invites[0] = #room_info.invites
@@ -44,7 +44,7 @@ end
 function room_private_i:uid_invited_(src)
 	local dconf = self:server():dconf()
 	local room_info = dconf:root().rooms[self:name()]
-	local idx = room_info.invites and util.array_find(room_info.invites, other_uid)
+	local idx = room_info.invites and util.array_find(room_info.invites, src)
 	if idx then
 		return true
 	end
@@ -63,6 +63,20 @@ function room_private_i:is_invited(src)
 	local dconf = self:server():dconf()
 	local room_info = dconf:root().rooms[self:name()]
 	return room_info and room_info.invites and util.array_find(room_info.invites, src)
+end
+
+local server_private_i = {}
+
+function server_private_i:uid_invited_to_(src)
+	local dconf = self:dconf()
+	local rooms = {}
+	for name, info in pairs(dconf:root().rooms) do
+		local idx = info.invites and util.array_find(info.invites, src)
+		if idx then
+			table.insert(rooms, name)
+		end
+	end
+	return rooms
 end
 
 return {
@@ -87,25 +101,25 @@ return {
 					return false
 				end
 				if not other_uid then
-					client:send_server(("* No user named %s"):format(words[3]))
+					client:send_server(("\ae* No user named \au%s"):format(words[3]))
 					return
 				end
 				if words[2] == "check" then
 					if self:is_invited(other_uid) then
-						client:send_server(("* %s is currently invited"):format(other_nick))
+						client:send_server(("\an* \au%s\an is currently invited"):format(other_nick))
 					else
-						client:send_server(("* %s is not currently invited"):format(other_nick))
+						client:send_server(("\an* \au%s\an is not currently invited"):format(other_nick))
 					end
 					return true
 				end
 				if room:is_private() and not room:is_owner(client) then
-					client:send_server("* You are not an owner of this room")
+					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end
 				if room:is_temporary() or (type(other_uid) ~= "number" and other_uid:guest()) then
 					function invitef()
 						if type(other_uid) == "number" then
-							client:send_server(("* %s not online"):format(other_nick))
+							client:send_server(("\ae* \au%s\ae not online"):format(other_nick))
 							return
 						end
 						room.invites_clients_[other_uid] = true
@@ -114,17 +128,17 @@ return {
 					end
 					function uninvitef()
 						if room.invites_clients_[other_uid] then
-							client:send_server(("* %s is not currently invited"):format(other_nick))
+							client:send_server(("\ae* \au%s\ae is not currently invited"):format(other_nick))
 							return
 						end
 						room.invites_clients_[other_uid] = nil
-						client:send_server(("* %s is no longer invited"):format(other_nick))
+						client:send_server(("\an* \au%s\an is no longer invited"):format(other_nick))
 						return true
 					end
 				else
 					function invitef()
 						if room:is_invited(other_uid) then
-							client:send_server(("* %s is already invited"):format(other_nick))
+							client:send_server(("\ae* \au%s\ae is already invited"):format(other_nick))
 							return
 						end
 						local src = other_uid
@@ -133,12 +147,12 @@ return {
 							src = src:uid()
 						end
 						room:uid_insert_invite_(src)
-						client:send_server(("* %s is now invited"):format(other_nick))
+						client:send_server(("\an* \au%s\an is now invited"):format(other_nick))
 						return true
 					end
 					function uninvitef()
 						if not room:is_invited(other_uid) then
-							client:send_server(("* %s is not currently invited"):format(other_nick))
+							client:send_server(("\ae* \au%s\ae is not currently invited"):format(other_nick))
 							return
 						end
 						local src = other_uid
@@ -147,9 +161,9 @@ return {
 						end
 						room:uid_remove_invite_(src)
 						if room:is_private() then
-							client:send_server(("* %s is no longer invited"):format(other_nick))
+							client:send_server(("\an* \au%s\an is no longer invited"):format(other_nick))
 						else
-							client:send_server(("* %s is no longer invited, but can still join as the room is not private"):format(other_nick))
+							client:send_server(("\an* \au%s\an is no longer invited, but can still join as the room is not private"):format(other_nick))
 						end
 						return true
 					end
@@ -176,8 +190,10 @@ return {
 					end
 				end
 				if client_to_invite then
-					client_to_invite.accept_target_ = room:name()
-					client_to_invite:send_server("* You have been invited to " .. room:name() .. ", use /accept to accept by joining")
+					if client_to_invite:room() ~= room then
+						client_to_invite.accept_target_ = room:name()
+						client_to_invite:send_server(("\aj* You have been invited to \ar%s\aj, use /accept to accept by joining"):format(room:name()))
+					end
 				end
 				return true
 			end,
@@ -188,11 +204,11 @@ return {
 				if client.accept_target_ then
 					local ok, err = client:server():join_room(client, client.accept_target_)
 					if not ok then
-						client:send_server("* Cannot join room: " .. err)
+						client:send_server("\ae* Cannot join room: " .. err)
 					end
 					client.accept_target_ = nil
 				else
-					client:send_server("* Nothing to accept")
+					client:send_server("\ae* Nothing to accept")
 				end
 				return true
 			end,
@@ -206,22 +222,22 @@ return {
 				local room = client:room()
 				local server = client:server()
 				if room:is_temporary() then
-					client:send_server("* Temporary rooms cannot be made private")
+					client:send_server("\ae* Temporary rooms cannot be made private")
 					return true
 				end
 				if not room:is_owner(client) then
-					client:send_server("* You are not an owner of this room")
+					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end
 				local dconf = client:server():dconf()
 				local room_info = dconf:root().rooms[room:name()]
 				if words[2] == "set" then
 					if room:is_private() then
-						client:send_server("* Room is already private")
+						client:send_server("\ae* Room is already private")
 					else
 						room_info.private = true
 						dconf:commit()
-						client:send_server("* Private status set")
+						client:send_server("\an* Private status set")
 						room:log("$ set private status", client:nick())
 						server:rconlog({
 							event = "private_set",
@@ -231,15 +247,15 @@ return {
 					end
 				elseif words[2] == "check" then
 					if room:is_private() then
-						client:send_server("* Room is currently private")
+						client:send_server("\an* Room is currently private")
 					else
-						client:send_server("* Room is not currently private")
+						client:send_server("\an* Room is not currently private")
 					end
 				elseif words[2] == "clear" then
 					if room:is_private() then
 						room_info.private = nil
 						dconf:commit()
-						client:send_server("* Private status cleared")
+						client:send_server("\an* Private status cleared")
 						room:log("$ cleared private status", client:nick())
 						server:rconlog({
 							event = "private_clear",
@@ -247,7 +263,7 @@ return {
 							room_name = room:name(),
 						})
 					else
-						client:send_server("* Room is not currently private")
+						client:send_server("\ae* Room is not currently private")
 					end
 				else
 					return false
@@ -261,6 +277,7 @@ return {
 		plugin_load = {
 			func = function(mtidx_augment)
 				mtidx_augment("room", room_private_i)
+				mtidx_augment("server", server_private_i)
 			end,
 		},
 		room_create = {
@@ -284,7 +301,7 @@ return {
 				end
 				if #invites > 0 then
 					table.sort(invites)
-					client:send_server(("* Invites: %s"):format(table.concat(invites, ", ")))
+					client:send_server(("\an* Invites: \au%s"):format(table.concat(invites, "\an, \au")))
 				end
 			end,
 			after = { "owner" },
@@ -293,6 +310,29 @@ return {
 			func = function(client)
 				for _, room in pairs(client:server():rooms()) do
 					room.invites_clients_[client] = nil
+				end
+			end,
+		},
+		self_info = {
+			func = function(client)
+				local rooms = {}
+				for _, room in pairs(client:server():rooms()) do
+					if room.invites_clients_[client] then
+						rooms[room:name()] = true
+					end
+				end
+				if not client:guest() then
+					for _, name in pairs(client:server():uid_invited_to_(client:uid())) do
+						rooms[name] = true
+					end
+				end
+				if next(rooms) then
+					local arr = {}
+					for name in pairs(rooms) do
+						table.insert(arr, name)
+					end
+					table.sort(arr)
+					client:send_server(("\an* Invited to: \ar%s"):format(table.concat(arr, "\an, \ar")))
 				end
 			end,
 		},

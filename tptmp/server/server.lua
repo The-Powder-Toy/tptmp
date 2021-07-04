@@ -476,12 +476,12 @@ local function new(params)
 				local server = client:server()
 				local ok, err = server:phost():call_check_all("content_ok", server, words[2])
 				if not ok then
-					client:send_server("* Cannot join room: " .. err)
+					client:send_server("\ae* Cannot join room: " .. err)
 					return true
 				end
 				local ok, err = server:join_room(client, words[2])
 				if not ok then
-					client:send_server("* Cannot join room: " .. err)
+					client:send_server("\ae* Cannot join room: " .. err)
 					return true
 				end
 				return true
@@ -495,7 +495,7 @@ local function new(params)
 			func = function(client, message, words, offsets)
 				local clients = client:server():client_count()
 				local rooms = client:server():room_count()
-				client:send_server(("* There %s %s %s online in %s %s"):format(
+				client:send_server(("\an* There %s %s %s online in %s %s"):format(
 					clients == 1 and "is" or "are",
 					clients,
 					clients == 1 and "user" or "users",
@@ -513,11 +513,12 @@ local function new(params)
 	local cmdp = command_parser.new({
 		commands = commands,
 		respond = function(client, message)
-			client:send_server("* " .. message)
+			client:send_server(message)
 		end,
-		alias_format = "/%s is an alias for /%s",
-		list_format = "Server commands: %s",
-		unknown_format = "No such command, try /list",
+		help_format = "\an* %s",
+		alias_format = "\an* /%s is an alias for /%s",
+		list_format = "\an* Server commands: %s",
+		unknown_format = "\ae* No such command, try /list",
 	})
 	local server = setmetatable({
 		auth_ = params.auth,

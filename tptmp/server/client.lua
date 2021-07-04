@@ -166,7 +166,7 @@ function client_i:check_message_(message)
 	local server = self:server()
 	local ok, err = server:phost():call_check_all("message_ok", self, message)
 	if not ok then
-		self:send_server("* Cannot send message: " .. err)
+		self:send_server("\ae* Cannot send message: " .. err)
 		return false
 	end
 	return true
@@ -176,7 +176,7 @@ function client_i:forward_message_(format, event, packet, message)
 	local server = self:server()
 	local ok, err, rconinfo = server:phost():call_check_all("content_ok", server, message)
 	if not ok then
-		self:send_server("* Cannot send message: " .. err)
+		self:send_server("\ae* Cannot send message: " .. err)
 		self:server():rconlog(util.info_merge({
 			event = event .. "_fail",
 			client_name = self.name_,

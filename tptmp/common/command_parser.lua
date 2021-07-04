@@ -71,7 +71,7 @@ function command_parser_i:help_(ctx, from)
 	end
 	local cmd = self.commands_[from]
 	if cmd then
-		self.respond_(ctx, cmd.help)
+		self.respond_(ctx, self.help_format_:format(cmd.help))
 		return true
 	end
 	if self.help_fallback_ then
@@ -88,6 +88,7 @@ local function new(params)
 		respond_ = params.respond,
 		help_fallback_ = params.help_fallback,
 		list_extra_ = params.list_extra,
+		help_format_ = params.help_format,
 		alias_format_ = params.alias_format,
 		list_format_ = params.list_format,
 		unknown_format_ = params.unknown_format,

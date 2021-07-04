@@ -2,6 +2,7 @@ local config         = require("tptmp.client.config")
 local format         = require("tptmp.client.format")
 local manager        = require("tptmp.client.manager")
 local command_parser = require("tptmp.common.command_parser")
+local colours        = require("tptmp.client.colours")
 
 local localcmd_i = {}
 local localcmd_m = { __index = localcmd_i }
@@ -23,7 +24,7 @@ local cmdp = command_parser.new({
 				if not width or not height then
 					return false
 				else
-					localcmd.window:set_size(width, height)
+					localcmd.window_:set_size(width, height)
 				end
 				return true
 			end,
@@ -34,9 +35,9 @@ local cmdp = command_parser.new({
 				local cli = localcmd.client_func_()
 				if cli then
 					cli:send_sync()
-					localcmd.window:backlog_push_neutral("* Simulation synchronized")
+					localcmd.window_:backlog_push_neutral("* Simulation synchronized")
 				else
-					localcmd.window:backlog_push_error("Not connected, cannot sync")
+					localcmd.window_:backlog_push_error("Not connected, cannot sync")
 				end
 				return true
 			end,
@@ -54,8 +55,8 @@ local cmdp = command_parser.new({
 					if cli then
 						cli:fps_sync(localcmd.fps_sync_)
 					end
-					localcmd.window:backlog_push_neutral("* FPS synchronization enabled")
-					localcmd.window:backlog_push_neutral("* Note: FPS synchronization is not currently implemented, this command is just a placeholder") -- * TODO[imm]: remove this
+					localcmd.window_:backlog_push_neutral("* FPS synchronization enabled")
+					localcmd.window_:backlog_push_neutral("* Note: FPS synchronization is not currently implemented, this command is just a placeholder") -- * TODO[imm]: remove this
 					return true
 				elseif words[2] == "check" or not words[2] then
 					if localcmd.fps_sync_ then
@@ -63,10 +64,10 @@ local cmdp = command_parser.new({
 						if cli then
 							cli:push_fpssync()
 						else
-							localcmd.window:backlog_push_fpssync(true)
+							localcmd.window_:backlog_push_fpssync(true)
 						end
 					else
-						localcmd.window:backlog_push_fpssync(false)
+						localcmd.window_:backlog_push_fpssync(false)
 					end
 					return true
 				elseif words[2] == "off" then
@@ -75,7 +76,7 @@ local cmdp = command_parser.new({
 					if cli then
 						cli:fps_sync(localcmd.fps_sync_)
 					end
-					localcmd.window:backlog_push_neutral("* FPS synchronization disabled")
+					localcmd.window_:backlog_push_neutral("* FPS synchronization disabled")
 					return true
 				end
 				return false
@@ -94,7 +95,7 @@ local cmdp = command_parser.new({
 		reconnect = {
 			macro = function(localcmd, message, words, offsets)
 				if not localcmd.reconnect_ then
-					localcmd.window:backlog_push_error("No successful connection on record, cannot reconnect")
+					localcmd.window_:backlog_push_error("No successful connection on record, cannot reconnect")
 					return {}
 				end
 				return { "connectroom", localcmd.reconnect_.room, localcmd.reconnect_.host .. ":" .. localcmd.reconnect_.secr .. localcmd.reconnect_.port }
@@ -107,7 +108,7 @@ local cmdp = command_parser.new({
 				if not words[2] then
 					localcmd:print_help_("connectroom")
 				elseif cli then
-					localcmd.window:backlog_push_error("Already connected")
+					localcmd.window_:backlog_push_error("Already connected")
 				else
 					local host = words[3] or config.default_host
 					local host_without_port, port = host:match("^(.+):(%+?[^:]+)$")
@@ -139,7 +140,7 @@ local cmdp = command_parser.new({
 				if cli then
 					localcmd.kill_client_func_()
 				else
-					localcmd.window:backlog_push_error("Not connected")
+					localcmd.window_:backlog_push_error("Not connected")
 				end
 				return true
 			end,
@@ -160,7 +161,7 @@ local cmdp = command_parser.new({
 				if cli then
 					cli:push_names("Currently in ")
 				else
-					localcmd.window:backlog_push_error("Not connected")
+					localcmd.window_:backlog_push_error("Not connected")
 				end
 				return true
 			end,
@@ -168,8 +169,8 @@ local cmdp = command_parser.new({
 		},
 		clear = {
 			func = function(localcmd, message, words, offsets)
-				localcmd.window:backlog_reset()
-				localcmd.window:backlog_push_neutral("* Backlog cleared")
+				localcmd.window_:backlog_reset()
+				localcmd.window_:backlog_push_neutral("* Backlog cleared")
 				return true
 			end,
 			help = "/clear, no arguments: clears the chat window",
@@ -181,10 +182,10 @@ local cmdp = command_parser.new({
 					return false
 				elseif cli then
 					local msg = message:sub(offsets[2])
-					localcmd.window:backlog_push_say3rd(cli:formatted_nick(), msg)
+					localcmd.window_:backlog_push_say3rd(cli:formatted_nick(), msg)
 					cli:send_say3rd(msg)
 				else
-					localcmd.window:backlog_push_error("Not connected, message not sent")
+					localcmd.window_:backlog_push_error("Not connected, message not sent")
 				end
 				return true
 			end,
@@ -195,6 +196,7 @@ local cmdp = command_parser.new({
 				localcmd.nick_colour_seed_ = words[2] or tostring(math.random())
 				manager.set("nickColourSeed", tostring(localcmd.nick_colour_seed_))
 				local cli = localcmd.client_func_()
+				localcmd.window_:nick_colour_seed(localcmd.nick_colour_seed_)
 				if cli then
 					cli:nick_colour_seed(localcmd.nick_colour_seed_)
 				end
@@ -204,7 +206,7 @@ local cmdp = command_parser.new({
 		},
 	},
 	respond = function(localcmd, message)
-		localcmd.window:backlog_push_neutral("* " .. message)
+		localcmd.window_:backlog_push_neutral(message)
 	end,
 	cmd_fallback = function(localcmd, message)
 		local cli = localcmd.client_func_()
@@ -228,9 +230,10 @@ local cmdp = command_parser.new({
 			cli:send_say("/slist")
 		end
 	end,
-	alias_format = "/%s is an alias for /%s",
-	list_format = "Client commands: %s",
-	unknown_format = "No such command, try /list (maybe it is server-only, connect and try again)",
+	help_format = colours.commonstr.neutral .. "* %s",
+	alias_format = colours.commonstr.neutral .. "* /%s is an alias for /%s",
+	list_format = colours.commonstr.neutral .. "* Client commands: %s",
+	unknown_format = colours.commonstr.error .. "* No such command, try /list (maybe it is server-only, connect and try again)",
 })
 
 function localcmd_i:parse(str)
@@ -263,14 +266,17 @@ local function new(params)
 	if #reconnect.room == 0 or #reconnect.host == 0 or #reconnect.port == 0 then
 		reconnect = nil
 	end
-	return setmetatable({
+	local cmd = setmetatable({
 		fps_sync_ = manager.get("fpsSync", "") == "on",
 		reconnect_ = reconnect,
 		client_func_ = params.client_func,
 		new_client_func_ = params.new_client_func,
 		kill_client_func_ = params.kill_client_func,
 		nick_colour_seed_ = manager.get("nickColourSeed", "0"),
+		window_ = params.window,
 	}, localcmd_m)
+	cmd.window_:nick_colour_seed(cmd.nick_colour_seed_)
+	return cmd
 end
 
 return {

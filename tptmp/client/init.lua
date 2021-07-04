@@ -83,6 +83,19 @@ local function run()
 		win:backlog_bump_marker()
 		win.in_focus = true
 	end
+	win = window.new({
+		hide_window_func = hide_window,
+		window_hidden_func = window_hidden,
+		client_func = function()
+			return cli and cli:registered() and cli
+		end,
+		localcmd_parse_func = function(str)
+			return cmd:parse(str)
+		end,
+		placing_zoom_func = function(str)
+			return prof:placing_zoom()
+		end,
+	})
 	local cmd = localcmd.new({
 		client_func = function()
 			return cli and cli:registered() and cli
@@ -108,22 +121,9 @@ local function run()
 			should_reconnect = false
 			kill_client()
 		end,
-	})
-	win = window.new({
-		hide_window_func = hide_window,
-		window_hidden_func = window_hidden,
-		client_func = function()
-			return cli and cli:registered() and cli
-		end,
-		localcmd_parse_func = function(str)
-			return cmd:parse(str)
-		end,
-		placing_zoom_func = function(str)
-			return prof:placing_zoom()
-		end,
+		window = win,
 	})
 	win.localcmd = cmd
-	cmd.window = win
 	local sbtn = side_button.new({
 		notif_count_func = function()
 			return win:backlog_notif_count()
@@ -434,7 +434,7 @@ local function run()
 	end
 
 	win:set_subtitle("status", "Not connected")
-	win:backlog_push_neutral("* Type " .. colours.commonstr.error .. "/connect" .. colours.commonstr.normal .. " to join a server, " .. colours.commonstr.error .. "/list" .. colours.commonstr.normal .. " for a list of commands, or " .. colours.commonstr.error .. "/help" .. colours.commonstr.normal .. " for command help")
+	win:backlog_push_neutral("* Type " .. colours.commonstr.error .. "/connect" .. colours.commonstr.neutral .. " to join a server, " .. colours.commonstr.error .. "/list" .. colours.commonstr.neutral .. " for a list of commands, or " .. colours.commonstr.error .. "/help" .. colours.commonstr.neutral .. " for command help")
 	win:backlog_notif_reset()
 end
 

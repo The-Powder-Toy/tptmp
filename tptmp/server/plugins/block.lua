@@ -51,7 +51,7 @@ return {
 				if client:guest() then
 					local other = server:client_by_nick(words[3])
 					if not other then
-						client:send_server(("* %s is not online"):format(words[3]))
+						client:send_server(("\ae* \au%s\ae is not online"):format(words[3]))
 						return true
 					end
 					other_nick = other:nick()
@@ -68,7 +68,7 @@ return {
 					local other_uid
 					other_uid, other_nick = server:offline_user_by_nick(words[3])
 					if not other_uid then
-						client:send_server(("* No user named %s"):format(words[3]))
+						client:send_server(("\ae* No user named \au%s"):format(words[3]))
 						return true
 					end
 					function blockf()
@@ -84,7 +84,7 @@ return {
 				if words[2] == "add" then
 					if not checkf() then
 						blockf()
-						client:send_server(("* %s is now blocked"):format(other_nick))
+						client:send_server(("\an* \au%s\an is now blocked"):format(other_nick))
 						server.log_inf_("$ blocked $", client:nick(), other_nick)
 						server:rconlog({
 							event = "block_add",
@@ -92,20 +92,20 @@ return {
 							other_nick = other_nick,
 						})
 					else
-						client:send_server(("* %s is already blocked"):format(other_nick))
+						client:send_server(("\ae* \au%s\ae is already blocked"):format(other_nick))
 					end
 					return true
 				elseif words[2] == "check" then
 					if checkf() then
-						client:send_server(("* %s is currently blocked"):format(other_nick))
+						client:send_server(("\an* \au%s\an is currently blocked"):format(other_nick))
 					else
-						client:send_server(("* %s is not currently blocked"):format(other_nick))
+						client:send_server(("\an* \au%s\an is not currently blocked"):format(other_nick))
 					end
 					return true
 				elseif words[2] == "remove" then
 					if checkf() then
 						unblockf()
-						client:send_server(("* %s is no longer blocked"):format(other_nick))
+						client:send_server(("\an* \au%s\an is no longer blocked"):format(other_nick))
 						server.log_inf_("$ unblocked $", client:nick(), other_nick)
 						server:rconlog({
 							event = "block_add",
@@ -113,7 +113,7 @@ return {
 							other_nick = other_nick,
 						})
 					else
-						client:send_server(("* %s is not currently blocked"):format(other_nick))
+						client:send_server(("\ae* \au%s\ae is not currently blocked"):format(other_nick))
 					end
 					return true
 				end

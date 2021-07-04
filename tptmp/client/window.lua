@@ -57,8 +57,8 @@ function window_i:backlog_push_say3rd(formatted_nick, str, important)
 end
 
 function window_i:backlog_push_room(room, members, prefix)
-	local sep = colours.commonstr.normal .. ", "
-	local collect = { colours.commonstr.normal, "* ", prefix, format.room(room), sep }
+	local sep = colours.commonstr.neutral .. ", "
+	local collect = { colours.commonstr.neutral, "* ", prefix, format.troom(room), sep }
 	if next(members) then
 		table.insert(collect, "present: ")
 		local first = true
@@ -77,8 +77,8 @@ function window_i:backlog_push_room(room, members, prefix)
 end
 
 function window_i:backlog_push_fpssync(members)
-	local sep = colours.commonstr.normal .. ", "
-	local collect = { colours.commonstr.normal, "* " }
+	local sep = colours.commonstr.neutral .. ", "
+	local collect = { colours.commonstr.neutral, "* " }
 	if members == true then
 		table.insert(collect, "FPS synchronization is enabled")
 	elseif members then
@@ -103,15 +103,29 @@ function window_i:backlog_push_fpssync(members)
 end
 
 function window_i:backlog_push_registered(formatted_nick)
-	self:backlog_push_str(colours.commonstr.normal .. "* Connected as " .. formatted_nick, true)
+	self:backlog_push_str(colours.commonstr.neutral .. "* Connected as " .. formatted_nick, true)
 end
 
+local server_colours = {
+	n = colours.commonstr.neutral,
+	e = colours.commonstr.error,
+	j = colours.commonstr.join,
+	l = colours.commonstr.leave,
+}
 function window_i:backlog_push_server(str)
-	self:backlog_push_str(colours.commonstr.server .. str, true)
+	local formatted = str
+		:gsub("\au([A-Za-z0-9-_]+)", function(cap) return format.nick(cap, self.nick_colour_seed_) end)
+		:gsub("\ar([A-Za-z0-9-_]+)", function(cap) return format.room(cap)                         end)
+		:gsub("\a([nejl])"          , function(cap) return server_colours[cap]                      end)
+	self:backlog_push_str(formatted, true)
+end
+
+function window_i:nick_colour_seed(seed)
+	self.nick_colour_seed_ = seed
 end
 
 function window_i:backlog_push_neutral(str)
-	self:backlog_push_str(colours.commonstr.normal .. str, true)
+	self:backlog_push_str(colours.commonstr.neutral .. str, true)
 end
 
 function window_i:backlog_wrap_(msg)
@@ -985,7 +999,7 @@ function window_i:set_subtitle(template, text)
 	if template == "status" then
 		self.subtitle_ = colours.commonstr.status .. text
 	elseif template == "room" then
-		self.subtitle_ = "In " .. format.room(text)
+		self.subtitle_ = "In " .. format.troom(text)
 	end
 	self:subtitle_update_()
 end
@@ -1024,6 +1038,7 @@ local function new(params)
 		input_history_next_ = 1,
 		input_editing_ = {},
 		input_last_say_ = 0,
+		nick_colour_seed_ = 0,
 	}, window_m)
 	win:input_reset_()
 	win:backlog_reset()

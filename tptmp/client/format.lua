@@ -10,7 +10,13 @@ local names = {
 	[  "guest" ] = "guest lobby",
 	[ "kicked" ] = "kicked lobby",
 }
+
 local function room(unformatted)
+	local name = names[unformatted]
+	return name and (colours.commonstr.lobby .. name) or (colours.commonstr.room .. unformatted)
+end
+
+local function troom(unformatted)
 	local name = names[unformatted]
 	return name and (colours.commonstr.lobby .. name) or ("room " .. colours.commonstr.room .. unformatted)
 end
@@ -18,4 +24,5 @@ end
 return {
 	nick = nick,
 	room = room,
+	troom = troom,
 }

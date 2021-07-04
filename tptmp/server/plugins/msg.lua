@@ -9,7 +9,7 @@ return {
 				local server = client:server()
 				local other = server:client_by_nick(words[2])
 				if not other then
-					client:send_server(("* %s is not online"):format(words[2]))
+					client:send_server(("\an* \au%s\an is not online"):format(words[2]))
 					if client.reply_to_ == words[2] then
 						client.reply_to_ = nil
 					end
@@ -17,12 +17,12 @@ return {
 				end
 				local ok, err = server:phost():call_check_all("content_ok", server, message)
 				if not ok then
-					client:send_server("* Cannot send message: " .. err)
+					client:send_server("\ae* Cannot send message: " .. err)
 					return true
 				end
-				client:send_server(("* %s << %s"):format(other:nick(), message))
+				client:send_server(("\an* \au%s\an << %s"):format(other:nick(), message))
 				if server:phost():call_check_all("can_interact_with", client, other) then
-					other:send_server(("* %s >> %s"):format(client:nick(), message))
+					other:send_server(("\an* \au%s\an >> %s"):format(client:nick(), message))
 					other.reply_to_ = client:nick()
 					server.log_inf_("$ >> $: $", client:nick(), other:nick(), message)
 					server:rconlog({
@@ -41,7 +41,7 @@ return {
 					return false
 				end
 				if not client.reply_to_ then
-					client:send_server("* Nothing to reply to")
+					client:send_server("\ae* Nothing to reply to")
 					return {}
 				end
 				local message = message:sub(offsets[2])

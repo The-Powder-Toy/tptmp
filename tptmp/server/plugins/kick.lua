@@ -9,15 +9,15 @@ return {
 				local server = client:server()
 				local room = client:room()
 				if not room:is_owner(client) then
-					client:send_server("* You are not an owner of this room")
+					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end
 				local other = server:client_by_nick(words[2])
 				if not (other and other:room() == room) then
-					client:send_server(("* %s is not present in this room"):format(words[2]))
+					client:send_server(("\ae* \au%s\ae is not present in this room"):format(words[2]))
 					return true
 				end
-				other:send_server(("* You have been kicked by %s: %s"):format(client:nick(), reason))
+				other:send_server(("\al* You have been kicked by \au%s\al: %s"):format(client:nick(), reason))
 				room:log("$ kicked $: $", client:nick(), other:nick(), reason)
 				server:rconlog({
 					event = "kick",
