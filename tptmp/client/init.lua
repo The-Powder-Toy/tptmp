@@ -12,6 +12,7 @@ local manager     = require("tptmp.client.manager")
 local function run()
 	assert(sim.CELL == 4, "CELL size is not 4") -- * Required by cursor snapping functions.
 	assert(sim.PMAPBITS < 13, "PMAPBITS is too large") -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
+	assert(tpt.version and tpt.version.major >= 96, "version not supported")
 	assert(rawget(_G, "bit"), "no bit API")
 	local http = assert(rawget(_G, "http"), "no http API")
 	local socket = assert(rawget(_G, "socket"), "no socket API")

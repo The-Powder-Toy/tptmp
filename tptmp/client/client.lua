@@ -675,7 +675,7 @@ function client_i:handshake_()
 		self.guest_ = bit.band(self.flags_, 1) ~= 0
 		self.last_ping_sent_at_ = socket.gettime()
 		self.connecting_since_ = nil
-		if auth_err then
+		if tpt.get_name() and auth_err then
 			self.window_:backlog_push_error("Warning: " .. auth_err)
 		end
 		self.window_:backlog_push_registered(self.formatted_nick_)

@@ -105,7 +105,7 @@ return {
 					return
 				end
 				if words[2] == "check" then
-					if self:is_invited(other_uid) then
+					if room:is_invited(other_uid) then
 						client:send_server(("\an* \au%s\an is currently invited"):format(other_nick))
 					else
 						client:send_server(("\an* \au%s\an is not currently invited"):format(other_nick))

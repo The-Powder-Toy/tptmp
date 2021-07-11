@@ -229,7 +229,7 @@ return {
 	-- ***********************************************************************
 
 	-- * Minimum accepted TPT version.
-	tpt_version_min = { 91, 4 }, -- * TODO[fin]: Bump to 96.0.
+	tpt_version_min = { 96, 0 },
 
 	-- * Maximum accepted TPT version.
 	tpt_version_max = { 96, 0 },
