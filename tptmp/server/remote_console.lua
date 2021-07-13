@@ -20,9 +20,15 @@ end
 
 function remote_console_i:send_json_(json)
 	if self.client_sock_ then
+		while self.writing_ do
+			self.writing_wake_:wait()
+		end
+		self.writing_ = true
 		pcall(function()
 			self.client_sock_:write(lunajson.encode(json):gsub("\n", "") .. "\n")
 		end)
+		self.writing_ = false
+		self.writing_wake_:signal(1)
 	end
 end
 
@@ -185,6 +191,8 @@ local function new(params)
 		wake_ = condition.new(),
 		log_inf_ = log.derive(log.inf, "[" .. params.name .. "] "),
 		log_wrn_ = log.derive(log.err, "[" .. params.name .. "] "),
+		writing_ = false,
+		writing_wake_ = condition.new(),
 	}, remote_console_m)
 end
 

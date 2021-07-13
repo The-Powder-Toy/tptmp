@@ -95,42 +95,42 @@ end
 function authenticator_i:authenticate_token_(client, token)
 	local payload, err, rconinfo = token_payload(token)
 	if not payload then
+		self.log_inf_("authentication token from $ refused: $", client:name(), err)
 		self:rconlog(util.info_merge({
 			event = "authenticate_fail",
 			client_name = client:name(),
 			token = token,
 			stage = "payload",
 		}, rconinfo))
-		self.log_inf_("authentication token from $ refused: $", client:name(), err)
 		return
 	end
 	local uid = tonumber(payload.sub)
 	if self.quickauth_[uid] == token and os.time() <= payload.iat + config.token_max_age then
+		self.log_inf_("cached authentication token reused by $", client:name())
 		self:rconlog({
 			event = "authenticate",
 			client_name = client:name(),
 			token = token,
 		})
-		self.log_inf_("cached authentication token reused by $", client:name())
 	else
 		local ok, err, rconinfo = check_external_auth(client, token)
 		if not ok then
+			self.log_inf_("authentication token from $ refused: $", client:name(), err)
 			self:rconlog(util.info_merge({
 				event = "authenticate_fail",
 				client_name = client:name(),
 				token = token,
 				stage = "check",
 			}, rconinfo))
-			self.log_inf_("authentication token from $ refused: $", client:name(), err)
 			return
 		end
+		self.log_inf_("accepted and cached authentication token from $", client:name())
 		self:rconlog({
 			event = "authenticate",
 			client_name = client:name(),
 			token = token,
 		})
 		self.quickauth_[uid] = token
-		self.log_inf_("accepted and cached authentication token from $", client:name())
 	end
 	self.log_inf_("authenticated $ as $", client:name(), payload.name)
 	return payload.name, uid

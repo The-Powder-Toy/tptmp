@@ -327,6 +327,9 @@ function server_i:fetch_user_(nick)
 		})
 		return nil, err
 	end
+	if body == "Error: 404" then
+		return false, false
+	end
 	local ok, json = pcall(lunajson.decode, body)
 	if not ok then
 		self:rconlog({
@@ -349,10 +352,10 @@ end
 function server_i:offline_user_by_nick(nick)
 	nick = nick:lower()
 	if nick:find("[^0-9a-z-_]") then
-		return
+		return false, false
 	end
 	if not config.auth then
-		return
+		return false, false
 	end
 	local now = cqueues.monotime()
 	local cached = self.offline_user_cache_[nick]
@@ -369,11 +372,11 @@ function server_i:offline_user_by_nick(nick)
 		fuid, fnick = client:uid(), client:nick()
 	else
 		fuid, fnick = self:fetch_user_(nick)
-		if not fuid then
+		if fuid == nil then
 			self.log_inf_("failed to fetch user $: $", nick, fnick)
 		end
 	end
-	if fuid then
+	if fuid ~= nil then
 		self:cache_uid_to_nick_(fuid, fnick)
 		self.offline_user_cache_[nick] = {
 			iat = now,
@@ -382,6 +385,7 @@ function server_i:offline_user_by_nick(nick)
 		}
 		return fuid, fnick
 	end
+	return false, false
 end
 
 function server_i:offline_user_by_uid(uid)
