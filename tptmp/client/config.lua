@@ -104,9 +104,21 @@ local config = {
 	-- * Namespace for settings stored in the manager backend.
 	manager_namespace = "tptmp",
 
-	-- * Grace period in seconds after which another client is deemed to not
-	--   have FPS synchronization enabled.
-	fps_sync_timeout = 3,
+	-- * Grace period in milliseconds after which another client is deemed to
+	--   not have FPS synchronization enabled.
+	fps_sync_timeout = 3000,
+
+	-- * Interval to plan ahead in milliseconds, after which local number of
+	--   frames simulated should more or less match the number of frames
+	--   everyone else with FPS synchronization enabled has simulated.
+	fps_sync_plan_ahead_by = 1000,
+
+	-- * Coefficient of linear interpolation between the current target FPS and
+	--   that of the slowest client in the room with FPS synchronization
+	--   enabled used when slowing down to match the number of frames simulated
+	--   by this client. 0 means no slowing down at all, 1 means slowing down
+	--   to the framerate the other client seems to be running at.
+	fps_sync_homing_factor = 0.8,
 
 
 	-- ***********************************************************************

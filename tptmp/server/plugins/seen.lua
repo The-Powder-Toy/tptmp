@@ -46,7 +46,7 @@ return {
 					count = secs
 					unit = secs == 1 and "second" or "seconds"
 				end
-				client:send_server(("\an* \au%s\an was ast online %s %s ago"):format(other_nick, count, unit))
+				client:send_server(("\an* \au%s\an was last online %s %s ago"):format(other_nick, count, unit))
 				return true
 			end,
 			help = "/seen <user>: tells you when a user was last seen online",

@@ -1,3 +1,13 @@
+-- * TODO[opt]: maybe exit gracefully
+assert(sim.CELL == 4, "CELL size is not 4") -- * Required by cursor snapping functions.
+assert(sim.PMAPBITS < 13, "PMAPBITS is too large") -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
+-- assert(tpt.version and tpt.version.major >= 96 and tpt.version.minor >= 1, "version not supported")
+assert(tpt.version and tpt.version.major >= 96, "version not supported") -- * TODO[fin]: enforce 96.1, see above
+assert(rawget(_G, "bit"), "no bit API")
+local http = assert(rawget(_G, "http"), "no http API")
+local socket = assert(rawget(_G, "socket"), "no socket API")
+assert(not socket.bind, "outdated socket API")
+
 local colours     = require("tptmp.client.colours")
 local config      = require("tptmp.client.config")
 local window      = require("tptmp.client.window")
@@ -10,13 +20,6 @@ local format      = require("tptmp.client.format")
 local manager     = require("tptmp.client.manager")
 
 local function run()
-	assert(sim.CELL == 4, "CELL size is not 4") -- * Required by cursor snapping functions.
-	assert(sim.PMAPBITS < 13, "PMAPBITS is too large") -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
-	assert(tpt.version and tpt.version.major >= 96, "version not supported")
-	assert(rawget(_G, "bit"), "no bit API")
-	local http = assert(rawget(_G, "http"), "no http API")
-	local socket = assert(rawget(_G, "socket"), "no socket API")
-
 	local hooks_enabled = false
 
 	if rawget(_G, "TPTMP") then
@@ -252,7 +255,10 @@ local function run()
 							offx, offy = offx + 3, offy + 1
 							dsx, dsy = 2 * sx + 4, 2 * sy + 4
 						end
-						gfx.drawText(px + offx + (sx < 50 and sx or 0), py + offy, brush_text_format:format(member.formatted_nick, tool_name, dsx, dsy, bmode_to_repr[member.bmode], repl_tool_name or ""), pcur_r, pcur_g, pcur_b, pcur_a)
+						if sx < 50 then
+							offx = offx + sx
+						end
+						gfx.drawText(px + offx, py + offy, brush_text_format:format(member.formatted_nick, tool_name, dsx, dsy, bmode_to_repr[member.bmode], repl_tool_name or ""), pcur_r, pcur_g, pcur_b, pcur_a)
 						if not rx then
 							if not lx and member.kmod_s and member.kmod_c then
 								gfx.drawLine(px - 5, py, px + 5, py, pcur_r, pcur_g, pcur_b, pcur_a)
@@ -282,6 +288,9 @@ local function run()
 							local x, y, w, h = util.corners_to_rect(px, py, rx, ry)
 							gfx.drawRect(x, y, w, h, pcur_r, pcur_g, pcur_b, pcur_a)
 						end
+					end
+					if cli.fps_sync_ and member.fps_sync then
+						gfx.drawText(px + offx, py + offy + 24, tostring(member.fps_sync_count_diff), pcur_r, pcur_g, pcur_b, pcur_a)
 					end
 				end
 			end
@@ -412,6 +421,7 @@ local function run()
 
 	function TPTMP.disableMultiplayer()
 		if cli then
+			cmd:parse("/fpssync off")
 			cmd:parse("/disconnect")
 		end
 		evt.unregister(evt.tick      , handle_tick      )

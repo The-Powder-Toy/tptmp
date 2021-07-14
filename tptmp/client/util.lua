@@ -2,6 +2,7 @@ local config = require("tptmp.client.config")
 
 if not elem.TPTMP_PT_UNKNOWN then
 	assert(elem.allocate("TPTMP", "UNKNOWN") ~= -1, "out of element IDs")
+	elem.property(elem.TPTMP_PT_UNKNOWN, "MenuSection", 17) -- * TODO[req]: hack, remove
 end
 
 local jacobsmod = rawget(_G, "jacobsmod")
@@ -10,16 +11,11 @@ local to_tool = {}
 local xid_first = {}
 local PMAPBITS = sim.PMAPBITS
 
-local have_7arg_swm
-local new_gol_names
 do
 	local old_selectedl = tpt.selectedl
 	if old_selectedl == "DEFAULT_UI_PROPERTY" then
 		old_selectedl = "DEFAULT_PT_DUST"
 	end
-	new_gol_names = pcall(function()
-		tpt.selectedl = "DEFAULT_PT_LIFE_2X2"
-	end)
 	tpt.selectedl = old_selectedl
 end
 
@@ -28,13 +24,13 @@ local tools = {
 	"DEFAULT_PT_LIFE_GOL",
 	"DEFAULT_PT_LIFE_HLIF",
 	"DEFAULT_PT_LIFE_ASIM",
-	new_gol_names and "DEFAULT_PT_LIFE_2X2" or "DEFAULT_PT_LIFE_2x2",
+	"DEFAULT_PT_LIFE_2X2",
 	"DEFAULT_PT_LIFE_DANI",
 	"DEFAULT_PT_LIFE_AMOE",
 	"DEFAULT_PT_LIFE_MOVE",
 	"DEFAULT_PT_LIFE_PGOL",
 	"DEFAULT_PT_LIFE_DMOE",
-	new_gol_names and "DEFAULT_PT_LIFE_3-4" or "DEFAULT_PT_LIFE_34",
+	"DEFAULT_PT_LIFE_3-4",
 	"DEFAULT_PT_LIFE_LLIF",
 	"DEFAULT_PT_LIFE_STAN",
 	"DEFAULT_PT_LIFE_SEED",
@@ -373,15 +369,7 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 			while visit[curr] do
 				local k = visit[curr]
 				local x, y = k % bw, math.floor(k / bw)
-				if have_7arg_swm == nil then
-					tpt.set_wallmap(x, y, 1, 1, 1, 1, WL_FAN)
-					have_7arg_swm = tpt.get_wallmap(x, y) == WL_FAN
-				end
-				if have_7arg_swm then
-					tpt.set_wallmap(x, y, 1, 1, fvx, fvy, WL_FAN)
-				else
-					tpt.set_wallmap(x, y, 1, 1, WL_FAN)
-				end
+				tpt.set_wallmap(x, y, 1, 1, fvx, fvy, WL_FAN)
 				enqueue(x - 1, y)
 				enqueue(x, y - 1)
 				enqueue(x + 1, y)

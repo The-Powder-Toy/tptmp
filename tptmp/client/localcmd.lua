@@ -7,6 +7,13 @@ local colours        = require("tptmp.client.colours")
 local localcmd_i = {}
 local localcmd_m = { __index = localcmd_i }
 
+local function parse_fps_sync(fps_sync)
+	fps_sync = fps_sync and tonumber(fps_sync) or false
+	fps_sync = fps_sync and math.floor(fps_sync) or false
+	fps_sync = fps_sync and fps_sync >= 2 and fps_sync or false
+	return fps_sync
+end
+
 local cmdp = command_parser.new({
 	commands = {
 		help = {
@@ -50,13 +57,21 @@ local cmdp = command_parser.new({
 			func = function(localcmd, message, words, offsets)
 				local cli = localcmd.client_func_()
 				if words[2] == "on" then
-					localcmd.fps_sync_ = true
-					manager.set("fpsSync", "on")
+					if not localcmd.fps_sync_ then
+						localcmd.fps_sync_ = tpt.setfpscap()
+					end
+					if words[3] then
+						local fps_sync = parse_fps_sync(words[3])
+						if not fps_sync then
+							return false
+						end
+						localcmd.fps_sync_ = fps_sync
+					end
+					manager.set("fpsSync", tostring(localcmd.fps_sync_))
 					if cli then
 						cli:fps_sync(localcmd.fps_sync_)
 					end
 					localcmd.window_:backlog_push_neutral("* FPS synchronization enabled")
-					localcmd.window_:backlog_push_neutral("* Note: FPS synchronization is not currently implemented, this command is just a placeholder") -- * TODO[imm]: remove this
 					return true
 				elseif words[2] == "check" or not words[2] then
 					if localcmd.fps_sync_ then
@@ -72,7 +87,7 @@ local cmdp = command_parser.new({
 					return true
 				elseif words[2] == "off" then
 					localcmd.fps_sync_ = false
-					manager.set("fpsSync", "off")
+					manager.set("fpsSync", tostring(localcmd.fps_sync_))
 					if cli then
 						cli:fps_sync(localcmd.fps_sync_)
 					end
@@ -81,7 +96,7 @@ local cmdp = command_parser.new({
 				end
 				return false
 			end,
-			help = "/fpssync on\\check\\off: enables or disables FPS synchronization with those in the room who also have it enabled (not yet implemented)",
+			help = "/fpssync on [targetfps]\\check\\off: enables or disables FPS synchronization with those in the room who also have it enabled; targetfps defaults to the current FPS cap",
 		},
 		connect = {
 			macro = function(localcmd, message, words, offsets)
@@ -117,7 +132,7 @@ local cmdp = command_parser.new({
 					if port then
 						secure = port:find("%+") and true
 					else
-						secure = config.default_secure and not socket.bind
+						secure = config.default_secure
 					end
 					local new_cli = localcmd.new_client_func_({
 						host = host,
@@ -266,8 +281,9 @@ local function new(params)
 	if #reconnect.room == 0 or #reconnect.host == 0 or #reconnect.port == 0 then
 		reconnect = nil
 	end
+	local fps_sync = parse_fps_sync(manager.get("fpsSync", "0"))
 	local cmd = setmetatable({
-		fps_sync_ = manager.get("fpsSync", "") == "on",
+		fps_sync_ = fps_sync,
 		reconnect_ = reconnect,
 		client_func_ = params.client_func,
 		new_client_func_ = params.new_client_func,

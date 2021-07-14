@@ -11,6 +11,10 @@ local client_m = { __index = client_i }
 
 local packet_handlers = {}
 
+local function get_msec()
+	return math.floor(socket.gettime() * 1000)
+end
+
 local index_to_lrax = {
 	[ 0 ] = "tool_l",
 	[ 1 ] = "tool_r",
@@ -587,15 +591,34 @@ end
 
 function client_i:handle_fpssync_76_()
 	local member = self:member_prefix_()
-	local pack = self:read_24be_()
-	local elapsed = bit.rshift(pack, 16)
-	local count = bit.band(pack, 0xFFFF)
+	local hi = self:read_24be_()
+	local mi = self:read_24be_()
+	local lo = self:read_24be_()
+	local elapsed = hi * 0x1000 + math.floor(mi / 0x1000)
+	local count = mi % 0x1000 * 0x1000000 + lo
+	local now_msec = get_msec()
 	if not member.fps_sync then
 		member.fps_sync = true
+		member.fps_sync_first = now_msec
+		member.fps_sync_history = {}
+		if self.fps_sync_ then
+			member.fps_sync_count_offset = count - self.fps_sync_count_
+		end
 		self.window_:backlog_push_fpssync_enable(member.formatted_nick)
 	end
-	member.fps_sync_last = socket.gettime()
-	-- * TODO: do something with this
+	member.fps_sync_last = now_msec
+	member.fps_sync_elapsed = elapsed
+	member.fps_sync_count = count
+	local history_item = { elapsed = elapsed, count = count, now_msec = now_msec }
+	local history_size = #member.fps_sync_history
+	if history_size < 5 then
+		table.insert(member.fps_sync_history, 1, history_item)
+	else
+		for i = 1, history_size - 1 do
+			member.fps_sync_history[i + 1] = member.fps_sync_history[i]
+		end
+		member.fps_sync_history[1] = history_item
+	end
 end
 
 function client_i:handle_sync_request_128_()
@@ -607,28 +630,14 @@ function client_i:connect_()
 	self.socket_ = socket.tcp()
 	self.socket_:settimeout(0)
 	self.socket_:setoption("tcp-nodelay", true)
-	if socket.bind then -- * Old socket API. -- * TODO[fin]: remove support
-		if self.secure_ then
-			self:proto_close_("no TLS support")
-		end
-		self.socket_:connect(self.host_, self.port_)
-		while true do
-			local _, writeable = socket.select({}, { self.socket_ }, 0)
-			if writeable[self.socket_] then
-				break
-			end
+	while true do
+		local ok, err = self.socket_:connect(self.host_, self.port_, self.secure_)
+		if ok then
+			break
+		elseif err == "timeout" then
 			coroutine.yield()
-		end
-	else
-		while true do
-			local ok, err = self.socket_:connect(self.host_, self.port_, self.secure_)
-			if ok then
-				break
-			elseif err == "timeout" then
-				coroutine.yield()
-			else
-				self:proto_close_(err)
-			end
+		else
+			self:proto_close_(err)
 		end
 	end
 	self.connected_ = true
@@ -922,7 +931,9 @@ end
 
 function client_i:send_fpssync(elapsed, count)
 	self:write_("\76")
-	self:write_24be_(bit.bor(bit.lshift(elapsed, 16), count))
+	self:write_24be_(math.floor(elapsed / 0x1000))
+	self:write_24be_(elapsed % 0x1000 * 0x1000 + math.floor(count / 0x1000000))
+	self:write_24be_(count % 0x1000000)
 	self:write_flush_()
 end
 
@@ -1017,7 +1028,7 @@ function client_i:tick_write_()
 			end
 			local closed = false
 			local count = last - first + 1
-			if not socket.bind and self.socket_:status() ~= "connected" then
+			if self.socket_:status() ~= "connected" then
 				break
 			end
 			local written_up_to, err, partial_up_to = self.socket_:send(data, first, last)
@@ -1083,32 +1094,52 @@ end
 
 function client_i:tick_fpssync_()
 	if self.registered_ then
-		if self.fps_sync_ then
-			self.fps_sync_count_ = self.fps_sync_count_ + 1
-			local now_sec = math.floor(socket.gettime())
-			if now_sec > self.fps_sync_last_ then
-				local count = self.fps_sync_count_
-				local elapsed = now_sec - self.fps_sync_last_
-				if self.fps_sync_last_ == 0 then
-					elapsed = 0
-				end
-				if elapsed > 0xFF or count >= 0xFFFF then
-					self.fps_sync_last_ = 0
-					self.fps_sync_count_ = 0
-				else
-					self:send_fpssync(elapsed, count)
-					self.fps_sync_last_ = now_sec
-					self.fps_sync_count_ = 0
-				end
-			end
-		end
+		local now_msec = get_msec()
 		for _, member in pairs(self.id_to_member) do
 			if member.fps_sync then
-				if member.fps_sync_last + config.fps_sync_timeout < socket.gettime() then
+				if member.fps_sync_last + config.fps_sync_timeout < now_msec then
 					self.window_:backlog_push_fpssync_disable(member.formatted_nick)
 					member.fps_sync = false
 				end
-				-- * TODO[imm]: do something with this
+			end
+		end
+		if self.fps_sync_ then
+			self.fps_sync_count_ = self.fps_sync_count_ + 1
+			if now_msec >= self.fps_sync_last_ + 1000 then
+				self:send_fpssync(now_msec - self.fps_sync_first_, self.fps_sync_count_)
+				self.fps_sync_last_ = now_msec
+			end
+			local target_fps = self.fps_sync_target_			
+			local smallest_target = self.fps_sync_count_ + math.floor(target_fps * config.fps_sync_plan_ahead_by / 1000)
+			if self.fps_sync_target_ == 2 then
+				smallest_target = math.huge
+			end
+			for _, member in pairs(self.id_to_member) do
+				if member.fps_sync and #member.fps_sync_history >= 2 then
+					local diff_count = member.fps_sync_history[1].count - member.fps_sync_history[2].count
+					local diff_elapsed = member.fps_sync_history[1].elapsed - member.fps_sync_history[2].elapsed
+					local slope = diff_count / (diff_elapsed / 1000)
+					if slope <     5 then slope =     5 end
+					if slope > 10000 then slope = 10000 end
+					local current_msec = now_msec - member.fps_sync_history[1].now_msec
+					local current_frames_remote = math.floor(member.fps_sync_history[1].count + slope * (current_msec / 1000))
+					local current_frames_local = current_frames_remote - member.fps_sync_count_offset
+					local target_msec = now_msec - member.fps_sync_history[1].now_msec + config.fps_sync_plan_ahead_by
+					local target_frames_remote = math.floor(member.fps_sync_history[1].count + slope * (target_msec / 1000))
+					local target_frames_local = target_frames_remote - member.fps_sync_count_offset
+					member.fps_sync_count_diff = current_frames_local - self.fps_sync_count_
+					if smallest_target > target_frames_local then
+						smallest_target = target_frames_local
+					end
+				end
+			end
+			if smallest_target == math.huge then
+				tpt.setfpscap(2)
+			else
+				local smallest_fps = (smallest_target - self.fps_sync_count_) / (config.fps_sync_plan_ahead_by / 1000)
+				local fps = math.floor((target_fps + (smallest_fps - target_fps) * config.fps_sync_homing_factor)) + 0.5
+				if fps < 10 then fps = 10 end
+				tpt.setfpscap(fps)
 			end
 		end
 	end
@@ -1230,9 +1261,22 @@ function client_i:nick_colour_seed(seed)
 end
 
 function client_i:fps_sync(fps_sync)
-	self.fps_sync_ = fps_sync
-	self.fps_sync_last_ = 0
-	self.fps_sync_count_ = 0
+	local prev_fps_sync = self.fps_sync_
+	if prev_fps_sync and not fps_sync then
+		tpt.setfpscap(self.fps_sync_target_)
+	end
+	self.fps_sync_ = fps_sync and true or false
+	self.fps_sync_target_ = fps_sync or false
+	if not prev_fps_sync and fps_sync then
+		self.fps_sync_first_ = get_msec()
+		self.fps_sync_last_ = 0
+		self.fps_sync_count_ = 0
+		for _, member in pairs(self.id_to_member) do
+			if member.fps_sync then
+				member.fps_sync_count_offset = member.fps_sync_count
+			end
+		end
+	end
 end
 
 function client_i:reformat_nicks_()

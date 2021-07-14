@@ -1,6 +1,5 @@
 local logger_m = {}
 
--- * TODO[opt]: more consistent logging
 function logger_m:__call(format, ...)
 	local things = { ... }
 	io.stderr:write(self.prefix_)
