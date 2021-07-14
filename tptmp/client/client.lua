@@ -608,12 +608,16 @@ function client_i:handle_fpssync_76_()
 	local lo = self:read_24be_()
 	local elapsed = hi * 0x1000 + math.floor(mi / 0x1000)
 	local count = mi % 0x1000 * 0x1000000 + lo
+	if member.fps_sync and elapsed <= member.fps_sync_elapsed then
+		self:fps_sync_end_(member)
+	end
 	local now_msec = get_msec()
 	if not member.fps_sync then
 		member.fps_sync = true
+		member.fps_sync_count_diff = 0
 		member.fps_sync_first = now_msec
 		member.fps_sync_history = {}
-		if self.fps_sync_ then
+		if self.fps_sync_count_ then
 			member.fps_sync_count_offset = count - self.fps_sync_count_
 		end
 		self.window_:backlog_push_fpssync_enable(member.formatted_nick)
@@ -1108,18 +1112,38 @@ function client_i:tick_sim_()
 	end
 end
 
-function client_i:tick_fpssync_()
+function client_i:fps_sync_end_(member)
+	self.window_:backlog_push_fpssync_disable(member.formatted_nick)
+	member.fps_sync = false
+end
+
+function client_i:tick_fpssync_invalidate_()
 	if self.registered_ then
 		local now_msec = get_msec()
 		for _, member in pairs(self.id_to_member) do
 			if member.fps_sync then
 				if member.fps_sync_last + config.fps_sync_timeout < now_msec then
-					self.window_:backlog_push_fpssync_disable(member.formatted_nick)
-					member.fps_sync = false
+					self:fps_sync_end_(member)
 				end
 			end
 		end
+	end
+end
+
+function client_i:tick_fpssync_()
+	if self.registered_ then
 		if self.fps_sync_ then
+			local now_msec = get_msec()
+			if not self.fps_sync_first_ then
+				self.fps_sync_first_ = now_msec
+				self.fps_sync_last_ = 0
+				self.fps_sync_count_ = 0
+				for _, member in pairs(self.id_to_member) do
+					if member.fps_sync then
+						member.fps_sync_count_offset = member.fps_sync_count
+					end
+				end
+			end
 			self.fps_sync_count_ = self.fps_sync_count_ + 1
 			if now_msec >= self.fps_sync_last_ + 1000 then
 				self:send_fpssync(now_msec - self.fps_sync_first_, self.fps_sync_count_)
@@ -1153,7 +1177,7 @@ function client_i:tick_fpssync_()
 				tpt.setfpscap(2)
 			else
 				local smallest_fps = (smallest_target - self.fps_sync_count_) / (config.fps_sync_plan_ahead_by / 1000)
-				local fps = math.floor((target_fps + (smallest_fps - target_fps) * config.fps_sync_homing_factor)) + 0.5
+				local fps = math.floor((target_fps + (smallest_fps - target_fps) * config.fps_sync_homing_factor) + 0.5)
 				if fps < 10 then fps = 10 end
 				tpt.setfpscap(fps)
 			end
@@ -1165,6 +1189,7 @@ function client_i:tick()
 	if self.status_ ~= "running" then
 		return
 	end
+	self:tick_fpssync_invalidate_()
 	self:tick_read_()
 	self:tick_resume_()
 	self:tick_write_()
@@ -1277,22 +1302,14 @@ function client_i:nick_colour_seed(seed)
 end
 
 function client_i:fps_sync(fps_sync)
-	local prev_fps_sync = self.fps_sync_
-	if prev_fps_sync and not fps_sync then
+	if self.fps_sync_ and not fps_sync then
 		tpt.setfpscap(self.fps_sync_target_)
+	end
+	if not self.fps_sync_ and fps_sync then
+		self.fps_sync_first_ = nil
 	end
 	self.fps_sync_ = fps_sync and true or false
 	self.fps_sync_target_ = fps_sync or false
-	if not prev_fps_sync and fps_sync then
-		self.fps_sync_first_ = get_msec()
-		self.fps_sync_last_ = 0
-		self.fps_sync_count_ = 0
-		for _, member in pairs(self.id_to_member) do
-			if member.fps_sync then
-				member.fps_sync_count_offset = member.fps_sync_count
-			end
-		end
-	end
 end
 
 function client_i:reformat_nicks_()

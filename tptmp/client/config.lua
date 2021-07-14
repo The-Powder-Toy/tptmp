@@ -106,19 +106,19 @@ local config = {
 
 	-- * Grace period in milliseconds after which another client is deemed to
 	--   not have FPS synchronization enabled.
-	fps_sync_timeout = 3000,
+	fps_sync_timeout = 10000,
 
 	-- * Interval to plan ahead in milliseconds, after which local number of
 	--   frames simulated should more or less match the number of frames
 	--   everyone else with FPS synchronization enabled has simulated.
-	fps_sync_plan_ahead_by = 1000,
+	fps_sync_plan_ahead_by = 3000,
 
 	-- * Coefficient of linear interpolation between the current target FPS and
 	--   that of the slowest client in the room with FPS synchronization
 	--   enabled used when slowing down to match the number of frames simulated
 	--   by this client. 0 means no slowing down at all, 1 means slowing down
 	--   to the framerate the other client seems to be running at.
-	fps_sync_homing_factor = 0.8,
+	fps_sync_homing_factor = 0.5,
 
 
 	-- ***********************************************************************

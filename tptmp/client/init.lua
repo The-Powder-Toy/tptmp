@@ -164,8 +164,6 @@ local function run()
 		[ 1 ] = " REPL",
 		[ 2 ] = " SDEL",
 	}
-	local brush_text_format = "%s\n" .. colours.commonstr.brush .. "%s %ix%i%s %s"
-	local select_text_format = "%s\n" .. colours.commonstr.brush .. "%s"
 	local function handle_tick()
 		local now = socket.gettime()
 		if should_reconnect_at and now >= should_reconnect_at then
@@ -230,6 +228,11 @@ local function run()
 						end
 					end
 					local offx, offy = 6, -9
+					local player_info = member.formatted_nick
+					if cli.fps_sync_ and member.fps_sync then
+						player_info = ("%s %s%+i"):format(player_info, colours.commonstr.brush, member.fps_sync_count_diff)
+					end
+					local brush_info
 					if member.select or member.place then
 						local xlo, ylo, xhi, yhi, action
 						if member.select then
@@ -246,7 +249,7 @@ local function run()
 							action = member.place
 						end
 						gfx.drawRect(xlo, ylo, xhi - xlo + 1, yhi - ylo + 1, pcur_r, pcur_g, pcur_b, pcur_a)
-						gfx.drawText(px + offx, py + offy, select_text_format:format(member.formatted_nick, action), pcur_r, pcur_g, pcur_b, pcur_a)
+						brush_info = action
 					else
 						local dsx, dsy = sx * 2 + 1, sy * 2 + 1
 						if tool_class == "WL" then
@@ -258,7 +261,7 @@ local function run()
 						if sx < 50 then
 							offx = offx + sx
 						end
-						gfx.drawText(px + offx, py + offy, brush_text_format:format(member.formatted_nick, tool_name, dsx, dsy, bmode_to_repr[member.bmode], repl_tool_name or ""), pcur_r, pcur_g, pcur_b, pcur_a)
+						brush_info = ("%s %ix%i%s %s"):format(tool_name, dsx, dsy, bmode_to_repr[member.bmode], repl_tool_name or "")
 						if not rx then
 							if not lx and member.kmod_s and member.kmod_c then
 								gfx.drawLine(px - 5, py, px + 5, py, pcur_r, pcur_g, pcur_b, pcur_a)
@@ -289,9 +292,8 @@ local function run()
 							gfx.drawRect(x, y, w, h, pcur_r, pcur_g, pcur_b, pcur_a)
 						end
 					end
-					if cli.fps_sync_ and member.fps_sync then
-						gfx.drawText(px + offx, py + offy + 24, tostring(member.fps_sync_count_diff), pcur_r, pcur_g, pcur_b, pcur_a)
-					end
+					gfx.drawText(px + offx, py + offy, player_info, pcur_r, pcur_g, pcur_b, pcur_a)
+					gfx.drawText(px + offx, py + offy + 12, brush_info, pcur_r, pcur_g, pcur_b, pcur_a)
 				end
 			end
 		end
