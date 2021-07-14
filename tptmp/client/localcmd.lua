@@ -48,7 +48,7 @@ local cmdp = command_parser.new({
 				end
 				return true
 			end,
-			help = "/sync, no arguments: synchronizes your simulation with everyone else's in the room",
+			help = "/sync, no arguments: synchronizes your simulation with everyone else's in the room; shortcut is Alt+S",
 		},
 		S = {
 			alias = "sync",
@@ -155,7 +155,7 @@ local cmdp = command_parser.new({
 				if cli then
 					localcmd.kill_client_func_()
 				else
-					localcmd.window_:backlog_push_error("Not connected")
+					localcmd.window_:backlog_push_error("Not connected, cannot disconnect")
 				end
 				return true
 			end,
@@ -176,7 +176,7 @@ local cmdp = command_parser.new({
 				if cli then
 					cli:push_names("Currently in ")
 				else
-					localcmd.window_:backlog_push_error("Not connected")
+					localcmd.window_:backlog_push_error("Not connected, cannot list users")
 				end
 				return true
 			end,
@@ -189,6 +189,13 @@ local cmdp = command_parser.new({
 				return true
 			end,
 			help = "/clear, no arguments: clears the chat window",
+		},
+		hide = {
+			func = function(localcmd, message, words, offsets)
+				localcmd.window_.hide_window_func_()
+				return true
+			end,
+			help = "/hide, no arguments: hides the chat window; shortcut is Shift+Escape, this toggles window visibility (different from Escape without Shift, which defocuses the input box, and its counterpart Enter, which focuses it)",
 		},
 		me = {
 			func = function(localcmd, message, words, offsets)

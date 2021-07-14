@@ -6,7 +6,7 @@ return {
 	-- ***********************************************************************
 
 	-- * Protocol version, between 0 and 254. 255 is reserved for future use.
-	version = 18, -- * TODO[fin]: Give this a bump.
+	version = 19, -- * TODO[fin]: Give this a bump.
 
 	-- * Client-to-server message size limit, between 0 and 255, the latter
 	--   limit being imposted by the protocol.

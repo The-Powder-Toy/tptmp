@@ -286,6 +286,12 @@ function profile_i:report_reset_air_()
 	end
 end
 
+function profile_i:report_reset_airtemp_()
+	if self.client then
+		self.client:send_heatclear()
+	end
+end
+
 function profile_i:report_clearrect_(x, y, w, h)
 	if self.client then
 		self.client:send_clearrect(x, y, w, h)
@@ -1158,7 +1164,11 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 			self.simstate_invalid_ = true
 		end
 	elseif scan == sdl.SDL_SCANCODE_U then
-		self.simstate_invalid_ = true
+		if ctrl then
+			self:report_reset_airtemp_()
+		else
+			self.simstate_invalid_ = true
+		end
 	elseif scan == sdl.SDL_SCANCODE_N then
 		self.simstate_invalid_ = true
 	elseif scan == sdl.SDL_SCANCODE_EQUALS then

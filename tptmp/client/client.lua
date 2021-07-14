@@ -474,7 +474,7 @@ function client_i:handle_airclear_61_()
 	local member = self:member_prefix_()
 	tpt.reset_velocity()
 	tpt.set_pressure()
-	log_event(config.print_prefix .. colours.commonstr.event .. "Air cleared by " .. member.formatted_nick)
+	log_event(config.print_prefix .. colours.commonstr.event .. "Pressure cleared by " .. member.formatted_nick)
 end
 
 function client_i:handle_airinv_62_()
@@ -485,7 +485,7 @@ function client_i:handle_airinv_62_()
 			sim.pressure(x, y, -sim.pressure(x, y))
 		end
 	end
-	log_event(config.print_prefix .. colours.commonstr.event .. "Air inverted by " .. member.formatted_nick)
+	log_event(config.print_prefix .. colours.commonstr.event .. "Pressure inverted by " .. member.formatted_nick)
 end
 
 function client_i:handle_clearsim_63_()
@@ -493,6 +493,18 @@ function client_i:handle_clearsim_63_()
 	sim.clearSim()
 	self.set_id_func_(nil, nil)
 	log_event(config.print_prefix .. colours.commonstr.event .. "Simulation cleared by " .. member.formatted_nick)
+end
+
+function client_i:handle_heatclear_64_()
+	-- * TODO[api]: add an api for this to tpt
+	local member = self:member_prefix_()
+	local temp = sim.ambientAirTemp()
+	for x = 0, sim.XRES / sim.CELL - 1 do
+		for y = 0, sim.YRES / sim.CELL - 1 do
+			sim.ambientHeat(x, y, temp)
+		end
+	end
+	log_event(config.print_prefix .. colours.commonstr.event .. "Ambient heat reset by " .. member.formatted_nick)
 end
 
 function client_i:handle_brushdeco_65_()
@@ -836,6 +848,10 @@ end
 
 function client_i:send_clearsim()
 	self:write_flush_("\63")
+end
+
+function client_i:send_heatclear()
+	self:write_flush_("\64")
 end
 
 function client_i:send_brushdeco(deco)
