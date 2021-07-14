@@ -1054,7 +1054,9 @@ function profile_i:handle_mouseup(px, py, button, reason)
 		end
 		self:cancel_drawing_()
 	elseif self.select_mode_ ~= "none" and button ~= 1 then
-		self.select_mode_ = "none"
+		if reason == MOUSEUP_REASON_MOUSEUP then
+			self.select_mode_ = "none"
+		end
 	end
 	self:update_draw_mode_()
 end
