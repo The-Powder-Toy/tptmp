@@ -133,11 +133,11 @@ function server_i:listen_()
 			})
 			if self:connection_limit_(client:host()) then
 				client:early_drop("connection limit exceeded")
-				self:rconlog(util.info_merge({
+				self:rconlog({
 					event = "client_disconnect",
 					client_name = client:name(),
 					reason = "connection_limit_exceeded",
-				}, rconinfo))
+				})
 			else
 				self:insert_client_(client)
 				client:start()
