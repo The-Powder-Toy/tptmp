@@ -293,13 +293,7 @@ function client_i:handle_selecttool_37_()
 	local index = bit.rshift(tool, 14)
 	local xtype = bit.band(tool, 0x3FFF)
 	member[index_to_lrax[index]] = util.to_tool[xtype] and xtype or util.from_tool.TPTMP_PT_UNKNOWN
-end
-
-function client_i:handle_stepsim_50_()
-	local member = self:member_prefix_()
-	tpt.set_pause(1)
-	sim.framerender(1)
-	log_event(config.print_prefix .. colours.commonstr.event .. "Single-frame step from " .. member.formatted_nick)
+	member.last_toolslot = index
 end
 
 local simstates = {
@@ -462,6 +456,49 @@ function client_i:handle_rectstart_45_()
 	end
 	member.last_tool = member[index_to_lrax[index]]
 	member.rect_x, member.rect_y = self:read_xy_12_()
+end
+
+function client_i:handle_custgolinfo_46_()
+	local member = self:member_prefix_()
+	local ruleset = bit.band(self:read_24be_(), 0x1FFFFF)
+	local primary = self:read_24be_()
+	local secondary = self:read_24be_()
+	local begin = bit.band(bit.rshift(ruleset, 8), 0x1FE)
+	local stay = bit.band(ruleset, 0x1FF)
+	local states = bit.band(bit.rshift(ruleset, 17), 0xF) + 2
+	local repr = {}
+	table.insert(repr, "B")
+	for i = 0, 8 do
+		if bit.band(bit.lshift(1, i), begin) ~= 0 then
+			table.insert(repr, i)
+		end
+	end
+	table.insert(repr, "/")
+	table.insert(repr, "S")
+	for i = 0, 8 do
+		if bit.band(bit.lshift(1, i), stay) ~= 0 then
+			table.insert(repr, i)
+		end
+	end
+	if states ~= 2 then
+		table.insert(repr, "/")
+		table.insert(repr, states)
+	end
+	member[index_to_lrax[member.last_toolslot]] = {
+		type = "cgol",
+		repr = table.concat(repr),
+		ruleset = ruleset,
+		primary = primary,
+		secondary = secondary,
+		elem = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(ruleset, sim.PMAPBITS)),
+	}
+end
+
+function client_i:handle_stepsim_50_()
+	local member = self:member_prefix_()
+	tpt.set_pause(1)
+	sim.framerender(1)
+	log_event(config.print_prefix .. colours.commonstr.event .. "Single-frame step from " .. member.formatted_nick)
 end
 
 function client_i:handle_sparkclear_60_()
@@ -831,6 +868,14 @@ function client_i:send_rectstart(index, x, y)
 	self:write_("\45")
 	self:write_bytes_(index)
 	self:write_xy_12_(x, y)
+	self:write_flush_()
+end
+
+function client_i:send_custgolinfo(ruleset, primary, secondary)
+	self:write_("\46")
+	self:write_24be_(ruleset)
+	self:write_24be_(primary)
+	self:write_24be_(secondary)
 	self:write_flush_()
 end
 

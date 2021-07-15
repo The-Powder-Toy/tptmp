@@ -11,6 +11,12 @@ local index_to_lrax = {
 	[ 2 ] = "tool_a_",
 	[ 3 ] = "tool_x_",
 }
+local index_to_lraxid = {
+	[ 0 ] = "tool_lid_",
+	[ 1 ] = "tool_rid_",
+	[ 2 ] = "tool_aid_",
+	[ 3 ] = "tool_xid_",
+}
 local toolwarn_tools = {
 	[ "DEFAULT_UI_PROPERTY" ] = "prop",
 	[ "DEFAULT_TOOL_CYCL"   ] = "cycl",
@@ -24,14 +30,16 @@ local toolwarn_tools = {
 	[ "TPTMP_PT_UNKNOWN"    ] = "unknown",
 }
 local toolwarn_messages = {
-	prop    =                     "The PROP tool does not sync, you will have to use /sync",
-	cycl    =                     "The CYCL tool does not sync, you will have to use /sync",
-	mix     =                      "The MIX tool does not sync, you will have to use /sync",
-	ligh    =                              "LIGH does not sync, you will have to use /sync",
-	stkm    =                            "Stickmen do not sync, you will have to use /sync",
-	cbrush  =                      "Custom brushes do not sync, you will have to use /sync",
-	ipcirc  =              "The old circle brush does not sync, you will have to use /sync",
-	unknown = "This custom element is not supported, please avoid using it while connected",
+	prop      =                      "The PROP tool does not sync, you will have to use /sync",
+	cycl      =                      "The CYCL tool does not sync, you will have to use /sync",
+	mix       =                       "The MIX tool does not sync, you will have to use /sync",
+	ligh      =                               "LIGH does not sync, you will have to use /sync",
+	stkm      =                             "Stickmen do not sync, you will have to use /sync",
+	cbrush    =                       "Custom brushes do not sync, you will have to use /sync",
+	ipcirc    =               "The old circle brush does not sync, you will have to use /sync",
+	unknown   =  "This custom element is not supported, please avoid using it while connected",
+	cgol      = "This custom GOL type is not supported, please avoid using it while connected",
+	cgolcolor =  "Custom GOL currently syncs without colours, use /sync to get colours across",
 }
 
 local log_event = print
@@ -42,6 +50,46 @@ local MOUSEUP_REASON_BLUR    = 1
 local MAX_SIGNS = 0
 while sim.signs[MAX_SIGNS + 1] do
 	MAX_SIGNS = MAX_SIGNS + 1
+end
+
+local function rulestring_bits(str)
+	local bits = 0
+	for i = 1, #str do
+		bits = bit.bor(bits, bit.lshift(1, str:byte(i) - 48))
+	end
+	return bits
+end
+
+local function get_custgolinfo(identifier)
+	-- * TODO[api]: add an api for this to tpt
+	local pref = io.open("powder.pref")
+	if not pref then
+		return
+	end
+	local pref_data = pref:read("*a")
+	pref:close()
+	local types = pref_data:match([=["Types"%s*:%s*%[([^%]]+)%]]=])
+	if not types then
+		return
+	end
+	for name, ruleset, primary, secondary in types:gmatch([["(%S+)%s+(%S+)%s+(%S+)%s+(%S+)"]]) do
+		if "DEFAULT_PT_LIFECUST_" .. name == identifier then
+			local begin, stay, states = ruleset:match("^B([1-8]+)/S([0-8]+)/([0-9]+)$")
+			if not begin then
+				begin, stay = ruleset:match("^B([1-8]+)/S([0-8]+)$")
+				states = "2"
+			end
+			states = tonumber(states)
+			states = states >= 2 and states <= 17 and states
+			ruleset = begin and stay and states and bit.bor(bit.lshift(rulestring_bits(begin), 8), rulestring_bits(stay), bit.lshift(states - 2, 17))
+			primary = tonumber(primary)
+			secondary = tonumber(secondary)
+			if ruleset and primary and secondary then
+				return ruleset, primary, secondary
+			end
+			break
+		end
+	end
 end
 
 local function get_sign_data()
@@ -58,13 +106,6 @@ local function get_sign_data()
 		end
 	end
 	return sign_data
-end
-
-local function tool_lrax()
-	return util.from_tool[tpt.selectedl      ] or util.from_tool.TPTMP_PT_UNKNOWN,
-	       util.from_tool[tpt.selectedr      ] or util.from_tool.TPTMP_PT_UNKNOWN,
-	       util.from_tool[tpt.selecteda      ] or util.from_tool.TPTMP_PT_UNKNOWN,
-	       util.from_tool[tpt.selectedreplace] or util.from_tool.TPTMP_PT_UNKNOWN
 end
 
 local function perfect_circle()
@@ -319,6 +360,17 @@ end
 function profile_i:report_tool_(index)
 	if self.client then
 		self.client:send_selecttool(index, self[index_to_lrax[index]])
+		local identifier = self[index_to_lraxid[index]]
+		if identifier:find("^DEFAULT_PT_LIFECUST_") then
+			local ruleset, primary, secondary = get_custgolinfo(identifier)
+			if ruleset then
+				self.client:send_custgolinfo(ruleset, primary, secondary)
+				-- * TODO[api]: add an api for setting gol colour
+				self.display_toolwarn_["cgolcolor"] = true
+			else
+				self.display_toolwarn_["cgol"] = true
+			end
+		end
 	end
 end
 
@@ -659,27 +711,37 @@ function profile_i:update_shape_()
 end
 
 function profile_i:update_tools_()
-	local tl, tr, ta, tx = tool_lrax()
-	if self.tool_l_ ~= tl then
-		self.tool_l_ = tl
+	local tlid = tpt.selectedl
+	local trid = tpt.selectedr
+	local taid = tpt.selecteda
+	local txid = tpt.selectedreplace
+	if self.tool_lid_ ~= tlid then
+		self.tool_l_ = util.from_tool[tlid] or util.from_tool.TPTMP_PT_UNKNOWN
+		self.tool_lid_ = tlid
 		self:report_tool_(0)
 	end
-	if self.tool_r_ ~= tr then
-		self.tool_r_ = tr
+	if self.tool_rid_ ~= trid then
+		self.tool_r_ = util.from_tool[trid] or util.from_tool.TPTMP_PT_UNKNOWN
+		self.tool_rid_ = trid
 		self:report_tool_(1)
 	end
-	if self.tool_a_ ~= ta then
-		self.tool_a_ = ta
+	if self.tool_aid_ ~= taid then
+		self.tool_a_ = util.from_tool[taid] or util.from_tool.TPTMP_PT_UNKNOWN
+		self.tool_aid_ = taid
 		self:report_tool_(2)
 	end
-	if self.tool_x_ ~= tx then
-		self.tool_x_ = tx
+	if self.tool_xid_ ~= txid then
+		self.tool_x_ = util.from_tool[txid] or util.from_tool.TPTMP_PT_UNKNOWN
+		self.tool_xid_ = txid
 		self:report_tool_(3)
 	end
 	local new_tool = util.to_tool[self[index_to_lrax[self.last_toolslot_]]]
+	local new_tool_id = self[index_to_lraxid[self.last_toolslot_]]
 	if self.last_tool_ ~= new_tool then
-		if toolwarn_tools[new_tool] then
-			self.display_toolwarn_[toolwarn_tools[new_tool]] = true
+		if not new_tool_id:find("^DEFAULT_PT_LIFECUST_") then
+			if toolwarn_tools[new_tool] then
+				self.display_toolwarn_[toolwarn_tools[new_tool]] = true
+			end
 		end
 		self.last_tool_ = new_tool
 	end
@@ -1154,6 +1216,7 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 			end
 		end
 		self:report_framestep_()
+		self.simstate_invalid_ = true
 	elseif scan == sdl.SDL_SCANCODE_B and not ctrl then
 		self.simstate_invalid_ = true
 	elseif scan == sdl.SDL_SCANCODE_Y then
@@ -1311,7 +1374,10 @@ local function new(params)
 			clear  = { x = gfx.WIDTH - 159, y = gfx.HEIGHT - 16, w = 17, h = 15 },
 		},
 	}, profile_m)
-	prof.tool_l_, prof.tool_r_, prof.tool_a_, prof.tool_x_ = tool_lrax()
+	prof.tool_l_ = util.from_tool.TPTMP_PT_UNKNOWN
+	prof.tool_r_ = util.from_tool.TPTMP_PT_UNKNOWN
+	prof.tool_a_ = util.from_tool.TPTMP_PT_UNKNOWN
+	prof.tool_x_ = util.from_tool.TPTMP_PT_UNKNOWN
 	prof.last_tool_ = prof.tool_l_
 	prof.deco_ = sim.decoColour()
 	prof:update_pos_(tpt.mousex, tpt.mousey)

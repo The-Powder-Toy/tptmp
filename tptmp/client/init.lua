@@ -164,6 +164,11 @@ local function run()
 		[ 1 ] = " REPL",
 		[ 2 ] = " SDEL",
 	}
+	local function decode_rulestring(tool)
+		if tool.type == "cgol" then
+			return tool.repr
+		end
+	end
 	local function handle_tick()
 		local now = socket.gettime()
 		if should_reconnect_at and now >= should_reconnect_at then
@@ -192,7 +197,7 @@ local function run()
 						sx, sy = 0, 0
 					end
 					local tool = member.last_tool or member.tool_l
-					local tool_name = util.to_tool[tool] or "TPTMP_PT_UNKNOWN"
+					local tool_name = util.to_tool[tool] or decode_rulestring(tool) or "TPTMP_PT_UNKNOWN"
 					local tool_class = util.xid_class[tool]
 					if elem[tool_name] and tool ~= 0 then
 						local real_name = elem.property(elem[tool_name], "Name")

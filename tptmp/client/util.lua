@@ -20,7 +20,6 @@ do
 end
 
 local tools = {
-	-- * TODO[api]: Could do something about custom GOL; would probably need an API for it first though.
 	"DEFAULT_PT_LIFE_GOL",
 	"DEFAULT_PT_LIFE_HLIF",
 	"DEFAULT_PT_LIFE_ASIM",
@@ -314,7 +313,10 @@ local function create_parts_any(x, y, rx, ry, xtype, brush, member)
 		sim.decoBrush(x, y, rx, ry, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xid_first.DECOR, brush)
 		return
 	elseif class == "PT_LIFE" then
-		xtype = elem.DEFAULT_PT_LIFE + bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS)
+		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS))
+	elseif type(xtype) == "table" and xtype.type == "cgol" then
+		-- * TODO[api]: add an api for setting gol colour
+		xtype = xtype.elem
 	end
 	local ov = create_override[xtype]
 	if ov then
@@ -410,7 +412,10 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 		sim.decoLine(x1, y1, x2, y2, rx, ry, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xid_first.DECOR, brush)
 		return
 	elseif class == "PT_LIFE" then
-		xtype = elem.DEFAULT_PT_LIFE + bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS)
+		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS))
+	elseif type(xtype) == "table" and xtype.type == "cgol" then
+		-- * TODO[api]: add an api for setting gol colour
+		xtype = xtype.elem
 	end
 	local ov = create_override[xtype]
 	if ov then
@@ -442,7 +447,10 @@ local function create_box_any(x1, y1, x2, y2, xtype, member)
 		sim.decoBox(x1, y1, x2, y2, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xid_first.DECOR)
 		return
 	elseif class == "PT_LIFE" then
-		xtype = elem.DEFAULT_PT_LIFE + bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS)
+		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS))
+	elseif type(xtype) == "table" and xtype.type == "cgol" then
+		-- * TODO[api]: add an api for setting gol colour
+		xtype = xtype.elem
 	end
 	local _
 	local ov = create_override[xtype]
@@ -471,7 +479,10 @@ local function flood_any(x, y, xtype, part_flood_hint, wall_flood_hint, member)
 	elseif class == "DECOR" or class == "TOOL" then
 		return
 	elseif class == "PT_LIFE" then
-		xtype = elem.DEFAULT_PT_LIFE + bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS)
+		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS))
+	elseif type(xtype) == "table" and xtype.type == "cgol" then
+		-- * TODO[api]: add an api for setting gol colour
+		xtype = xtype.elem
 	end
 	local _
 	local ov = create_override[xtype]
