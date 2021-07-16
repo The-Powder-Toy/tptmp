@@ -81,8 +81,6 @@ local tools = {
 	"DEFAULT_DECOR_MUL",
 	"DEFAULT_DECOR_DIV",
 	"DEFAULT_DECOR_SMDG",
-	"DEFAULT_DECOR_LIGH",
-	"DEFAULT_DECOR_DARK",
 }
 local xid_class = {}
 for i = 1, #tools do

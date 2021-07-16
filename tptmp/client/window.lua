@@ -353,7 +353,7 @@ end
 
 local close_button_off_x = -12
 local close_button_off_y = 3
-if tpt.version.jacob1s_mod then -- * TODO[imm]: this is not how it should be done
+if tpt.version.jacob1s_mod then
 	close_button_off_x = -11
 	close_button_off_y = 4
 end
@@ -564,10 +564,14 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	end
 	if self.in_focus then
 		if scan == sdl.SDL_SCANCODE_ESCAPE then
-			self.in_focus = false
-			self.input_autocomplete_ = nil
-			if shift then
-				self.hide_window_func_()
+			if self.in_focus then
+				self.in_focus = false
+				self.input_autocomplete_ = nil
+				if shift then
+					self.hide_window_func_()
+				end
+			else
+				self.in_focus = true
 			end
 		elseif scan == sdl.SDL_SCANCODE_TAB then
 			local left_word_first, left_word

@@ -5,8 +5,6 @@ local config  = require("tptmp.client.config")
 local manager = require("tptmp.client.manager")
 local sdl     = require("tptmp.client.sdl")
 
-local jacobsmod = tpt.version.jacob1s_mod -- * TODO[imm]: this is not how it should be done
-
 local side_button_i = {}
 local side_button_m = { __index = side_button_i }
 
@@ -117,10 +115,10 @@ end
 
 local function new(params)
 	local pos_x, pos_y, width, height = 613, 136, 15, 15
-	if jacobsmod and tpt.oldmenu and tpt.oldmenu() == 1 then
+	if tpt.version.jacob1s_mod and tpt.oldmenu and tpt.oldmenu() == 1 then
 		pos_y = 392
 	elseif tpt.num_menus then
-		pos_y = 392 - 16 * tpt.num_menus() - (not jacobsmod and 16 or 0)
+		pos_y = 392 - 16 * tpt.num_menus() - (not tpt.version.jacob1s_mod and 16 or 0)
 	end
 	if manager.side_button_conflict then
 		pos_y = pos_y - 17

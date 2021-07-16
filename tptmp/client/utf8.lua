@@ -85,7 +85,7 @@ local function encode_multiple(cp, ...)
 	return table.concat(collect)
 end
 
-if tpt.version.jacob1s_mod then -- * TODO[imm]: this is not how it should be done
+if tpt.version.jacob1s_mod then
 	function code_points(str)
 		local cps = {}
 		for pos in str:gmatch("().") do

@@ -1402,4 +1402,6 @@ end
 return {
 	new = new,
 	brand = "vanilla",
+	profile_i = profile_i,
+	log_event = log_event,
 }
