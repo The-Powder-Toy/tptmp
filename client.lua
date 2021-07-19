@@ -4,7 +4,7 @@
 local version = 8
 local versionstring = "1.0.3"
 
-if TPTMP then if TPTMP.version <= version then TPTMP.disableMultiplayer() else error("newer version already running") end end local get_name = tpt.get_name -- if script already running, replace it
+if TPTMP then if TPTMP.version <= version then TPTMP.disableMultiplayer() else print("newer version already running") return end end local get_name = tpt.get_name -- if script already running, replace it
 TPTMP = {["version"] = version, ["versionStr"] = versionstring} -- script version sent on connect to ensure server protocol is the same
 if not http then error"Tpt version not supported" end
 local using_manager = false
