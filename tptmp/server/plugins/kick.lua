@@ -8,7 +8,7 @@ return {
 				local reason = offsets[3] and message:sub(offsets[3]) or "bye"
 				local server = client:server()
 				local room = client:room()
-				if not room:is_owner(client) then
+				if not room:owned_by_client(client) then
 					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end
@@ -35,6 +35,28 @@ return {
 				return true
 			end,
 			help = "/kick <user> <reason>: kicks a user from the room for the specified reason",
+		},
+	},
+	console = {
+		skick = {
+			func = function(rcon, data)
+				local server = rcon:server()
+				if type(data.client_nick) ~= "string" then
+					return { status = "badnick", human = "invalid nick" }
+				end
+				if type(data.message) ~= "string" then
+					return { status = "badmessage", human = "invalid message" }
+				end
+				local client = server:client_by_nick(data.client_nick)
+				if not client then
+					return { status = "enoent", human = "user not online" }
+				end
+				client:drop("skicked: " .. data.message, nil, {
+					reason = "skicked",
+					message = data.message,
+				})
+				return { status = "ok" }
+			end,
 		},
 	},
 }

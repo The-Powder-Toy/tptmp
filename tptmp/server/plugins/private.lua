@@ -1,77 +1,128 @@
 local config = require("tptmp.server.config")
 local util   = require("tptmp.server.util")
 
+local server_private_i = {}
 local room_private_i = {}
 
-function room_private_i:is_private()
-	local dconf = self:server():dconf()
-	local room_info = dconf:root().rooms[self:name()]
+function server_private_i:room_is_private(room_name)
+	local dconf = self:dconf()
+	local room_info = dconf:root().rooms[room_name]
 	return room_info and room_info.private
 end
 
-function room_private_i:invite_count()
-	local dconf = self:server():dconf()
-	local room_info = dconf:root().rooms[self:name()]
+function room_private_i:is_private()
+	return self:server():room_is_private(self:name())
+end
+
+function server_private_i:room_set_private(room_name)
+	local dconf = self:dconf()
+	local room_info = dconf:root().rooms[room_name]
+	if not room_info then
+		return nil, "enoent", "no such room"
+	end
+	if room_info.private then
+		return nil, "eprivate", "already private"
+	end
+	room_info.private = true
+	dconf:commit()
+	return true
+end
+
+function room_private_i:set_private()
+	return self:server():room_set_private(self:name())
+end
+
+function server_private_i:room_clear_private(room_name)
+	local dconf = self:dconf()
+	local room_info = dconf:root().rooms[room_name]
+	if not room_info then
+		return nil, "enoent", "no such room"
+	end
+	if not room_info.private then
+		return nil, "enotprivate", "not currently private"
+	end
+	room_info.private = nil
+	dconf:commit()
+	return true
+end
+
+function room_private_i:clear_private()
+	return self:server():room_clear_private(self:name())
+end
+
+function server_private_i:room_invite_count(room_name)
+	local dconf = self:dconf()
+	local room_info = dconf:root().rooms[room_name]
 	return room_info.invites and #room_info.invites or 0
 end
 
-function room_private_i:uid_insert_invite_(src)
+function room_private_i:invite_count()
+	return self:server():room_invite_count(self:name())
+end
+
+function server_private_i:room_insert_invite_(room_name, uid)
 	local dconf = self:server():dconf()
 	local room_info = dconf:root().rooms[self:name()]
+	local idx = room_info.invites and util.array_find(room_info.invites, src)
+	if idx then
+		return nil, "eexist", "already invited"
+	end
+	if self:room_invite_count() >= config.max_invites_per_room then
+		return nil, "einvitelimit", "room reached invite limit"
+	end
+	room_info.invites = room_info.invites or {}
+	table.insert(room_info.invites, src)
+	room_info.invites[0] = #room_info.invites
+	dconf:commit()
+	return true
+end
+
+function room_private_i:insert_invite_(uid)
+	return self:server():room_insert_invite_(self:name(), uid)
+end
+
+function server_private_i:room_remove_invite_(room_name, uid)
+	local dconf = self:dconf()
+	local room_info = dconf:root().rooms[room_name]
 	local idx = room_info.invites and util.array_find(room_info.invites, src)
 	if not idx then
-		room_info.invites = room_info.invites or {}
-		table.insert(room_info.invites, src)
-		room_info.invites[0] = #room_info.invites
-		dconf:commit()
+		return nil, "enoent", "not currently invited"
 	end
+	table.remove(room_info.invites, idx)
+	room_info.invites[0] = #room_info.invites
+	if #room_info.invites == 0 then
+		room_info.invites = nil
+	end
+	dconf:commit()
+	return true
 end
 
-function room_private_i:uid_remove_invite_(src)
-	local dconf = self:server():dconf()
-	local room_info = dconf:root().rooms[self:name()]
-	local idx = room_info.invites and util.array_find(room_info.invites, src)
-	if idx then
-		table.remove(room_info.invites, idx)
-		room_info.invites[0] = #room_info.invites
-		if #room_info.invites == 0 then
-			room_info.invites = nil
-		end
-		dconf:commit()
-	end
+function room_private_i:remove_invite_(uid)
+	return self:server():room_remove_invite_(self:name(), uid)
 end
 
-function room_private_i:uid_invited_(src)
-	local dconf = self:server():dconf()
-	local room_info = dconf:root().rooms[self:name()]
-	local idx = room_info.invites and util.array_find(room_info.invites, src)
-	if idx then
-		return true
-	end
-end
-
-function room_private_i:is_invited(src)
-	if type(src) ~= "number" then
-		if self:is_owner(src) then
-			return true
-		end
-		if src:guest() then
-			return self.invites_clients_[src]
-		end
-		src = src:uid()
-	end
-	local dconf = self:server():dconf()
-	local room_info = dconf:root().rooms[self:name()]
+function server_private_i:room_uid_invited(room_name, uid)
+	local dconf = self:dconf()
+	local room_info = dconf:root().rooms[room_name]
 	return room_info and room_info.invites and util.array_find(room_info.invites, src)
 end
 
-local server_private_i = {}
+function room_private_i:uid_invited(uid)
+	return self:server():room_uid_invited(self:name(), uid)
+end
 
-function server_private_i:uid_invited_to_(src)
+function room_private_i:client_invited(client)
+	if client:guest() then
+		return self.invites_clients_[src]
+	end
+	return self:uid_invited(client:uid())
+end
+
+function server_private_i:uid_invited_to_(uid)
 	local dconf = self:dconf()
 	local rooms = {}
 	for name, info in pairs(dconf:root().rooms) do
-		local idx = info.invites and util.array_find(info.invites, src)
+		local idx = info.invites and util.array_find(info.invites, uid)
 		if idx then
 			table.insert(rooms, name)
 		end
@@ -88,116 +139,100 @@ return {
 				end
 				local room = client:room()
 				local server = client:server()
-				local invitef, uninvitef, other_nick, client_to_invite
 				local other_uid, other_nick = server:offline_user_by_nick(words[3])
 				local other = server:client_by_nick(words[3])
-				if other then
-					if not other_uid then
-						other_nick = other:nick()
-					end
-					other_uid = other
-				end
-				if words[2] ~= "add" and words[2] ~= "check" and words[2] ~= "remove" then
-					return false
-				end
-				if not other_uid then
-					client:send_server(("\ae* No user named \au%s"):format(words[3]))
-					return
-				end
 				if words[2] == "check" then
-					if room:is_invited(other_uid) then
+					local invited = false
+					local exists = false
+					if other_uid then
+						exists = true
+						invited = room:uid_invited(other_uid)
+					elseif other then
+						exists = true
+						invited = room:client_invited(client)
+					end
+					if invited then
 						client:send_server(("\an* \au%s\an is currently invited"):format(other_nick))
-					else
+					elseif exists then
 						client:send_server(("\an* \au%s\an is not currently invited"):format(other_nick))
+					else
+						client:send_server(("\ae* No user named \au%s"):format(words[3]))
 					end
 					return true
 				end
-				if room:is_private() and not room:is_owner(client) then
+				if room:is_private() and not room:owned_by_client(client) then
 					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end
-				if room:is_temporary() or (type(other_uid) ~= "number" and other_uid:guest()) then
-					function invitef()
-						if type(other_uid) == "number" then
+				local temporary_invite = room:is_temporary() or (other and other:guest())
+				if words[2] == "insert" then
+					local to_invite
+					if temporary_invite then
+						if not other then
 							client:send_server(("\ae* \au%s\ae not online"):format(other_nick))
-							return
-						end
-						room.invites_clients_[other_uid] = true
-						client_to_invite = other_uid
-						return true
-					end
-					function uninvitef()
-						if room.invites_clients_[other_uid] then
-							client:send_server(("\ae* \au%s\ae is not currently invited"):format(other_nick))
-							return
-						end
-						room.invites_clients_[other_uid] = nil
-						client:send_server(("\an* \au%s\an is no longer invited"):format(other_nick))
-						return true
-					end
-				else
-					function invitef()
-						if room:is_invited(other_uid) then
-							client:send_server(("\ae* \au%s\ae is already invited"):format(other_nick))
-							return
-						end
-						local src = other_uid
-						if type(src) ~= "number" then
-							client_to_invite = src
-							src = src:uid()
-						end
-						room:uid_insert_invite_(src)
-						client:send_server(("\an* \au%s\an is now invited"):format(other_nick))
-						return true
-					end
-					function uninvitef()
-						if not room:is_invited(other_uid) then
-							client:send_server(("\ae* \au%s\ae is not currently invited"):format(other_nick))
-							return
-						end
-						local src = other_uid
-						if type(src) ~= "number" then
-							src = src:uid()
-						end
-						room:uid_remove_invite_(src)
-						if room:is_private() then
-							client:send_server(("\an* \au%s\an is no longer invited"):format(other_nick))
 						else
-							client:send_server(("\an* \au%s\an is no longer invited, but can still join as the room is not private"):format(other_nick))
+							room.invites_clients_[other] = true
+							to_invite = other
+							client:send_server(("\an* \au%s\an is now invited"):format(other_nick))
 						end
-						return true
+					elseif not other_uid then
+						client:send_server(("\ae* No user named \au%s"):format(words[3]))
+					else
+						local ok, err = room:insert_invite_(other_uid)
+						if ok then
+							room:log("$ invited $", client:nick(), other_nick)
+							server:rconlog({
+								event = "invite_insert",
+								client_name = client:name(),
+								room_name = room:name(),
+								other_nick = other_nick,
+							})
+							client:send_server(("\an* \au%s\an is now invited"):format(other_nick))
+						elseif err == "eexist" then
+							client:send_server(("\ae* \au%s\ae is already invited"):format(other_nick))
+						elseif err == "einvitelimit" then
+							client:send_server(("\ae* The room has too many users invited, use /invite remove to remove one"):format(other_nick))
+						end
 					end
-				end
-				if words[2] == "add" then
-					if invitef() then
-						room:log("$ invited $", client:nick(), other_nick)
-						server:rconlog({
-							event = "invite_add",
-							client_name = client:name(),
-							room_name = room:name(),
-							other_nick = other_nick,
-						})
+					if to_invite and to_invite:room() ~= room then
+						to_invite.accept_target_ = room:name()
+						to_invite:send_server(("\aj* You have been invited to \ar%s\aj, use /accept to accept by joining"):format(room:name()))
 					end
+					return true
 				elseif words[2] == "remove" then
-					if uninvitef() then
-						room:log("$ uninvited $", client:nick(), other_nick)
-						server:rconlog({
-							event = "invite_remove",
-							client_name = client:name(),
-							room_name = room:name(),
-							other_nick = other_nick,
-						})
+					if temporary_invite then
+						if room.invites_clients_[other] then
+							client:send_server(("\ae* \au%s\ae is not currently invited"):format(other_nick))
+						else
+							room.invites_clients_[other] = nil
+							client:send_server(("\an* \au%s\an is no longer invited"):format(other_nick))
+						end
+					elseif not other_uid then
+						client:send_server(("\ae* No user named \au%s"):format(words[3]))
+					else
+						local ok, err = room:remove_invite_(other_uid)
+						if ok then
+							room:log("$ uninvited $", client:nick(), other_nick)
+							server:rconlog({
+								event = "invite_remove",
+								client_name = client:name(),
+								room_name = room:name(),
+								other_nick = other_nick,
+							})
+							if room:is_private() then
+								client:send_server(("\an* \au%s\an is no longer invited"):format(other_nick))
+							else
+								client:send_server(("\an* \au%s\an is no longer invited, but can still join as the room is not private"):format(other_nick))
+							end
+						elseif err == "enoent" then
+							client:send_server(("\ae* \au%s\ae is not currently invited"):format(other_nick))
+						end
 					end
+					return true
 				end
-				if client_to_invite then
-					if client_to_invite:room() ~= room then
-						client_to_invite.accept_target_ = room:name()
-						client_to_invite:send_server(("\aj* You have been invited to \ar%s\aj, use /accept to accept by joining"):format(room:name()))
-					end
-				end
-				return true
+				return false
 			end,
-			help = "/invite add\\check\\remove <user>: invites a user to the room, letting them join even if it is private, checks whether a user is invited, or removes an existing invite",
+			help = "/invite insert\\check\\remove <user>: invites a user to the room, letting them join even if it is private, checks whether a user is invited, or removes an existing invite",
 		},
 		accept = {
 			func = function(client, message, words, offsets)
@@ -221,22 +256,25 @@ return {
 				end
 				local room = client:room()
 				local server = client:server()
+				if words[2] == "check" then
+					if room:is_private() then
+						client:send_server("\an* Room is currently private")
+					else
+						client:send_server("\an* Room is not currently private")
+					end
+					return true
+				end
 				if room:is_temporary() then
 					client:send_server("\ae* Temporary rooms cannot be made private")
 					return true
 				end
-				if not room:is_owner(client) then
+				if not room:owned_by_client(client) then
 					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end
-				local dconf = client:server():dconf()
-				local room_info = dconf:root().rooms[room:name()]
 				if words[2] == "set" then
-					if room:is_private() then
-						client:send_server("\ae* Room is already private")
-					else
-						room_info.private = true
-						dconf:commit()
+					local ok, err = room:set_private()
+					if ok then
 						client:send_server("\an* Private status set")
 						room:log("$ set private status", client:nick())
 						server:rconlog({
@@ -244,17 +282,13 @@ return {
 							client_name = client:name(),
 							room_name = room:name(),
 						})
+					elseif err == "eprivate" then
+						client:send_server("\ae* Room is already private")
 					end
-				elseif words[2] == "check" then
-					if room:is_private() then
-						client:send_server("\an* Room is currently private")
-					else
-						client:send_server("\an* Room is not currently private")
-					end
+					return true
 				elseif words[2] == "clear" then
-					if room:is_private() then
-						room_info.private = nil
-						dconf:commit()
+					local ok, err = room:clear_private()
+					if ok then
 						client:send_server("\an* Private status cleared")
 						room:log("$ cleared private status", client:nick())
 						server:rconlog({
@@ -262,13 +296,12 @@ return {
 							client_name = client:name(),
 							room_name = room:name(),
 						})
-					else
+					elseif err == "enotprivate" then
 						client:send_server("\ae* Room is not currently private")
 					end
-				else
-					return false
+					return true
 				end
-				return true
+				return false
 			end,
 			help = "/private set\\check\\clear: changes or queries the private status of the room",
 		},
@@ -340,12 +373,66 @@ return {
 	checks = {
 		can_join_room = {
 			func = function(room, client)
-				if room:is_private() and not room:is_invited(client) then
+				if room:is_private() and not room:client_invited(client) then
 					return false, "private room, ask for an invite", {
 						reason = "private",
 					}
 				end
 				return true
+			end,
+		},
+	},
+	console = {
+		invite = {
+			func = function(rcon, data)
+				local server = rcon:server()
+				if type(data.room_name) ~= "string" then
+					return { status = "badroom", human = "invalid room" }
+				end
+				local uid = server:offline_user_by_nick(data.nick)
+				if not uid then
+					return { status = "nouser", human = "no such user" }
+				end
+				if data.action == "insert" then
+					local ok, err, human = server:room_insert_invite_(data.room_name, uid)
+					if not ok then
+						return { status = err, human = human }
+					end
+					return { status = "ok" }
+				elseif data.action == "remove" then
+					local ok, err, human = server:room_remove_invite_(data.room_name, uid)
+					if not ok then
+						return { status = err, human = human }
+					end
+					return { status = "ok" }
+				elseif data.action == "check" then
+					return { status = "ok", banned = server:room_uid_invited(data.room_name, uid) or false }
+				end
+				return { status = "badaction", human = "unrecognized action" }
+			end,
+		},
+		private = {
+			func = function(rcon, data)
+				local server = rcon:server()
+				if type(data.room_name) ~= "string" then
+					return { status = "badroom", human = "invalid room" }
+				end
+				if data.action == "set" then
+					local ok, err, human = server:room_set_private(data.room_name)
+					if not ok then
+						return { status = err, human = human }
+					end
+					return { status = "ok" }
+				elseif data.action == "clear" then
+					local ok, err, human = server:room_clear_private(data.room_name)
+					if not ok then
+						return { status = err, human = human }
+					end
+					return { status = "ok" }
+				elseif data.action == "check" then
+					return { status = "ok", private = server:is_private(data.room_name) or false }
+				end
+				return { status = "badaction", human = "unrecognized action" }
 			end,
 		},
 	},

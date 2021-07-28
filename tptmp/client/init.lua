@@ -1,12 +1,14 @@
 -- * TODO[opt]: maybe exit gracefully
 assert(sim.CELL == 4, "CELL size is not 4") -- * Required by cursor snapping functions.
 assert(sim.PMAPBITS < 13, "PMAPBITS is too large") -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
--- assert(tpt.version and tpt.version.major >= 96 and tpt.version.minor >= 1, "version not supported")
-assert(tpt.version and tpt.version.major >= 96, "version not supported") -- * TODO[fin]: enforce 96.1, see above
+assert(tpt.version and tpt.version.major >= 96 and tpt.version.minor >= 1, "version not supported")
 assert(rawget(_G, "bit"), "no bit API")
 local http = assert(rawget(_G, "http"), "no http API")
 local socket = assert(rawget(_G, "socket"), "no socket API")
 assert(not socket.bind, "outdated socket API")
+if tpt.version.jacob1s_mod then
+	assert(tpt.tab_menu, "unsupported version")
+end
 
 local colours     = require("tptmp.client.colours")
 local config      = require("tptmp.client.config")

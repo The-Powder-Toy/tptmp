@@ -1,21 +1,43 @@
 local config = require("tptmp.server.config")
 local util   = require("tptmp.server.util")
 
+local server_owner_i = {}
 local room_owner_i = {}
 
-function room_owner_i:is_owner(client)
+-- * Includes the temporary owner.
+function server_owner_i:room_owned_by_client(room_name, client)
 	if not client:guest() then
-		local room_info = self:server():dconf():root().rooms[self:name()]
-		if room_info then
-			return util.array_find(room_info.owners, client:uid()) and true
-		end
+		return self:room_owned_by_uid(room, client:uid())
 	end
-	return self.temp_owner_ == client
+	local room = self:rooms()[room_name]
+	if room then
+		return room.temp_owner_ == client
+	end
+	return false
 end
 
-function room_owner_i:owner_count()
-	local room_info = self:server():dconf():root().rooms[self:name()]
+-- * Doesn't include the temporary owner.
+function server_owner_i:room_owned_by_uid(room_name, uid)
+	local room_info = self:dconf():root().rooms[room_name]
+	return room_info and util.array_find(room_info.owners, uid)
+end
+
+function room_owner_i:owned_by_uid_(src)
+	return self:server():room_owned_by_uid(self:name(), src)
+end
+
+-- * Doesn't include the temporary owner.
+function server_owner_i:room_owner_count_(room_name)
+	local room_info = self:dconf():root().rooms[room_name]
 	return room_info and #room_info.owners or 0
+end
+
+function room_i:owned_by_client(client)
+	return self:server():room_owned_by_client(self:name(), client)
+end
+
+function room_owner_i:owner_count_()
+	return self:server():room_owner_count_(self:name())
 end
 
 function room_owner_i:set_temp_owner_(client)
@@ -28,71 +50,82 @@ function room_owner_i:set_temp_owner_(client)
 	end
 end
 
-function room_owner_i:is_reserved()
-	local room_info = self:server():dconf():root().rooms[self:name()]
+function server_owner_i:room_is_reserved(room_name)
+	local room_info = self:dconf():root().rooms[room_name]
 	return room_info and room_info.reserved
 end
 
-function room_owner_i:is_temporary()
-	return not self:server():dconf():root().rooms[self:name()]
+function room_owner_i:is_reserved()
+	return self:server():room_is_reserved(self:name())
 end
 
-function room_owner_i:uid_insert_owner_(uid)
-	local server = self:server()
-	local dconf = server:dconf()
+function server_owner_i:room_is_temporary(room_name)
+	return not self:dconf():root().rooms[room_name]
+end
+
+function room_owner_i:is_temporary()
+	return self:server():room_is_temporary(self:name())
+end
+
+function server_owner_i:room_insert_owner_(room_name, uid)
+	local dconf = self:dconf()
 	local rooms = dconf:root().rooms
-	local room_info = rooms[self:name()]
+	local room_info = rooms[room_name]
+	local idx
+	if room_info then
+		if room_info.reserved then
+			return nil, "ereserv", "room is reserved"
+		end
+		idx = util.array_find(room_info.owners, uid)
+	end
+	if idx then
+		return nil, "eexist", "already an owner"
+	end
+	if self:room_owner_count_(room_name) >= config.max_owners_per_room then
+		return nil, "eownerlimit", "room reached owner limit"
+	end
+	if #self:uid_rooms_owned_(uid) >= config.max_rooms_per_owner then
+		return nil, "eroomlimit", "user reached room limit"
+	end
+	if not room_info then
+		room_info = {
+			owners = {},
+		}
+		rooms[room_name] = room_info
+	end
+	table.insert(room_info.owners, uid)
+	room_info.owners[0] = #room_info.owners
+	dconf:commit()
+	self:phost():call_hook("room_insert_owner", self, room_name, uid)
+	return true
+end
+
+function room_owner_i:insert_owner_(uid)
+	return self:server():room_insert_owner_(self:name(), uid)
+end
+
+function server_owner_i:room_remove_owner_(room_name, uid)
+	local dconf = self:dconf()
+	local rooms = dconf:root().rooms
+	local room_info = rooms[room_name]
 	local idx = room_info and util.array_find(room_info.owners, uid)
 	if not idx then
-		if not room_info then
-			room_info = {
-				owners = {},
-			}
-			rooms[self:name()] = room_info
-		end
-		table.insert(room_info.owners, uid)
-		room_info.owners[0] = #room_info.owners
-		dconf:commit()
-		server:phost():call_hook("room_insert_owner", self, uid)
+		return nil, "enoent", "not currently an owner"
 	end
+	table.remove(room_info.owners, idx)
+	room_info.owners[0] = #room_info.owners
+	if #room_info.owners == 0 then
+		rooms[room_name] = nil
+	end
+	dconf:commit()
+	return true
 end
 
-function room_owner_i:uid_owns_(src)
-	if type(src) ~= "number" then
-		if src:guest() then
-			return false
-		end
-		src = src:uid()
-	end
-	local server = self:server()
-	local dconf = server:dconf()
-	local rooms = dconf:root().rooms
-	local room_info = rooms[self:name()]
-	return room_info and util.array_find(room_info.owners, src)
+function room_owner_i:remove_owner_(uid)
+	return self:server():room_remove_owner_(self:name(), uid)
 end
-
-function room_owner_i:uid_remove_owner_(uid)
-	local server = self:server()
-	local dconf = server:dconf()
-	local rooms = dconf:root().rooms
-	local room_info = rooms[self:name()]
-	local idx = room_info and util.array_find(room_info.owners, uid)
-	if idx then
-		table.remove(room_info.owners, idx)
-		room_info.owners[0] = #room_info.owners
-		if #room_info.owners == 0 then
-			rooms[self:name()] = nil
-		end
-		dconf:commit()
-	end
-end
-
-local server_owner_i = {}
 
 function server_owner_i:uid_rooms_owned_(src)
-	if type(src) ~= "number" then
-		src = src:uid()
-	end
 	local rooms = {}
 	for name, room in pairs(self:dconf():root().rooms) do
 		for _, uid in pairs(room.owners) do
@@ -107,41 +140,8 @@ end
 return {
 	commands = {
 		register = {
-			func = function(client, message, words, offsets)
-				local room = client:room()
-				local server = client:server()
-				if room:is_reserved() then
-					client:send_server("\ae* This room is reserved")
-					return true
-				end
-				if not room:is_temporary() then
-					client:send_server("\ae* This room is already registered")
-					return true
-				end
-				if client:guest() then
-					client:send_server("\ae* Guests cannot register rooms")
-					return true
-				end
-				if #server:uid_rooms_owned_(client:uid()) >= config.max_rooms_per_owner then
-					client:send_server("\ae* You own too many rooms, use /owner remove to disown one")
-					return true
-				end
-				room:set_temp_owner_(nil)
-				room:uid_insert_owner_(client:uid())
-				client:send_server("\aj* Room successfully registered")
-				room:log("$ registered the room and gained room ownership", client:nick())
-				server:rconlog({
-					event = "room_register",
-					client_name = client:name(),
-					room_name = room:name(),
-				})
-				server:rconlog({
-					event = "room_owner_add",
-					client_name = client:name(),
-					room_name = room:name(),
-					other_nick = client:nick(),
-				})
-				return true
+			macro = function(client, message, words, offsets)
+				return { "owner", "insert", client:nick() }
 			end,
 			help = "/register, no arguments: registers and claims ownership of the room",
 		},
@@ -154,125 +154,106 @@ return {
 				local server = client:server()
 				local other_uid, other_nick = server:offline_user_by_nick(words[3])
 				local other = server:client_by_nick(words[3])
-				if other then
-					if not other_uid then
-						other_nick = other:nick()
-					end
-					other_uid = other
-				end
-				if not other_uid then
-					client:send_server(("\ae* No user named \au%s"):format(words[3]))
-					return true
-				end
 				if words[2] == "check" then
-					if room:uid_owns_(other_uid) then
+					local owns = false
+					local exists = false
+					if other_uid then
+						exists = true
+						owns = room:owned_by_uid_(other_uid)
+					elseif other then
+						exists = true
+						owns = room.temp_owner_ == other
+					end
+					if owns then
 						client:send_server(("\an* \au%s\an currently owns this room"):format(other_nick))
-					elseif room:is_temporary() and type(other_uid) ~= "number" and room:is_owner(other_uid) then
-						client:send_server(("\an* \au%s\an temporarily owns this room"):format(other_nick))
-					else
+					elseif exists then
 						client:send_server(("\an* \au%s\an does not currently own this room"):format(other_nick))
+					else
+						client:send_server(("\ae* No user named \au%s"):format(words[3]))
 					end
 					return true
 				end
-				if words[2] ~= "add" and words[2] ~= "remove" and words[2] ~= "temp" then
-					return false
-				end
-				if not room:is_owner(client) then
+				if not room:owned_by_client(client) then
 					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end
-				if words[2] == "temp" then
-					if not room:is_temporary() then
-						client:send_server("\ae* This is not a temporary room, use /owner remove to disown it")
-						return true
-					end
-					if not (type(other_uid) ~= "number" and other_uid:room() == room) then
-						client:send_server(("\ae* \au%s\ae is not present in this room"):format(other_nick))
-						return true
-					end
-					room:set_temp_owner_(other_uid)
-				elseif words[2] == "add" then
-					if room:is_temporary() then
+				if words[2] == "insert" then
+					if not other_uid then
+						client:send_server(("\ae* No user named \au%s"):format(words[3]))
+					elseif room:is_temporary() then
 						client:send_server("\ae* This is a temporary room, use /register to make it permanent")
-						return true
-					end
-					if not (type(other_uid) ~= "number" and other_uid:room() == room) then
+					elseif not other or other:room() ~= room then
 						client:send_server(("\ae* \au%s\ae is not present in this room"):format(other_nick))
-						return true
-					end
-					if room:owner_count() >= config.max_owners_per_room then
-						client:send_server("\ae* The room has too many owners, have one of them use /disown to disown it")
-						return true
-					end
-					if #server:uid_rooms_owned_(other_uid) >= config.max_rooms_per_owner then
-						client:send_server(("\ae* \au%s\ae owns too many rooms, have them use /disown to disown one"):format(other_nick))
-						return true
-					end
-					if room:uid_owns_(other_uid) then
-						client:send_server(("\ae* \au%s\ae already owns this room"):format(other_nick))
-						return true
-					end
-					local client_to_notify
-					local src = other_uid
-					if type(src) ~= "number" then
-						client_to_notify = src
-						src = src:uid()
-					end
-					room:uid_insert_owner_(src)
-					room:log("$ shared room ownership with $", client:nick(), other_nick)
-					server:rconlog({
-						event = "room_owner_add",
-						client_name = client:name(),
-						room_name = room:name(),
-						other_nick = other_nick,
-					})
-					client:send_server("\an* Room ownership successfully shared")
-					if client_to_notify then
-						client_to_notify:send_server("\aj* You now have shared ownership of this room")
-					end
-				elseif words[2] == "remove" then
-					if room:is_temporary() then
-						client:send_server("\ae* This is a temporary room, use /register to make it permanent")
-						return true
-					end
-					if not room:uid_owns_(other_uid) then
-						client:send_server(("\ae* \au%s\ae does not currently own this room"):format(other_nick))
-						return true
-					end
-					local client_to_notify
-					local src = other_uid
-					if type(src) ~= "number" then
-						client_to_notify = src
-						src = src:uid()
-					end
-					room:uid_remove_owner_(src)
-					room:log("$ stripped $ of room ownership", client:nick(), other_nick)
-					server:rconlog({
-						event = "room_owner_remove",
-						client_name = client:name(),
-						room_name = room:name(),
-						other_nick = other_nick,
-					})
-					if room:is_temporary() then
-						client_to_notify:send_server("\aj* Room successfully unregistered")
-						room:set_temp_owner_(client)
-						server:rconlog({
-							event = "room_unregister",
-							client_name = client:name(),
-							room_name = room:name(),
-						})
-					end
-					if client_to_notify and client_to_notify:room() == room then
-						if not room:is_temporary() then
-							client_to_notify:send_server("\al* You no longer have shared ownership of this room")
+					else
+						local ok, err = room:insert_owner_(other_uid)
+						if ok then
+							room:log("$ shared room ownership with $", client:nick(), other_nick)
+							server:rconlog({
+								event = "room_owner_insert",
+								client_name = client:name(),
+								room_name = room:name(),
+								other_nick = other_nick,
+							})
+							if client == other then
+								room:set_temp_owner_(nil)
+								client:send_server("\an* Room successfully registered")
+							else
+								client:send_server("\an* Room ownership successfully shared")
+								other:send_server("\aj* You now have shared ownership of this room")
+							end
+						elseif err == "eexist" then
+							client:send_server(("\ae* \au%s\ae already owns this room"):format(other_nick))
+						elseif err == "ereserv" then
+							client:send_server("\ae* This room is reserved")
+						elseif err == "eownerlimit" then
+							client:send_server("\ae* The room has too many owners, have one of them use /owner remove to disown it")
+						elseif err == "eroomlimit" then
+							client:send_server(("\ae* \au%s\ae owns too many rooms, have them use /owner remove to disown one"):format(other_nick))
 						end
 					end
-				else
-					return false
+					return true
+				elseif words[2] == "remove" then
+					if not other_uid then
+						client:send_server(("\ae* No user named \au%s"):format(words[3]))
+					elseif room:is_temporary() then
+						client:send_server("\ae* This is a temporary room, use /register to make it permanent")
+					else
+						local ok, err = room:remove_owner_(other_uid)
+						if ok then
+							room:log("$ stripped $ of room ownership", client:nick(), other_nick)
+							server:rconlog({
+								event = "room_owner_remove",
+								client_name = client:name(),
+								room_name = room:name(),
+								other_nick = other_nick,
+							})
+							if room:is_temporary() then
+								client:send_server("\an* Room successfully unregistered")
+								room:set_temp_owner_(client)
+							else
+								client:send_server("\an* Room ownership successfully stripped")
+								if other and other:room() == room then
+									other:send_server("\al* You no longer have shared ownership of this room")
+								end
+							end
+						elseif err == "enoent" then
+							client:send_server(("\ae* \au%s\ae does not currently own this room"):format(other_nick))
+						end
+					end
+					return true
+				elseif words[2] == "temp" then
+					if not room:is_temporary() then
+						client:send_server("\ae* This is not a temporary room, use /owner remove to disown it")
+					elseif not other or other:room() ~= room then
+						client:send_server(("\ae* \au%s\ae is not present in this room"):format(other_nick))
+					else
+						room:set_temp_owner_(other)
+					end
+					return true
 				end
-				return true
+				return false
 			end,
-			help = "/owner add\\check\\remove\\temp <user>: shares ownership of the room with a user, checks if a user is an owner, strips a user of their ownership, or transfers temporary ownership",
+			help = "/owner insert\\check\\remove\\temp <user>: shares ownership of the room with a user, checks if a user is an owner, strips a user of their ownership, or transfers temporary ownership",
 		},
 	},
 	hooks = {
@@ -291,7 +272,7 @@ return {
 					local reserve = {
 						null = {
 							-- motd = "Welcome to TPTMPv2!",
-							motd = "Welcome to TPTMPv2! This test server is run by LBPHacker, report bugs and suggestions to him. If you got v2 from the script manager and want to go back to v1, disable v2 in the script manager.",
+							motd = "Welcome to TPTMPv2! This test server is run by LBPHacker, report bugs and suggestions to him. If you got v2 from the script manager and want to go back to v1, disable v2 in the script manager.", -- * TODO[fin]: remove
 						},
 						guest = {
 							motd = "Welcome to TPTMPv2! You have landed in the guest lobby as you do not seem to be logged in.",
@@ -360,7 +341,7 @@ return {
 		},
 		self_info = {
 			func = function(client)
-				if client:room():is_temporary() and client:room():is_owner(client) then
+				if client:room():is_temporary() and client:room():owned_by_client(client) then
 					client:send_server("\an* Room temporarily owned: \ar" .. client:room():name())
 				end
 				local rooms = client:server():uid_rooms_owned_(client:uid())
@@ -368,6 +349,36 @@ return {
 					table.sort(rooms)
 					client:send_server(("\an* %s: \ar%s"):format(#rooms == 1 and "Room owned" or "Rooms owned", table.concat(rooms, "\an, \ar")))
 				end
+			end,
+		},
+	},
+	console = {
+		owner = {
+			func = function(rcon, data)
+				local server = rcon:server()
+				if type(data.room_name) ~= "string" then
+					return { status = "badroom", human = "invalid room" }
+				end
+				local uid = server:offline_user_by_nick(data.nick)
+				if not uid then
+					return { status = "nouser", human = "no such user" }
+				end
+				if data.action == "insert" then
+					local ok, err, human = server:room_insert_owner_(data.room_name, uid)
+					if not ok then
+						return { status = err, human = human }
+					end
+					return { status = "ok" }
+				elseif data.action == "remove" then
+					local ok, err, human = server:room_remove_owner_(data.room_name, uid)
+					if not ok then
+						return { status = err, human = human }
+					end
+					return { status = "ok" }
+				elseif data.action == "check" then
+					return { status = "ok", owns = server:room_owned_by_uid(data.room_name, uid) or false }
+				end
+				return { status = "badaction", human = "unrecognized action" }
 			end,
 		},
 	},

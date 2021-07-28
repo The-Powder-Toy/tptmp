@@ -1,6 +1,8 @@
 local util   = require("tptmp.server.util")
 local config = require("tptmp.server.config")
 
+-- * TODO[req]: make it possible to block all guests at once
+
 local server_block_i = {}
 
 function server_block_i:uid_blocks_(dest, src)
@@ -10,18 +12,20 @@ function server_block_i:uid_blocks_(dest, src)
 	return uids and util.array_find(uids, src)
 end
 
-function server_block_i:uid_add_block_(dest, src)
+function server_block_i:uid_insert_block_(dest, src)
 	local dconf = self:dconf()
 	local block = dconf:root().block
 	local uids = block[tostring(dest)]
 	local idx = uids and util.array_find(uids, src)
-	if not idx then
-		uids = uids or {}
-		block[tostring(dest)] = uids
-		table.insert(uids, src)
-		uids[0] = #uids
-		dconf:commit()
+	if idx then
+		return nil, "eexist", "already blocked"
 	end
+	uids = uids or {}
+	block[tostring(dest)] = uids
+	table.insert(uids, src)
+	uids[0] = #uids
+	dconf:commit()
+	return true
 end
 
 function server_block_i:uid_remove_block_(dest, src)
@@ -29,14 +33,16 @@ function server_block_i:uid_remove_block_(dest, src)
 	local block = dconf:root().block
 	local uids = block[tostring(dest)]
 	local idx = uids and util.array_find(uids, src)
-	if idx then
-		table.remove(uids, idx)
-		uids[0] = #uids
-		if #uids == 0 then
-			block[tostring(dest)] = nil
-		end
-		dconf:commit()
+	if not idx then
+		return nil, "enoent", "not currently blocked"
 	end
+	table.remove(uids, idx)
+	uids[0] = #uids
+	if #uids == 0 then
+		block[tostring(dest)] = nil
+	end
+	dconf:commit()
+	return true
 end
 
 return {
@@ -72,7 +78,7 @@ return {
 						return true
 					end
 					function blockf()
-						server:uid_add_block_(client:uid(), other_uid)
+						server:uid_insert_block_(client:uid(), other_uid)
 					end
 					function checkf()
 						return server:uid_blocks_(client:uid(), other_uid)
@@ -81,13 +87,13 @@ return {
 						server:uid_remove_block_(client:uid(), other_uid)
 					end
 				end
-				if words[2] == "add" then
+				if words[2] == "insert" then
 					if not checkf() then
 						blockf()
 						client:send_server(("\an* \au%s\an is now blocked"):format(other_nick))
 						server.log_inf_("$ blocked $", client:nick(), other_nick)
 						server:rconlog({
-							event = "block_add",
+							event = "block_insert",
 							client_name = client:name(),
 							other_nick = other_nick,
 						})
@@ -108,7 +114,7 @@ return {
 						client:send_server(("\an* \au%s\an is no longer blocked"):format(other_nick))
 						server.log_inf_("$ unblocked $", client:nick(), other_nick)
 						server:rconlog({
-							event = "block_add",
+							event = "block_insert",
 							client_name = client:name(),
 							other_nick = other_nick,
 						})
@@ -119,7 +125,7 @@ return {
 				end
 				return false
 			end,
-			help = "/block add\\check\\remove [user]: blocks a user, preventing them from messaging you or interacting with you otherwise, checks whether a user is blocked, or unblocks a user",
+			help = "/block insert\\check\\remove [user]: blocks a user, preventing them from messaging you or interacting with you otherwise, checks whether a user is blocked, or unblocks a user",
 		},
 	},
 	hooks = {
@@ -169,6 +175,43 @@ return {
 					return false, "permanently blocked"
 				end
 				return true
+			end,
+		},
+	},
+	console = {
+		block = {
+			func = function(rcon, data)
+				local server = rcon:server()
+				if type(data.src) ~= "string" then
+					return { status = "badsource", human = "invalid src nick" }
+				end
+				if type(data.dest) ~= "string" then
+					return { status = "badtarget", human = "invalid dest nick" }
+				end
+				local src = server:offline_user_by_nick(data.src)
+				if not src then
+					return { status = "nousersource", human = "no such src user" }
+				end
+				local dest = server:offline_user_by_nick(data.dest)
+				if not dest then
+					return { status = "nousertarget", human = "no such dest user" }
+				end
+				if data.action == "insert" then
+					local ok, err, human = server:uid_insert_block_(dest, src)
+					if not ok then
+						return { status = err, human = human }
+					end
+					return { status = "ok" }
+				elseif data.action == "remove" then
+					local ok, err, human = server:uid_remove_block_(dest, src)
+					if not ok then
+						return { status = err, human = human }
+					end
+					return { status = "ok" }
+				elseif data.action == "check" then
+					return { status = "ok", blocked = server:uid_blocks_(dest, src) }
+				end
+				return { status = "badaction", human = "unrecognized action" }
 			end,
 		},
 	},

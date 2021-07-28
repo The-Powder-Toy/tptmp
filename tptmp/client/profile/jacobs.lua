@@ -1,10 +1,6 @@
 local vanilla = require("tptmp.client.profile.vanilla")
 local config  = require("tptmp.client.config")
 
-if tpt.version.jacob1s_mod then
-	assert(tpt.tab_menu, "unsupported version")
-end
-
 local profile_i = {}
 local profile_m = { __index = profile_i }
 

@@ -92,8 +92,6 @@ these objects.
 
 ## Things to do
 
-- [ ] more administration facilities, such as room ownership management, via the
-      remote console
 - [ ] some sort of support for custom elements, maybe room-level element
       negotiation
 - [ ] add APIs to TPT in order to get rid of a few hideous hacks on
