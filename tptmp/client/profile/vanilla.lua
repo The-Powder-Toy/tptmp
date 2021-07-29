@@ -19,7 +19,6 @@ local index_to_lraxid = {
 }
 local toolwarn_tools = {
 	[ "DEFAULT_UI_PROPERTY" ] = "prop",
-	[ "DEFAULT_TOOL_CYCL"   ] = "cycl",
 	[ "DEFAULT_TOOL_MIX"    ] = "mix",
 	[ "DEFAULT_PT_LIGH"     ] = "ligh",
 	[ "DEFAULT_PT_STKM"     ] = "stkm",
@@ -31,7 +30,6 @@ local toolwarn_tools = {
 }
 local toolwarn_messages = {
 	prop      =                      "The PROP tool does not sync, you will have to use /sync",
-	cycl      =                      "The CYCL tool does not sync, you will have to use /sync",
 	mix       =                       "The MIX tool does not sync, you will have to use /sync",
 	ligh      =                               "LIGH does not sync, you will have to use /sync",
 	stkm      =                             "Stickmen do not sync, you will have to use /sync",

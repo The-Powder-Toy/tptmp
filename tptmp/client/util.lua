@@ -1,4 +1,5 @@
-local config = require("tptmp.client.config")
+local config      = require("tptmp.client.config")
+local common_util = require("tptmp.common.util")
 
 if not elem.TPTMP_PT_UNKNOWN then
 	assert(elem.allocate("TPTMP", "UNKNOWN") ~= -1, "out of element IDs")
@@ -11,15 +12,29 @@ local to_tool = {}
 local xid_first = {}
 local PMAPBITS = sim.PMAPBITS
 
+local tpt_version = { tpt.version.major, tpt.version.minor }
+local has_ambient_heat_tools
 do
 	local old_selectedl = tpt.selectedl
 	if old_selectedl == "DEFAULT_UI_PROPERTY" then
 		old_selectedl = "DEFAULT_PT_DUST"
 	end
+	has_ambient_heat_tools = pcall(function() tpt.selectedl = "DEFAULT_TOOL_AMBM" end)
 	tpt.selectedl = old_selectedl
 end
 
-local tools = {
+local function array_concat(...)
+	local tbl = {}
+	local arrays = { ... }
+	for i = 1, #arrays do
+		for j = 1, #arrays[i] do
+			table.insert(tbl, arrays[i][j])
+		end
+	end
+	return tbl
+end
+
+local tools = array_concat({
 	"DEFAULT_PT_LIFE_GOL",
 	"DEFAULT_PT_LIFE_HLIF",
 	"DEFAULT_PT_LIFE_ASIM",
@@ -44,6 +59,7 @@ local tools = {
 	"DEFAULT_PT_LIFE_STAR",
 	"DEFAULT_PT_LIFE_FROG",
 	"DEFAULT_PT_LIFE_BRAN",
+}, {
 	"DEFAULT_WL_ERASE",
 	"DEFAULT_WL_CNDTW",
 	"DEFAULT_WL_EWALL",
@@ -63,10 +79,12 @@ local tools = {
 	"DEFAULT_WL_NOAIR",
 	"DEFAULT_WL_ERASEA",
 	"DEFAULT_WL_STASIS",
+}, {
 	"DEFAULT_UI_SAMPLE",
 	"DEFAULT_UI_SIGN",
 	"DEFAULT_UI_PROPERTY",
 	"DEFAULT_UI_WIND",
+}, {
 	"DEFAULT_TOOL_HEAT",
 	"DEFAULT_TOOL_COOL",
 	"DEFAULT_TOOL_AIR",
@@ -74,6 +92,10 @@ local tools = {
 	"DEFAULT_TOOL_PGRV",
 	"DEFAULT_TOOL_NGRV",
 	"DEFAULT_TOOL_MIX",
+	"DEFAULT_TOOL_CYCL",
+	has_ambient_heat_tools and "DEFAULT_TOOL_AMBM" or nil,
+	has_ambient_heat_tools and "DEFAULT_TOOL_AMBP" or nil,
+}, {
 	"DEFAULT_DECOR_SET",
 	"DEFAULT_DECOR_CLR",
 	"DEFAULT_DECOR_ADD",
@@ -81,7 +103,7 @@ local tools = {
 	"DEFAULT_DECOR_MUL",
 	"DEFAULT_DECOR_DIV",
 	"DEFAULT_DECOR_SMDG",
-}
+})
 local xid_class = {}
 for i = 1, #tools do
 	local xtype = 0x2000 + i
@@ -565,4 +587,7 @@ return {
 	fnv1a32 = fnv1a32,
 	ambient_air_temp = ambient_air_temp,
 	get_save_id = get_save_id,
+	version_less = common_util.version_less,
+	version_equal = common_util.version_equal,
+	tpt_version = tpt_version,
 }

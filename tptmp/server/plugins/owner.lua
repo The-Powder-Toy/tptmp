@@ -7,7 +7,7 @@ local room_owner_i = {}
 -- * Includes the temporary owner.
 function server_owner_i:room_owned_by_client(room_name, client)
 	if not client:guest() then
-		return self:room_owned_by_uid(room, client:uid())
+		return self:room_owned_by_uid(room_name, client:uid())
 	end
 	local room = self:rooms()[room_name]
 	if room then
@@ -32,7 +32,7 @@ function server_owner_i:room_owner_count_(room_name)
 	return room_info and #room_info.owners or 0
 end
 
-function room_i:owned_by_client(client)
+function room_owner_i:owned_by_client(client)
 	return self:server():room_owned_by_client(self:name(), client)
 end
 

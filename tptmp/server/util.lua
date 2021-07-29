@@ -1,5 +1,6 @@
-local cqueues = require("cqueues")
-local log     = require("tptmp.server.log")
+local cqueues     = require("cqueues")
+local log         = require("tptmp.server.log")
+local common_util = require("tptmp.common.util")
 
 local CQUEUES_WRAP_RETHROW = {}
 
@@ -23,31 +24,6 @@ local function cqueues_wrap(queue, func)
 			error(CQUEUES_WRAP_RETHROW)
 		end
 	end)
-end
-
-local function version_less(lhs, rhs)
-	for i = 1, math.max(#lhs, #rhs) do
-		local left = lhs[i] or 0
-		local right = rhs[i] or 0
-		if left < right then
-			return true
-		end
-		if left > right then
-			return false
-		end
-	end
-	return false
-end
-
-local function version_equal(lhs, rhs)
-	for i = 1, math.max(#lhs, #rhs) do
-		local left = lhs[i] or 0
-		local right = rhs[i] or 0
-		if left ~= right then
-			return false
-		end
-	end
-	return true
 end
 
 local function safe_pairs(tbl)
@@ -89,8 +65,8 @@ return {
 	cqueues_poll = cqueues_poll,
 	cqueues_wrap = cqueues_wrap,
 	CQUEUES_WRAP_RETHROW = CQUEUES_WRAP_RETHROW,
-	version_less = version_less,
-	version_equal = version_equal,
+	version_less = common_util.version_less,
+	version_equal = common_util.version_equal,
 	safe_pairs = safe_pairs,
 	argpack = argpack,
 	argunpack = argunpack,
