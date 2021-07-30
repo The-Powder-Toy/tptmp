@@ -14,6 +14,7 @@ local ssl_x509_chain = require("openssl.x509.chain")
 local command_parser = require("tptmp.common.command_parser")
 local lunajson       = require("lunajson")
 local http_request   = require("http.request")
+local http_cookie    = require("http.cookie")
 
 local server_i = {}
 local server_m = { __index = server_i }
@@ -297,6 +298,7 @@ function server_i:fetch_user_(nick)
 		})
 		return nil, err
 	end
+	req.cookie_store = http_cookie.new_store()
 	local headers, stream = req:go(config.uid_backend_timeout)
 	if not headers then
 		self:rconlog({
