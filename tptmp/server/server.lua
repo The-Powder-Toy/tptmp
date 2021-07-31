@@ -407,15 +407,11 @@ function server_i:rconlog(data)
 	end
 end
 
-function server_i:tls_context()
-	return ssl.new(self.tls_context_)
-end
-
 function server_i:auth()
 	return self.auth_
 end
 
-local function tls_context()
+function server_i:tls_context()
 	local ctx = ssl_ctx.new("TLS", true)
 	ctx:setCipherList(table.concat({
 		"ECDHE-ECDSA-AES256-GCM-SHA384",
@@ -452,7 +448,7 @@ local function tls_context()
 		type = "EC",
 		curve = "prime256v1",
 	}))
-	return ctx
+	return ssl.new(ctx)
 end
 
 local function new(params)
@@ -545,9 +541,6 @@ local function new(params)
 		phost_ = params.phost,
 		offline_user_cache_ = {},
 	}, server_m)
-	if config.secure then
-		server.tls_context_ = tls_context()
-	end
 	server:init()
 	return server
 end
