@@ -173,14 +173,14 @@ return {
 					end
 					return true
 				end
-				if not room:owned_by_client(client) then
+				if not room:is_temporary() and not room:owned_by_client(client) then
 					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end
 				if words[2] == "insert" then
 					if not other_uid then
 						client:send_server(("\ae* No user named \au%s"):format(words[3]))
-					elseif room:is_temporary() then
+					elseif other ~= client and room:is_temporary() then
 						client:send_server("\ae* This is a temporary room, use /register to make it permanent")
 					elseif not other or other:room() ~= room then
 						client:send_server(("\ae* \au%s\ae is not present in this room"):format(other_nick))
