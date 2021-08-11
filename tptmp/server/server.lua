@@ -342,6 +342,12 @@ function server_i:fetch_user_(nick)
 		})
 		return nil, json
 	end
+	if not (type(json) == "table" and
+	        type(json.User) == "table" and
+	        type(json.ID) == "number" and
+	        type(json.Username) == "string") then
+		return nil, "invalid response from backend"
+	end
 	self:rconlog({
 		event = "fetch_user",
 		input = nick,

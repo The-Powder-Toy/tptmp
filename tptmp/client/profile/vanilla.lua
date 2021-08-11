@@ -773,7 +773,7 @@ local function preshack_graphics(i)
 	return 0, 0
 end
 
-function profile_i:begin_placesave_size_(x, y, defer)
+function profile_i:begin_placesave_size_(x, y, lazy_button_check)
 	local id = sim.partCreate(-3, 0, 0, preshack_elem)
 	if id == -1 then
 		preshack_zero = save_and_kill_zero()
@@ -808,9 +808,14 @@ function profile_i:begin_placesave_size_(x, y, defer)
 		pres = pres,
 		bx = bx,
 		by = by,
-		airmode = sim.airMode(),
+		airmode = not lazy_button_check and sim.airMode(),
 	}
-	if defer then
+	if lazy_button_check then
+		-- * This means that begin_placesave_size_ was called from a button
+		--   callback, i.e. not really in response to pasting, but reloading /
+		--   clearing / opening a save. In this case, the air mode should
+		--   not be reset to the original air mode, but left to be whatever
+		--   value these actions set it to.
 		self.placesave_size_next_ = pss
 	else
 		self.placesave_size_ = pss
@@ -842,8 +847,10 @@ function profile_i:end_placesave_size_()
 			pop(bx, y)
 		end
 	end
-	local partcount = self.placesave_size_.partcount
-	sim.airMode(self.placesave_size_.airmode)
+	local partcount = self.placesave_size_.partcount -- * TODO[opt]: figure out what I wanted to do with partcount
+	if self.placesave_size_.airmode then
+		sim.airMode(self.placesave_size_.airmode)
+	end
 	self.placesave_size_ = nil
 	if lx == math.huge then
 		self.placesave_postmsg_ = {

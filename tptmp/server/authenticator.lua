@@ -66,7 +66,7 @@ local function check_external_auth(client, token)
 		}
 	end
 	local ok, json = pcall(lunajson.decode, body)
-	if not ok then
+	if not ok or type(json) ~= "table" then
 		return nil, json, {
 			substage = "json",
 			reason = json,

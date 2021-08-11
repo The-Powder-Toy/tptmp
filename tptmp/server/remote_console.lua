@@ -73,7 +73,7 @@ function remote_console_i:listen_()
 							break
 						end
 						local ok, data = pcall(lunajson.decode, line, nil, nil, true)
-						if ok then
+						if ok and type(data) == "table" then
 							if data.type == "request" then
 								local handler = self.handlers_[data.request]
 								if handler then
@@ -109,6 +109,17 @@ function remote_console_i:listen_()
 								break_outer = true
 								break
 							end
+						elseif ok then
+							self:send_json_({
+								type = "response",
+								status = "badformat",
+								human = "invalid format",
+								line = line,
+								reason = data,
+							})
+							self.log_wrn_("invalid format: $", data)
+							break_outer = true
+							break
 						else
 							self:send_json_({
 								type = "response",

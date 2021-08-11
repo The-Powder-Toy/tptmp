@@ -90,6 +90,9 @@ xpcall(function()
 	end
 	assert(ok or err == util.CQUEUES_WRAP_RETHROW, "sanity check failure")
 end, function(err)
-	io.stderr:write("[rip] top-level error: " .. tostring(err) .. "\n")
-	io.stderr:write("[rip] " .. debug.traceback():gsub("\n", "\n[rip] ") .. "\n")
+	local function rip(str)
+		io.stderr:write(str:gsub("\n", "\n[rip] ") .. "\n")
+	end
+	rip("[rip] top-level error: " .. tostring(err))
+	rip("[rip] " .. debug.traceback())
 end)
