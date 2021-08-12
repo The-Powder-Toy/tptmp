@@ -1,36 +1,49 @@
--- * TODO[opt]: maybe exit gracefully
-assert(sim.CELL == 4, "CELL size is not 4") -- * Required by cursor snapping functions.
-assert(sim.PMAPBITS < 13, "PMAPBITS is too large") -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
-assert(tpt.version and tpt.version.major >= 96 and tpt.version.minor >= 1, "version not supported")
-assert(rawget(_G, "bit"), "no bit API")
-local http = assert(rawget(_G, "http"), "no http API")
-local socket = assert(rawget(_G, "socket"), "no socket API")
-assert(not socket.bind, "outdated socket API")
-if tpt.version.jacob1s_mod then
-	assert(tpt.tab_menu, "unsupported version")
+local loadtime_error
+local http = rawget(_G, "http")
+local socket = rawget(_G, "socket")
+if sim.CELL ~= 4 then -- * Required by cursor snapping functions.
+	loadtime_error = "CELL size is not 4"
+elseif sim.PMAPBITS >= 13 then -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
+	loadtime_error = "PMAPBITS is too large"
+elseif not (tpt.version and tpt.version.major >= 96 and tpt.version.minor >= 1) then
+	loadtime_error = "version not supported"
+elseif not rawget(_G, "bit") then
+	loadtime_error = "no bit API"
+elseif not http then
+	loadtime_error = "no http API"
+elseif not socket then
+	loadtime_error = "no socket API"
+elseif socket.bind then
+	loadtime_error = "outdated socket API"
+elseif tpt.version.jacob1s_mod and not tpt.tab_menu then
+	loadtime_error = "mod version not supported"
 end
 
-local colours     = require("tptmp.client.colours")
-local config      = require("tptmp.client.config")
-local window      = require("tptmp.client.window")
-local side_button = require("tptmp.client.side_button")
-local localcmd    = require("tptmp.client.localcmd")
-local client      = require("tptmp.client.client")
-local util        = require("tptmp.client.util")
-local profile     = require("tptmp.client.profile")
-local format      = require("tptmp.client.format")
-local manager     = require("tptmp.client.manager")
+local config      =                        require("tptmp.client.config")
+local colours     = not loadtime_error and require("tptmp.client.colours")
+local window      = not loadtime_error and require("tptmp.client.window")
+local side_button = not loadtime_error and require("tptmp.client.side_button")
+local localcmd    = not loadtime_error and require("tptmp.client.localcmd")
+local client      = not loadtime_error and require("tptmp.client.client")
+local util        = not loadtime_error and require("tptmp.client.util")
+local profile     = not loadtime_error and require("tptmp.client.profile")
+local format      = not loadtime_error and require("tptmp.client.format")
+local manager     = not loadtime_error and require("tptmp.client.manager")
 
 local function run()
-	local hooks_enabled = false
-
 	if rawget(_G, "TPTMP") then
 		if TPTMP.version <= config.version then
 			TPTMP.disableMultiplayer()
 		else
-			error("newer version already running")
+			loadtime_error = "newer version already running"
 		end
 	end
+	if loadtime_error then
+		print(config.print_prefix .. "Cannot load: " .. loadtime_error)
+		return
+	end
+
+	local hooks_enabled = false
 	local TPTMP = {
 		version = config.version,
 		versionStr = config.versionstr,
