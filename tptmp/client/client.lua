@@ -5,6 +5,9 @@ local util        = require("tptmp.client.util")
 local format      = require("tptmp.client.format")
 
 local log_event = print
+local can_yield_xpcall = coroutine.resume(coroutine.create(function()
+	assert(pcall(coroutine.yield))
+end))
 
 local client_i = {}
 local client_m = { __index = client_i }
@@ -1013,12 +1016,16 @@ end
 function client_i:start()
 	assert(self.status_ == "ready")
 	self.status_ = "running"
-	local xpcall = rawget(_G, "jit") and xpcall or function(func)
-		func()
-		return true
-	end
 	self.proto_coro_ = coroutine.create(function()
-		local ok, err = xpcall(function()
+		local wrap_traceback = can_yield_xpcall and xpcall or function(func)
+			-- * It doesn't matter if wrap_traceback is not a real xpcall
+			--   as the error would be re-thrown later anyway, but a real
+			--   xpcall is preferable because it lets us print a stack trace
+			--   from within the coroutine.
+			func()
+			return true
+		end
+		local ok, err = wrap_traceback(function()
 			self:connect_()
 			self:handshake_()
 			while true do

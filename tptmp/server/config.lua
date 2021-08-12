@@ -85,7 +85,7 @@ return {
 	max_clients = 500,
 
 	-- * Maximum amount of active rooms on the server at any given time. This
-	--   does not include inactive rooms (with no clients in them) but in the
+	--   does not include inactive rooms with no clients in them but in the
 	--   dynamic configuration store.
 	max_rooms = 100,
 
@@ -177,7 +177,7 @@ return {
 
 	-- * Size of the buffer passed to the recv system call. Bigger values
 	--   consume more memory, smaller ones incur larger system call overhead.
-	read_size = 0x1000000,
+	read_size = 0x10000,
 
 	-- * Receive queue limit. Specifies the maximum amount of data a client
 	--   is allowed to have sent but which the server has not yet had time to
