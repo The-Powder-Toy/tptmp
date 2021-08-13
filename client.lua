@@ -35,7 +35,10 @@ local env = setmetatable({}, { __index = function(_, key)
 end, __newindex = function(_, key)
 	error("__newindex on env: " .. tostring(key), 2)
 end})
-setfenv(1, env)
+local _ENV = env
+if setfenv then
+	setfenv(1, env)
+end
 
 math.randomseed(os.time())
 
@@ -72,11 +75,18 @@ local function require(modname)
 			if handle then
 				local content = handle:read("*a")
 				handle:close()
-				local func, err = loadstring(content, "=" .. relative)
+				local func, err
+				if setfenv then
+					func, err = loadstring(content, "=" .. relative)
+				else
+					func, err = load(content, "=" .. relative, "bt", env)
+				end
 				if not func then
 					error(err, 0)
 				end
-				setfenv(func, env)
+				if setfenv then
+					setfenv(func, env)
+				end
 				local ok, err = pcall(func)
 				if not ok then
 					error(err, 0)
@@ -95,7 +105,7 @@ local function require(modname)
 end
 rawset(env, "require", require)
 
-local main_module = require("tptmp.client")
+local main_module = require(MAIN_MODULE)
 if DIST then
 	local handle = assert(io.open(DIST, "w"))
 	handle:write([[
@@ -104,7 +114,10 @@ local env__ = setmetatable({}, { __index = function(_, key)
 end, __newindex = function(_, key)
 	error("__newindex on env: " .. tostring(key), 2)
 end})
-setfenv(1, env__)
+local _ENV = env__
+if setfenv then
+	setfenv(1, env__)
+end
 
 math.randomseed(os.time())
 
