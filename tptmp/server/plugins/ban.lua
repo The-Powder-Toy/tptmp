@@ -108,7 +108,7 @@ return {
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					return { status = "ok", banned = server:uid_banned_(uid) }
+					return { status = "ok", banned = server:uid_banned_(uid) or false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
 			end,

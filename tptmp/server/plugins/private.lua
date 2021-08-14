@@ -53,7 +53,7 @@ end
 function server_private_i:room_invite_count(room_name)
 	local dconf = self:dconf()
 	local room_info = dconf:root().rooms[room_name]
-	return room_info.invites and #room_info.invites or 0
+	return room_info and room_info.invites and #room_info.invites or 0
 end
 
 function room_private_i:invite_count()
@@ -61,9 +61,9 @@ function room_private_i:invite_count()
 end
 
 function server_private_i:room_insert_invite_(room_name, uid)
-	local dconf = self:server():dconf()
-	local room_info = dconf:root().rooms[self:name()]
-	local idx = room_info.invites and util.array_find(room_info.invites, src)
+	local dconf = self:dconf()
+	local room_info = dconf:root().rooms[room_name]
+	local idx = room_info.invites and util.array_find(room_info.invites, uid)
 	if idx then
 		return nil, "eexist", "already invited"
 	end
@@ -71,7 +71,7 @@ function server_private_i:room_insert_invite_(room_name, uid)
 		return nil, "einvitelimit", "room reached invite limit"
 	end
 	room_info.invites = room_info.invites or {}
-	table.insert(room_info.invites, src)
+	table.insert(room_info.invites, uid)
 	room_info.invites[0] = #room_info.invites
 	dconf:commit()
 	return true
@@ -84,7 +84,7 @@ end
 function server_private_i:room_remove_invite_(room_name, uid)
 	local dconf = self:dconf()
 	local room_info = dconf:root().rooms[room_name]
-	local idx = room_info.invites and util.array_find(room_info.invites, src)
+	local idx = room_info.invites and util.array_find(room_info.invites, uid)
 	if not idx then
 		return nil, "enoent", "not currently invited"
 	end
@@ -104,7 +104,7 @@ end
 function server_private_i:room_uid_invited(room_name, uid)
 	local dconf = self:dconf()
 	local room_info = dconf:root().rooms[room_name]
-	return room_info and room_info.invites and util.array_find(room_info.invites, src)
+	return room_info and room_info.invites and util.array_find(room_info.invites, uid)
 end
 
 function room_private_i:uid_invited(uid)
@@ -113,7 +113,7 @@ end
 
 function room_private_i:client_invited(client)
 	if client:guest() then
-		return self.invites_clients_[src]
+		return self.invites_clients_[client]
 	end
 	return self:uid_invited(client:uid())
 end

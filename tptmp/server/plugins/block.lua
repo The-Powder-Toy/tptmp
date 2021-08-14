@@ -114,7 +114,7 @@ return {
 						client:send_server(("\an* \au%s\an is no longer blocked"):format(other_nick))
 						server.log_inf_("$ unblocked $", client:nick(), other_nick)
 						server:rconlog({
-							event = "block_insert",
+							event = "block_remove",
 							client_name = client:name(),
 							other_nick = other_nick,
 						})
@@ -209,7 +209,7 @@ return {
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					return { status = "ok", blocked = server:uid_blocks_(dest, src) }
+					return { status = "ok", blocked = server:uid_blocks_(dest, src) and true or false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
 			end,

@@ -45,6 +45,11 @@ function room_owner_i:set_temp_owner_(client)
 		self.temp_owner_:send_server("\al* You are no longer the owner of this temporary room")
 	end
 	self.temp_owner_ = client
+	self:server():rconlog({
+		event = "room_temp_owner_change",
+		room_name = self:name(),
+		client_name = client and client:name(),
+	})
 	if self.temp_owner_ then
 		self.temp_owner_:send_server("\aj* You are now the owner of this temporary room, use /register to make it permanent")
 	end
@@ -185,8 +190,16 @@ return {
 					elseif not other or other:room() ~= room then
 						client:send_server(("\ae* \au%s\ae is not present in this room"):format(other_nick))
 					else
+						local room_was_temporary = room:is_temporary()
 						local ok, err = room:insert_owner_(other_uid)
 						if ok then
+							if room_was_temporary then
+								room:log("registered")
+								server:rconlog({
+									event = "room_register",
+									room_name = room:name(),
+								})
+							end
 							room:log("$ shared room ownership with $", client:nick(), other_nick)
 							server:rconlog({
 								event = "room_owner_insert",
@@ -228,6 +241,11 @@ return {
 								other_nick = other_nick,
 							})
 							if room:is_temporary() then
+								room:log("unregistered")
+								server:rconlog({
+									event = "room_unregister",
+									room_name = room:name(),
+								})
 								client:send_server("\an* Room successfully unregistered")
 								room:set_temp_owner_(client)
 							else
