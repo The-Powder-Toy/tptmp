@@ -98,7 +98,9 @@ local function new(params)
 	}, command_parser_m)
 	local collect = {}
 	for name, info in pairs(params.commands) do
-		table.insert(collect, "/" .. name)
+		if not info.hidden then
+			table.insert(collect, "/" .. name)
+		end
 		name = name:lower()
 		if info.role == "help" then
 			cmd.help_name_ = name

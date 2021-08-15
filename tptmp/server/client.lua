@@ -590,6 +590,7 @@ function client_i:proto_()
 	local real_error
 	xpcall(function()
 		if config.secure then
+			-- * TODO[req]: somehow check if the client wants non-TLS and drop them early if they do
 			local ok, err = pcall(function()
 				-- * :starttls may itself throw errors, hence the pcall+assert trickery.
 				assert(self.socket_:starttls(self.server_:tls_context()))
@@ -607,6 +608,8 @@ function client_i:proto_()
 					got = hostname,
 				})
 			end
+		else
+			-- * TODO[req]: somehow check if the client wants TLS and drop them early if they do
 		end
 		util.cqueues_wrap(cqueues.running(), function()
 			self:manage_socket_()

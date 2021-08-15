@@ -150,6 +150,7 @@ return {
 			end,
 			help = "/register, no arguments: registers and claims ownership of the room",
 		},
+		-- * TODO[req]: unregister
 		owner = {
 			func = function(client, message, words, offsets)
 				if not words[3] then
@@ -198,6 +199,7 @@ return {
 								server:rconlog({
 									event = "room_register",
 									room_name = room:name(),
+									client_name = client:name(),
 								})
 							end
 							room:log("$ shared room ownership with $", client:nick(), other_nick)
@@ -245,6 +247,7 @@ return {
 								server:rconlog({
 									event = "room_unregister",
 									room_name = room:name(),
+									client_name = client:name(),
 								})
 								client:send_server("\an* Room successfully unregistered")
 								room:set_temp_owner_(client)
@@ -289,8 +292,7 @@ return {
 					local rooms = {}
 					local reserve = {
 						null = {
-							-- motd = "Welcome to TPTMPv2!",
-							motd = "Welcome to TPTMPv2! This test server is run by LBPHacker, report bugs and suggestions to him. If you got v2 from the script manager and want to go back to v1, disable v2 in the script manager.", -- * TODO[fin]: remove
+							motd = "Welcome to TPTMPv2!",
 						},
 						guest = {
 							motd = "Welcome to TPTMPv2! You have landed in the guest lobby as you do not seem to be logged in.",

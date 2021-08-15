@@ -121,7 +121,7 @@ local cmdp = command_parser.new({
 			func = function(localcmd, message, words, offsets)
 				local cli = localcmd.client_func_()
 				if not words[2] then
-					localcmd:print_help_("connectroom")
+					return false
 				elseif cli then
 					localcmd.window_:backlog_push_error("Already connected")
 				else
@@ -148,6 +148,9 @@ local cmdp = command_parser.new({
 				return true
 			end,
 			help = "/connectroom <room> [host[:port]]: same as /connect, but skips the lobby and joins the specified room",
+		},
+		CR = {
+			alias = "connectroom",
 		},
 		disconnect = {
 			func = function(localcmd, message, words, offsets)

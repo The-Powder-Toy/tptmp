@@ -63,6 +63,9 @@ end
 function server_private_i:room_insert_invite_(room_name, uid)
 	local dconf = self:dconf()
 	local room_info = dconf:root().rooms[room_name]
+	if not room_info then
+		return nil, "einval", "no such room"
+	end
 	local idx = room_info.invites and util.array_find(room_info.invites, uid)
 	if idx then
 		return nil, "eexist", "already invited"
@@ -84,6 +87,9 @@ end
 function server_private_i:room_remove_invite_(room_name, uid)
 	local dconf = self:dconf()
 	local room_info = dconf:root().rooms[room_name]
+	if not room_info then
+		return nil, "einval", "no such room"
+	end
 	local idx = room_info.invites and util.array_find(room_info.invites, uid)
 	if not idx then
 		return nil, "enoent", "not currently invited"

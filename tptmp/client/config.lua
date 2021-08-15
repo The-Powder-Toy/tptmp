@@ -52,8 +52,8 @@ local config = {
 	-- ***********************************************************************
 
 	-- * Specifies whether connections made without specifying the port number
-	--   should be encrypted.
-	default_secure = false, -- * TODO[fin]: Enable.
+	--   should be encrypted. Default should match the common setting.
+	default_secure = common_config.secure,
 
 	-- * Size of the buffer passed to the recv system call. Bigger values
 	--   consume more memory, smaller ones incur larger system call overhead.

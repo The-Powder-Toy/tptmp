@@ -29,6 +29,7 @@ return {
 						event = "msg",
 						client_name = client:name(),
 						other_client_name = other:name(),
+						message = message,
 					})
 				end
 				return true

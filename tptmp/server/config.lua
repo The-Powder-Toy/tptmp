@@ -1,4 +1,5 @@
 local common_config = require("tptmp.common.config")
+local secret_config = pcall(require, "tptmp.server.secret_config")
 
 return {
 	-- ***********************************************************************
@@ -18,7 +19,7 @@ return {
 	rcon_host = "localhost",
 
 	-- * Local port to listen on for remote console connections.
-	rcon_port = 34405,
+	rcon_port = 34406,
 
 	-- * Authenticate clients via the backend specified by auth_backend_* (see
 	--   below). secure = true isn't necessary for this, although secure = false
@@ -44,27 +45,29 @@ return {
 	guests_allowed = true,
 
 	-- * Encrypt traffic between player clients and the server. Requires some
-	--   experience with TLS.
-	secure = false, -- TODO[fin]: Enable.
+	--   experience with TLS. Should match the common setting, but it is fine
+	--   to change for a custom server.
+	secure = common_config.secure, 
 
 	-- * Hostname to check the SNI field in the TLS handshake against. Only
 	--   relevant if secure = true. Makes it possible to detect and drop stray,
 	--   non-TPTMP connections earlier than via the protocol handshake, which
-	--   would otherwise have to time out in the worst case.
-	secure_hostname = "tptmp.trigraph.net", -- * TODO[fin]: Replace with tptmp.starcatcher.us
+	--   would otherwise have to time out in the worst case. Should match the
+	--   common host setting, but it is fine to change for a custom server.
+	secure_hostname = common_config.host,
 
 	-- * Path to the public server certificate. Only relevant if secure = true.
 	--   This file should not include the intermediary certificates, i.e. the
 	--   chain of trust.
-	secure_cert_path = "cert.pem",
+	secure_cert_path = secret_config and secret_config.secure_cert_path or "cert.pem",
 
 	-- * Path to the chain of trust behind the server certificate. Only relevant
 	--   if secure = true. This file should not include the server certificate.
-	secure_chain_path = "chain.pem",
+	secure_chain_path = secret_config and secret_config.secure_chain_path or "chain.pem",
 	
 	-- * Path to the server private key. Only relevant if secure = true. Common
 	--   sense regarding the handling of this file applies.
-	secure_pkey_path = "pkey.pem",
+	secure_pkey_path = secret_config and secret_config.secure_pkey_path or "pkey.pem",
 
 	-- * Path to main dynamic configuration store.
 	dynamic_config_main = "config.json",

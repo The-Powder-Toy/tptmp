@@ -462,10 +462,12 @@ local function new(params)
 		shelp = {
 			role = "help",
 			help = "/shelp <command>: displays server command usage and notes (try /shelp slist)",
+			hidden = true,
 		},
 		slist = {
 			role = "list",
 			help = "/slist, no arguments: lists available server commands",
+			hidden = true,
 		},
 		lobby = {
 			macro = function(client, message, words, offsets)

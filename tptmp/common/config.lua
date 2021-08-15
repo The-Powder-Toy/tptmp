@@ -6,7 +6,7 @@ return {
 	-- ***********************************************************************
 
 	-- * Protocol version, between 0 and 254. 255 is reserved for future use.
-	version = 20, -- * TODO[fin]: Give this a bump.
+	version = 21,
 
 	-- * Client-to-server message size limit, between 0 and 255, the latter
 	--   limit being imposted by the protocol.
@@ -30,8 +30,11 @@ return {
 	uid_backend_timeout = 3,
 
 	-- * Host to connect to by default.
-	host = "tptmp.trigraph.net", -- * TODO[fin]: Replace with tptmp.starcatcher.us
+	host = "tptmp.starcatcher.us",
 
 	-- * Port to connect to by default.
-	port = 34403,
+	port = 34404,
+
+	-- * Encrypt traffic between player clients and the server.
+	secure = true,
 }
