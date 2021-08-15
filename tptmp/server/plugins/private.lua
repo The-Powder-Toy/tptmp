@@ -56,6 +56,19 @@ function server_private_i:room_invite_count(room_name)
 	return room_info and room_info.invites and #room_info.invites or 0
 end
 
+function server_private_i:room_list_invites(room_name)
+	local room_info = self:dconf():root().rooms[room_name]
+	if room_info then
+		local uids = {}
+		if room_info.invites then
+			for i = 1, #room_info.invites do
+				table.insert(uids, room_info.invites[i])
+			end
+		end
+		return uids
+	end
+end
+
 function room_private_i:invite_count()
 	return self:server():room_invite_count(self:name())
 end
@@ -379,7 +392,7 @@ return {
 	checks = {
 		can_join_room = {
 			func = function(room, client)
-				if room:is_private() and not room:client_invited(client) then
+				if room:is_private() and not (room:client_invited(client) or room:owned_by_client(client)) then
 					return false, "private room, ask for an invite", {
 						reason = "private",
 					}
@@ -435,6 +448,17 @@ return {
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
+				elseif data.action == "list" then
+					local uids = server:room_list_invites(data.room_name)
+					if not uids then
+						return { status = "enoent", human = "no such room" }
+					end
+					local invites = {}
+					for i = 1, #uids do
+						local _, nick = server:offline_user_by_uid(uids[i])
+						table.insert(invites, nick)
+					end
+					return { status = "ok", invites = invites }
 				elseif data.action == "check" then
 					return { status = "ok", private = server:is_private(data.room_name) or false }
 				end

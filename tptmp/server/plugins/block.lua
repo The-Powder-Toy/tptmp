@@ -1,7 +1,7 @@
 local util   = require("tptmp.server.util")
 local config = require("tptmp.server.config")
 
--- * TODO[req]: make it possible to block all guests at once
+local GUEST_WILDCARD = "guest#*"
 
 local server_block_i = {}
 
@@ -54,13 +54,21 @@ return {
 				end
 				local server = client:server()
 				local blockf, checkf, unblockf, other_nick
-				if client:guest() then
-					local other = server:client_by_nick(words[3])
-					if not other then
-						client:send_server(("\ae* \au%s\ae is not online"):format(words[3]))
-						return true
+				local function format_other_nick()
+					return other_nick == GUEST_WILDCARD and "Guests are" or ("\au%s\an is"):format(other_nick)
+				end
+				local other = server:client_by_nick(words[3])
+				if client:guest() or (other and other:guest()) then
+					if words[3]:lower() == GUEST_WILDCARD then
+						other = GUEST_WILDCARD
+						other_nick = GUEST_WILDCARD
+					else
+						if not other then
+							client:send_server(("\ae* \au%s\ae is not online"):format(words[3]))
+							return true
+						end
+						other_nick = other:nick()
 					end
-					other_nick = other:nick()
 					function blockf()
 						client.blocks_clients_[other] = true
 					end
@@ -72,7 +80,12 @@ return {
 					end
 				else
 					local other_uid
-					other_uid, other_nick = server:offline_user_by_nick(words[3])
+					if words[3]:lower() == GUEST_WILDCARD then
+						other_uid = GUEST_WILDCARD
+						other_nick = GUEST_WILDCARD
+					else
+						other_uid, other_nick = server:offline_user_by_nick(words[3])
+					end
 					if not other_uid then
 						client:send_server(("\ae* No user named \au%s"):format(words[3]))
 						return true
@@ -90,7 +103,7 @@ return {
 				if words[2] == "insert" then
 					if not checkf() then
 						blockf()
-						client:send_server(("\an* \au%s\an is now blocked"):format(other_nick))
+						client:send_server(("\an* %s now blocked"):format(format_other_nick()))
 						server.log_inf_("$ blocked $", client:nick(), other_nick)
 						server:rconlog({
 							event = "block_insert",
@@ -98,20 +111,20 @@ return {
 							other_nick = other_nick,
 						})
 					else
-						client:send_server(("\ae* \au%s\ae is already blocked"):format(other_nick))
+						client:send_server(("\ae* %s already blocked"):format(format_other_nick()))
 					end
 					return true
 				elseif words[2] == "check" then
 					if checkf() then
-						client:send_server(("\an* \au%s\an is currently blocked"):format(other_nick))
+						client:send_server(("\an* %s currently blocked"):format(format_other_nick()))
 					else
-						client:send_server(("\an* \au%s\an is not currently blocked"):format(other_nick))
+						client:send_server(("\an* %s not currently blocked"):format(format_other_nick()))
 					end
 					return true
 				elseif words[2] == "remove" then
 					if checkf() then
 						unblockf()
-						client:send_server(("\an* \au%s\an is no longer blocked"):format(other_nick))
+						client:send_server(("\an* %s no longer blocked"):format(format_other_nick()))
 						server.log_inf_("$ unblocked $", client:nick(), other_nick)
 						server:rconlog({
 							event = "block_remove",
@@ -119,13 +132,13 @@ return {
 							other_nick = other_nick,
 						})
 					else
-						client:send_server(("\ae* \au%s\ae is not currently blocked"):format(other_nick))
+						client:send_server(("\ae* %s not currently blocked"):format(format_other_nick()))
 					end
 					return true
 				end
 				return false
 			end,
-			help = "/block insert\\check\\remove [user]: blocks a user, preventing them from messaging you or interacting with you otherwise, checks whether a user is blocked, or unblocks a user",
+			help = "/block insert\\check\\remove [user]: blocks a user, preventing them from messaging you or interacting with you otherwise, checks whether a user is blocked, or unblocks a user; Guest#* matches all guests",
 		},
 	},
 	hooks = {
@@ -159,20 +172,22 @@ return {
 	checks = {
 		can_interact_with = {
 			func = function(src, dest)
-				if type(dest) ~= "number" then
-					if dest.blocks_clients_[src] then
-						return false, "temporarily blocked"
-					end
-					if dest:guest() then
-						return true
-					end
-					dest = dest:uid()
+				if dest.blocks_clients_[src] then
+					return false, "client temporarily blocked"
 				end
-				if src:guest() then
-					return true
+				if dest.blocks_clients_[GUEST_WILDCARD] and src:guest() then
+					return false, "guests temporarily blocked"
 				end
-				if src:server():uid_blocks_(dest, src:uid()) then
-					return false, "permanently blocked"
+				if not dest:guest() then
+					if src:guest() then
+						if src:server():uid_blocks_(dest:uid(), GUEST_WILDCARD) then
+							return false, "guests permanently blocked"
+						end
+					else
+						if src:server():uid_blocks_(dest:uid(), src:uid()) then
+							return false, "user permanently blocked"
+						end
+					end
 				end
 				return true
 			end,
@@ -188,7 +203,7 @@ return {
 				if type(data.dest) ~= "string" then
 					return { status = "badtarget", human = "invalid dest nick" }
 				end
-				local src = server:offline_user_by_nick(data.src)
+				local src = data.src:lower() == GUEST_WILDCARD and GUEST_WILDCARD or server:offline_user_by_nick(data.src)
 				if not src then
 					return { status = "nousersource", human = "no such src user" }
 				end

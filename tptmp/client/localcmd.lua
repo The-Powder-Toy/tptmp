@@ -102,7 +102,7 @@ local cmdp = command_parser.new({
 			macro = function(localcmd, message, words, offsets)
 				return { "connectroom", "", unpack(words, 2) }
 			end,
-			help = "/connect [host[:port]]: connects the default TPTMP server or the specified one",
+			help = "/connect [host[:[+]port]]: connects the default TPTMP server or the specified one, add + to connect securely",
 		},
 		C = {
 			alias = "connect",
@@ -147,7 +147,7 @@ local cmdp = command_parser.new({
 				end
 				return true
 			end,
-			help = "/connectroom <room> [host[:port]]: same as /connect, but skips the lobby and joins the specified room",
+			help = "/connectroom <room> [host[:[+]port]]: same as /connect, but skips the lobby and joins the specified room",
 		},
 		CR = {
 			alias = "connectroom",

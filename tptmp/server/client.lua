@@ -494,7 +494,7 @@ end
 local packet_handlers = {}
 
 function client_i:close_socket_()
-	self.socket_:flush("n", config.sendq_flush_timeout)
+	self.socket_:flush("n", self.stopping_since_ + config.sendq_flush_timeout - cqueues.monotime())
 	self.socket_:shutdown()
 	self.socket_:close()
 end
@@ -502,7 +502,7 @@ end
 function client_i:manage_socket_()
 	local read_pollable = { pollfd = self.socket_:pollfd(), events = "r" }
 	local write_pollable = { pollfd = self.socket_:pollfd(), events = "w" }
-	while self.status_ == "running" do
+	while self.status_ == "running" or (self.tx_:next() and self.stopping_since_ + config.sendq_flush_timeout > cqueues.monotime()) do
 		if self.tx_:next() then
 			util.cqueues_poll(read_pollable, self.write_wake_, write_pollable, self.wake_)
 		else
@@ -589,16 +589,27 @@ function client_i:proto_()
 	end)
 	local real_error
 	xpcall(function()
+		-- * Defer handling starttls problems until after manage_socket_ starts,
+		--   because that's when we can conveniently exit with proto_error_.
+		local starttls_ok, starttls_err
 		if config.secure then
-			-- * TODO[req]: somehow check if the client wants non-TLS and drop them early if they do
-			local ok, err = pcall(function()
+			local tls_context = self.server_:tls_context()
+			starttls_ok, starttls_err = pcall(function()
 				-- * :starttls may itself throw errors, hence the pcall+assert trickery.
-				assert(self.socket_:starttls(self.server_:tls_context()))
+				assert(self.socket_:starttls(tls_context))
 			end)
-			if not ok then
-				self:proto_error_(("starttls failed: %s"):format(err), {
+		end
+		util.cqueues_wrap(cqueues.running(), function()
+			self:manage_socket_()
+		end)
+		util.cqueues_wrap(cqueues.running(), function()
+			self:expect_ping_()
+		end)
+		if config.secure then
+			if not starttls_ok then
+				self:proto_error_(("starttls failed: %s"):format(starttls_err), {
 					kind = "starttls_failed",
-					err = err,
+					err = starttls_err,
 				})
 			end
 			local hostname = self.socket_:checktls():getHostName()
@@ -608,15 +619,7 @@ function client_i:proto_()
 					got = hostname,
 				})
 			end
-		else
-			-- * TODO[req]: somehow check if the client wants TLS and drop them early if they do
 		end
-		util.cqueues_wrap(cqueues.running(), function()
-			self:manage_socket_()
-		end)
-		util.cqueues_wrap(cqueues.running(), function()
-			self:expect_ping_()
-		end)
 		self:handshake_()
 		while true do
 			local packet_id = self:read_bytes_(1)
@@ -740,6 +743,7 @@ function client_i:stop_(rconinfo)
 		assert(self.status_ == "running", "not running")
 		self.stop_rconinfo_ = rconinfo
 		self.status_ = "stopping"
+		self.stopping_since_ = cqueues.monotime()
 		self.wake_:signal()
 	end
 end

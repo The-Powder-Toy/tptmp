@@ -1,5 +1,13 @@
 local common_config = require("tptmp.common.config")
-local secret_config = pcall(require, "tptmp.server.secret_config")
+local have_secret_config, secret_config = pcall(require, "tptmp.server.secret_config")
+secret_config = have_secret_config and secret_config
+
+local function prefer_secret_config(key, default)
+	if secret_config and secret_config[key] ~= nil then
+		return secret_config[key]
+	end
+	return default
+end
 
 return {
 	-- ***********************************************************************
@@ -9,17 +17,20 @@ return {
 
 	-- * Local interface to listen on for player connections. Use "0.0.0.0" for
 	--   "all interfaces", "localhost" for localhost, etc.
-	host = "0.0.0.0",
+	host = prefer_secret_config("host", "0.0.0.0"),
+
+	-- * Port to listen on for player connections.
+	port = prefer_secret_config("port", common_config.port),
 
 	-- * Local interface to listen on for remote console connection, similar to
 	--   host. The server does not authenticate remote control clients, so make
 	--   sure to not let connections to this port through your firewall. If you
 	--   want to connect from another host, use a TLS termination proxy with
 	--   peer authentication, and have the proxy connect to this port.
-	rcon_host = "localhost",
+	rcon_host = prefer_secret_config("rcon_host", "localhost"),
 
 	-- * Local port to listen on for remote console connections.
-	rcon_port = 34406,
+	rcon_port = prefer_secret_config("rcon_port", 34406),
 
 	-- * Authenticate clients via the backend specified by auth_backend_* (see
 	--   below). secure = true isn't necessary for this, although secure = false
@@ -32,48 +43,48 @@ return {
 	--   auth = true. Specifies the maximum amount of time in seconds between
 	--   someone being banned from the authentication backend and being unable
 	--   to authenticate with this server.
-	token_max_age = 300, -- * Only relevant if auth = true.
+	token_max_age = prefer_secret_config("token_max_age", 300), -- * Only relevant if auth = true.
 
 	-- * Username to UID cache entry max age in seconds. Only relevant if
 	--   auth = true. Specifies the maximum amount of time in seconds between
 	--   someone changing usernames on the authentication backend and the first
 	--   time authenticating with this server reflects that change.
-	offline_user_cache_max_age = 300,
+	offline_user_cache_max_age = prefer_secret_config("offline_user_cache_max_age", 300),
 
 	-- * Specifies whether guests are allowed on the server. Only relevant if
 	--   auth = true.
-	guests_allowed = true,
+	guests_allowed = prefer_secret_config("guests_allowed", true),
 
 	-- * Encrypt traffic between player clients and the server. Requires some
 	--   experience with TLS. Should match the common setting, but it is fine
 	--   to change for a custom server.
-	secure = common_config.secure, 
+	secure = prefer_secret_config("secure", common_config.secure),
 
 	-- * Hostname to check the SNI field in the TLS handshake against. Only
 	--   relevant if secure = true. Makes it possible to detect and drop stray,
 	--   non-TPTMP connections earlier than via the protocol handshake, which
 	--   would otherwise have to time out in the worst case. Should match the
 	--   common host setting, but it is fine to change for a custom server.
-	secure_hostname = common_config.host,
+	secure_hostname = prefer_secret_config("secure_hostname", common_config.host),
 
 	-- * Path to the public server certificate. Only relevant if secure = true.
 	--   This file should not include the intermediary certificates, i.e. the
 	--   chain of trust.
-	secure_cert_path = secret_config and secret_config.secure_cert_path or "cert.pem",
+	secure_cert_path = prefer_secret_config("secure_cert_path", "cert.pem"),
 
 	-- * Path to the chain of trust behind the server certificate. Only relevant
 	--   if secure = true. This file should not include the server certificate.
-	secure_chain_path = secret_config and secret_config.secure_chain_path or "chain.pem",
+	secure_chain_path = prefer_secret_config("secure_chain_path", "chain.pem"),
 	
 	-- * Path to the server private key. Only relevant if secure = true. Common
 	--   sense regarding the handling of this file applies.
-	secure_pkey_path = secret_config and secret_config.secure_pkey_path or "pkey.pem",
+	secure_pkey_path = prefer_secret_config("secure_pkey_path", "pkey.pem"),
 
 	-- * Path to main dynamic configuration store.
-	dynamic_config_main = "config.json",
+	dynamic_config_main = prefer_secret_config("dynamic_config_main", "config.json"),
 
 	-- * Path to backup dynamic configuration store.
-	dynamic_config_xchg = "config.json~",
+	dynamic_config_xchg = prefer_secret_config("dynamic_config_xchg", "config.json~"),
 
 
 	-- ***********************************************************************
@@ -144,9 +155,6 @@ return {
 	-- *** will most likely have to ship your own version of the client    ***
 	-- *** if you intend to change these.                                  ***
 	-- ***********************************************************************
-
-	-- * Port to listen on for player connections.
-	port = common_config.port,
 
 	-- * Protocol version.
 	version = common_config.version,

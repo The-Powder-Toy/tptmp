@@ -1,6 +1,8 @@
 local config = require("tptmp.server.config")
 local util   = require("tptmp.server.util")
 
+local OWNER_WILDCARD = "*"
+
 local server_owner_i = {}
 local room_owner_i = {}
 
@@ -22,6 +24,18 @@ function server_owner_i:room_owned_by_uid(room_name, uid)
 	return room_info and util.array_find(room_info.owners, uid)
 end
 
+-- * Doesn't include the temporary owner.
+function server_owner_i:room_list_owners(room_name)
+	local room_info = self:dconf():root().rooms[room_name]
+	if room_info then
+		local uids = {}
+		for i = 1, #room_info.owners do
+			table.insert(uids, room_info.owners[i])
+		end
+		return uids
+	end
+end
+
 function room_owner_i:owned_by_uid_(src)
 	return self:server():room_owned_by_uid(self:name(), src)
 end
@@ -41,9 +55,6 @@ function room_owner_i:owner_count_()
 end
 
 function room_owner_i:set_temp_owner_(client)
-	if self.temp_owner_ then
-		self.temp_owner_:send_server("\al* You are no longer the owner of this temporary room")
-	end
 	self.temp_owner_ = client
 	self:server():rconlog({
 		event = "room_temp_owner_change",
@@ -150,7 +161,12 @@ return {
 			end,
 			help = "/register, no arguments: registers and claims ownership of the room",
 		},
-		-- * TODO[req]: unregister
+		unregister = {
+			macro = function(client, message, words, offsets)
+				return { "owner", "remove", "*" }
+			end,
+			help = "/unregister, no arguments: unregisters the room by stripping all owners of ownership",
+		},
 		owner = {
 			func = function(client, message, words, offsets)
 				if not words[3] then
@@ -158,12 +174,17 @@ return {
 				end
 				local room = client:room()
 				local server = client:server()
-				local other_uid, other_nick = server:offline_user_by_nick(words[3])
-				local other = server:client_by_nick(words[3])
+				local other_uid, other_nick, other
+				if words[3]:lower() == OWNER_WILDCARD then
+					other_uid = OWNER_WILDCARD
+				else
+					other_uid, other_nick = server:offline_user_by_nick(words[3])
+					other = server:client_by_nick(words[3])
+				end
 				if words[2] == "check" then
 					local owns = false
 					local exists = false
-					if other_uid then
+					if other_uid and other_uid ~= OWNER_WILDCARD then
 						exists = true
 						owns = room:owned_by_uid_(other_uid)
 					elseif other then
@@ -184,7 +205,7 @@ return {
 					return true
 				end
 				if words[2] == "insert" then
-					if not other_uid then
+					if not (other_uid and other_uid ~= OWNER_WILDCARD) then
 						client:send_server(("\ae* No user named \au%s"):format(words[3]))
 					elseif other ~= client and room:is_temporary() then
 						client:send_server("\ae* This is a temporary room, use /register to make it permanent")
@@ -233,15 +254,35 @@ return {
 					elseif room:is_temporary() then
 						client:send_server("\ae* This is a temporary room, use /register to make it permanent")
 					else
-						local ok, err = room:remove_owner_(other_uid)
+						local uids = { other_uid }
+						local others = {}
+						if other_uid == OWNER_WILDCARD then
+							uids = server:room_list_owners(room:name())
+						end
+						local ok, err
+						for i = 1, #uids do
+							ok, err = room:remove_owner_(uids[i])
+							if ok then
+								local _, nick = server:offline_user_by_uid(uids[i])
+								local to_notify = server:client_by_nick(nick)
+								if to_notify then
+									table.insert(others, to_notify)
+								end
+								room:log("$ stripped $ of room ownership", client:nick(), nick)
+								server:rconlog({
+									event = "room_owner_remove",
+									client_name = client:name(),
+									room_name = room:name(),
+									other_nick = nick,
+								})
+							else
+								if err == "enoent" then
+									client:send_server(("\ae* \au%s\ae does not currently own this room"):format(other_nick))
+								end
+								break
+							end
+						end
 						if ok then
-							room:log("$ stripped $ of room ownership", client:nick(), other_nick)
-							server:rconlog({
-								event = "room_owner_remove",
-								client_name = client:name(),
-								room_name = room:name(),
-								other_nick = other_nick,
-							})
 							if room:is_temporary() then
 								room:log("unregistered")
 								server:rconlog({
@@ -253,12 +294,12 @@ return {
 								room:set_temp_owner_(client)
 							else
 								client:send_server("\an* Room ownership successfully stripped")
-								if other and other:room() == room then
-									other:send_server("\al* You no longer have shared ownership of this room")
+							end
+							for i = 1, #others do
+								if others[i] ~= client and others[i]:room() == room then
+									others[i]:send_server("\al* You no longer have shared ownership of this room")
 								end
 							end
-						elseif err == "enoent" then
-							client:send_server(("\ae* \au%s\ae does not currently own this room"):format(other_nick))
 						end
 					end
 					return true
@@ -269,12 +310,13 @@ return {
 						client:send_server(("\ae* \au%s\ae is not present in this room"):format(other_nick))
 					else
 						room:set_temp_owner_(other)
+						client:send_server("\an* Temporary ownership successfully transferred")
 					end
 					return true
 				end
 				return false
 			end,
-			help = "/owner insert\\check\\remove\\temp <user>: shares ownership of the room with a user, checks if a user is an owner, strips a user of their ownership, or transfers temporary ownership",
+			help = "/owner insert\\check\\remove\\temp <user>: shares ownership of the room with a user, checks if a user is an owner, strips a user of their ownership, or transfers temporary ownership; * matches all owners",
 		},
 	},
 	hooks = {
@@ -395,6 +437,17 @@ return {
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
+				elseif data.action == "list" then
+					local uids = server:room_list_owners(data.room_name)
+					if not uids then
+						return { status = "enoent", human = "no such room" }
+					end
+					local owners = {}
+					for i = 1, #uids do
+						local _, nick = server:offline_user_by_uid(uids[i])
+						table.insert(owners, nick)
+					end
+					return { status = "ok", owners = owners }
 				elseif data.action == "check" then
 					return { status = "ok", owns = server:room_owned_by_uid(data.room_name, uid) or false }
 				end
