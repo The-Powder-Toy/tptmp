@@ -202,6 +202,10 @@ return {
 	--   this limit.
 	sendq_limit = 0x2000000,
 
+	-- * Maximum amount of time in seconds after which the connection attempt
+	--   should be deemed a failure, unless at least a byte is received.
+	first_byte_timeout = 3,
+
 	-- * Send queue flush timeout. Specifies the maximum amount of time in
 	--   seconds the server waits for the send queue of a client that is being
 	--   dropped to flush. The server makes an effort to send everything from

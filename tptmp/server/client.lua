@@ -11,6 +11,8 @@ local PROTO_STOP = {}
 local PROTO_ERROR = {}
 local PROTO_CLOSE = {}
 
+local TLS_CLIENT_HELLO = 0x16
+
 local client_i = {}
 local client_m = { __index = client_i }
 
@@ -503,10 +505,12 @@ function client_i:manage_socket_()
 	local read_pollable = { pollfd = self.socket_:pollfd(), events = "r" }
 	local write_pollable = { pollfd = self.socket_:pollfd(), events = "w" }
 	while self.status_ == "running" or (self.tx_:next() and self.stopping_since_ + config.sendq_flush_timeout > cqueues.monotime()) do
-		if self.tx_:next() then
-			util.cqueues_poll(read_pollable, self.write_wake_, write_pollable, self.wake_)
-		else
-			util.cqueues_poll(read_pollable, self.write_wake_, self.wake_)
+		if self.socket_:pending() == 0 then
+			if self.tx_:next() then
+				util.cqueues_poll(read_pollable, self.write_wake_, write_pollable, self.wake_)
+			else
+				util.cqueues_poll(read_pollable, self.write_wake_, self.wake_)
+			end
 		end
 		while true do
 			local closed = false
@@ -589,15 +593,24 @@ function client_i:proto_()
 	end)
 	local real_error
 	xpcall(function()
+		local first_byte = self.socket_:xread(-1, "bn", config.first_byte_timeout)
+		local first_byte_ok = type(first_byte) == "string" and #first_byte == 1
+		local secure_level_matches
+		if first_byte_ok then
+			self.socket_:unget(first_byte)
+			secure_level_matches = (first_byte:byte() == TLS_CLIENT_HELLO) == config.secure
+		end
 		-- * Defer handling starttls problems until after manage_socket_ starts,
 		--   because that's when we can conveniently exit with proto_error_.
 		local starttls_ok, starttls_err
-		if config.secure then
-			local tls_context = self.server_:tls_context()
-			starttls_ok, starttls_err = pcall(function()
-				-- * :starttls may itself throw errors, hence the pcall+assert trickery.
-				assert(self.socket_:starttls(tls_context))
-			end)
+		if first_byte_ok then
+			if config.secure and secure_level_matches then
+				local tls_context = self.server_:tls_context()
+				starttls_ok, starttls_err = pcall(function()
+					-- * :starttls may itself throw errors, hence the pcall+assert trickery.
+					assert(self.socket_:starttls(tls_context))
+				end)
+			end
 		end
 		util.cqueues_wrap(cqueues.running(), function()
 			self:manage_socket_()
@@ -605,18 +618,29 @@ function client_i:proto_()
 		util.cqueues_wrap(cqueues.running(), function()
 			self:expect_ping_()
 		end)
+		if not first_byte_ok then
+			self:proto_error_("no client handshake", {
+				kind = "first_byte_timeout",
+			})
+		end
 		if config.secure then
-			if not starttls_ok then
-				self:proto_error_(("starttls failed: %s"):format(starttls_err), {
-					kind = "starttls_failed",
-					err = starttls_err,
-				})
-			end
-			local hostname = self.socket_:checktls():getHostName()
-			if hostname ~= config.secure_hostname then
-				self:proto_error_(("incorrect hostname: (%s ~= %s)"):format(hostname, config.secure_hostname), {
-					kind = "incorrect_hostname",
-					got = hostname,
+			if secure_level_matches then
+				if not starttls_ok then
+					self:proto_error_(("starttls failed: %s"):format(starttls_err), {
+						kind = "starttls_failed",
+						err = starttls_err,
+					})
+				end
+				local hostname = self.socket_:checktls():getHostName()
+				if hostname ~= config.secure_hostname then
+					self:proto_error_(("incorrect hostname: (%s ~= %s)"):format(hostname, config.secure_hostname), {
+						kind = "incorrect_hostname",
+						got = hostname,
+					})
+				end
+			else
+				self:proto_close_("this TPTMP v2 server only supports secure connections; try updating TPTMP or prepending + to the port number", nil, {
+					reason = "secure_level_mismatch",
 				})
 			end
 		end

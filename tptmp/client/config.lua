@@ -72,7 +72,7 @@ local config = {
 	sendq_limit = 0x2000000,
 
 	-- * Maximum amount of time in seconds after which the connection attempt
-	--   attempt should be deemed a failure, unless it succeeds.
+	--   should be deemed a failure, unless it succeeds.
 	connect_timeout = 15,
 
 	-- * Amount of time in seconds between pings being sent to the server.

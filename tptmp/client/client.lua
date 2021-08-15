@@ -682,6 +682,7 @@ function client_i:handle_sync_request_128_()
 end
 
 function client_i:connect_()
+	self.server_probably_secure_ = nil
 	self.window_:set_subtitle("status", "Connecting")
 	self.socket_ = socket.tcp()
 	self.socket_:settimeout(0)
@@ -693,6 +694,10 @@ function client_i:connect_()
 		elseif err == "timeout" then
 			coroutine.yield()
 		else
+			local errl = err:lower()
+			if errl:find("schannel") or errl:find("ssl") then
+				self.server_probably_secure_ = true
+			end
 			self:proto_close_(err)
 		end
 	end
@@ -1272,6 +1277,9 @@ function client_i:stop(message)
 		disconnected = disconnected .. ": " .. message
 	end
 	self.window_:backlog_push_error(disconnected)
+	if self.server_probably_secure_ then
+		self.window_:backlog_push_error(("The server probably does not support secure connections, try /connect %s:%i"):format(self.host_, self.port_))
+	end
 end
 
 function client_i:write_(data)
