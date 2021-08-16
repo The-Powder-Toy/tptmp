@@ -463,6 +463,17 @@ function profile_i:user_sync()
 end
 
 function profile_i:post_event_check_()
+	if self.placesave_postmsg_ then
+		local partcount = self.placesave_postmsg_.partcount
+		if partcount and partcount ~= sim.NUM_PARTS and self.registered_func_() then
+			-- * TODO[api]: get rid of all of this nonsense once redo-ui lands
+			if self.client then
+				self.client:send_sync()
+			end
+			-- log_event(config.print_prefix .. "If you just pasted something, you will have to use /sync")
+		end
+		self.placesave_postmsg_ = nil
+	end
 	if self.placesave_size_ then
 		local x1, y1, x2, y2 = self:end_placesave_size_()
 		if x1 then
@@ -847,14 +858,13 @@ function profile_i:end_placesave_size_()
 			pop(bx, y)
 		end
 	end
-	local partcount = self.placesave_size_.partcount -- * TODO[opt]: figure out what I wanted to do with partcount
 	if self.placesave_size_.airmode then
 		sim.airMode(self.placesave_size_.airmode)
 	end
 	self.placesave_size_ = nil
 	if lx == math.huge then
 		self.placesave_postmsg_ = {
-			message = "If you just pasted something, you will have to use /sync",
+			partcount = sim.NUM_PARTS,
 		}
 	else
 		return math.max((lx - 2) * 4, 0),
@@ -935,9 +945,6 @@ end
 
 function profile_i:handle_mousedown(px, py, button)
 	self:post_event_check_()
-	if self.placesave_postmsg_ then
-		self.placesave_postmsg_.partcount = sim.NUM_PARTS
-	end
 	self:update_pos_(px, py)
 	self.last_in_zoom_window_ = in_zoom_window(px, py)
 	-- * Here the assumption is made that no Lua hook cancels the mousedown event.
@@ -1008,9 +1015,6 @@ end
 
 function profile_i:handle_mousemove(px, py, delta_x, delta_y)
 	self:post_event_check_()
-	if self.placesave_postmsg_ then
-		self.placesave_postmsg_.partcount = sim.NUM_PARTS
-	end
 	self:update_pos_(px, py)
 	for _, btn in pairs(self.buttons_) do
 		if not util.inside_rect(btn.x, btn.y, btn.w, btn.h, tpt.mousex, tpt.mousey) then
@@ -1046,13 +1050,6 @@ function profile_i:handle_mousemove(px, py, delta_x, delta_y)
 end
 
 function profile_i:handle_mouseup(px, py, button, reason)
-	if self.placesave_postmsg_ then
-		local partcount = self.placesave_postmsg_.partcount
-		if partcount and partcount ~= sim.NUM_PARTS and self.registered_func_() then
-			log_event(config.print_prefix .. self.placesave_postmsg_.message)
-		end
-		self.placesave_postmsg_ = nil
-	end
 	self:post_event_check_()
 	self:update_pos_(px, py)
 	for name, btn in pairs(self.buttons_) do
