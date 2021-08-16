@@ -116,7 +116,7 @@ function window_i:backlog_push_server(str)
 	local formatted = str
 		:gsub("\au([A-Za-z0-9-_]+)", function(cap) return format.nick(cap, self.nick_colour_seed_) end)
 		:gsub("\ar([A-Za-z0-9-_]+)", function(cap) return format.room(cap)                         end)
-		:gsub("\a([nejl])"          , function(cap) return server_colours[cap]                      end)
+		:gsub("\a([nejl])"         , function(cap) return server_colours[cap]                      end)
 	self:backlog_push_str(formatted, true)
 end
 

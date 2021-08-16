@@ -421,6 +421,19 @@ return {
 				if type(data.room_name) ~= "string" then
 					return { status = "badroom", human = "invalid room" }
 				end
+				if data.action == "list" then
+					local uids = server:room_list_owners(data.room_name)
+					if not uids then
+						return { status = "enoent", human = "no such room" }
+					end
+					local owners = {}
+					for i = 1, #uids do
+						local _, nick = server:offline_user_by_uid(uids[i])
+						table.insert(owners, nick)
+					end
+					owners[0] = #owners
+					return { status = "ok", owners = owners }
+				end
 				local uid = server:offline_user_by_nick(data.nick)
 				if not uid then
 					return { status = "nouser", human = "no such user" }
@@ -437,17 +450,6 @@ return {
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
-				elseif data.action == "list" then
-					local uids = server:room_list_owners(data.room_name)
-					if not uids then
-						return { status = "enoent", human = "no such room" }
-					end
-					local owners = {}
-					for i = 1, #uids do
-						local _, nick = server:offline_user_by_uid(uids[i])
-						table.insert(owners, nick)
-					end
-					return { status = "ok", owners = owners }
 				elseif data.action == "check" then
 					return { status = "ok", owns = server:room_owned_by_uid(data.room_name, uid) or false }
 				end

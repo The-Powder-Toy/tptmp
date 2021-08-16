@@ -3,43 +3,43 @@ local jnet   = require("jnet")
 
 local server_ban_i = {}
 
-function server_ban_i:insert_host_ban_(host)
-	if not self.host_bans_:insert(host) then
+function server_ban_i:insert_peer_ban_(peer)
+	if not self.peer_bans_:insert(peer) then
 		return nil, "eexist", "already banned"
 	end
-	self:save_host_bans_()
+	self:save_peer_bans_()
 	return true
 end
 
-function server_ban_i:remove_host_ban_(host)
-	if not self.host_bans_:remove(host) then
+function server_ban_i:remove_peer_ban_(peer)
+	if not self.peer_bans_:remove(peer) then
 		return nil, "enoent", "not currently banned"
 	end
-	self:save_host_bans_()
+	self:save_peer_bans_()
 	return true
 end
 
-function server_ban_i:save_host_bans_()
+function server_ban_i:save_peer_bans_()
 	local tbl = {}
-	for host in self.host_bans_:nets() do
-		table.insert(tbl, tostring(host))
+	for peer in self.peer_bans_:nets() do
+		table.insert(tbl, tostring(peer))
 	end
 	tbl[0] = #tbl
-	self.dconf_:root().host_bans = tbl
+	self.dconf_:root().peer_bans = tbl
 	self.dconf_:commit()
 end
 
-function server_ban_i:load_host_bans_()
-	local tbl = self.dconf_:root().host_bans or {}
-	self.host_bans_ = jnet.set()
+function server_ban_i:load_peer_bans_()
+	local tbl = self.dconf_:root().peer_bans or {}
+	self.peer_bans_ = jnet.set()
 	for i = 1, #tbl do
-		self.host_bans_:insert(jnet(tbl[i]))
+		self.peer_bans_:insert(jnet(tbl[i]))
 	end
-	self:save_host_bans_()
+	self:save_peer_bans_()
 end
 
-function server_ban_i:host_banned_(host)
-	return self.host_bans_:contains(host)
+function server_ban_i:peer_banned_(peer)
+	return self.peer_bans_:contains(peer)
 end
 
 function server_ban_i:insert_uid_ban_(uid)
@@ -116,24 +116,24 @@ return {
 		ipban = {
 			func = function(rcon, data)
 				local server = rcon:server()
-				local ok, host = pcall(jnet, data.host)
+				local ok, peer = pcall(jnet, data.host)
 				if not ok then
-					return { status = "badhost", human = "invalid host: " .. host, reason = host }
+					return { status = "badhost", human = "invalid host: " .. peer, reason = peer }
 				end
 				if data.action == "insert" then
-					local ok, err, human = server:insert_host_ban_(host)
+					local ok, err, human = server:insert_peer_ban_(peer)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "remove" then
-					local ok, err, human = server:remove_host_ban_(host)
+					local ok, err, human = server:remove_peer_ban_(peer)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					local banned_subnet = server:host_banned_(host)
+					local banned_subnet = server:peer_banned_(peer)
 					return { status = "ok", banned = banned_subnet and tostring(banned_subnet) or false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
@@ -148,7 +148,7 @@ return {
 		},
 		server_init = {
 			func = function(server)
-				server:load_host_bans_()
+				server:load_peer_bans_()
 				server:load_uid_bans_()
 			end,
 		},
@@ -156,9 +156,9 @@ return {
 	checks = {
 		can_connect = {
 			func = function(client)
-				local banned_subnet = client:server():host_banned_(client:host())
+				local banned_subnet = client:server():peer_banned_(client:peer())
 				if banned_subnet then
-					return nil, "you are banned from this server", ("host %s is banned (subnet %s)"):format(client:host(), tostring(banned_subnet)), {
+					return nil, "you are banned from this server", ("host %s is banned (subnet %s)"):format(client:peer(), tostring(banned_subnet)), {
 						reason = "host_banned",
 						subnet = tostring(banned_subnet),
 					}

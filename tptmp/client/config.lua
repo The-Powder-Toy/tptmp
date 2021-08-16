@@ -19,7 +19,7 @@ local config = {
 
 	-- * Default window width. Overridden by the value loaded from the manager
 	--   backend, if any.
-	default_width = 210,
+	default_width = 211,
 
 	-- * Default window height. Similar to default_width.
 	default_height = 155,

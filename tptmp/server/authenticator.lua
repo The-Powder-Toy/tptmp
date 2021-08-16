@@ -28,9 +28,19 @@ local function token_payload(token)
 			message = json,
 		}
 	end
-	if type(json) ~= "table" or not json.sub or json.sub:find("[^0-9]") then
+	if type(json) ~= "table" then
+		return nil, "bad payload", {
+			substage = "document",
+		}
+	end
+	if type(json.sub) ~= "string" or json.sub:find("[^0-9]") then
 		return nil, "bad payload", {
 			substage = "subject",
+		}
+	end
+	if json.aud ~= config.host .. ":" .. config.port then
+		return nil, "bad payload", {
+			substage = "audience",
 		}
 	end
 	return json
@@ -79,6 +89,10 @@ local function check_external_auth(client, token)
 		}
 	end
 	return true
+end
+
+function authenticator_i:quickauth_flush(uid)
+	self.quickauth_[uid] = nil
 end
 
 function authenticator_i:authenticate(client, quickauth_token)

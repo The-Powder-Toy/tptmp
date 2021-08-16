@@ -632,8 +632,8 @@ function client_i:proto_()
 					})
 				end
 				local hostname = self.socket_:checktls():getHostName()
-				if hostname ~= config.secure_hostname then
-					self:proto_error_(("incorrect hostname: (%s ~= %s)"):format(hostname, config.secure_hostname), {
+				if hostname ~= config.host then
+					self:proto_error_(("incorrect hostname: (%s ~= %s)"):format(hostname, config.host), {
 						kind = "incorrect_hostname",
 						got = hostname,
 					})
@@ -796,8 +796,8 @@ function client_i:name()
 	return self.name_
 end
 
-function client_i:host()
-	return self.host_
+function client_i:peer()
+	return self.peer_
 end
 
 function client_i:registered()
@@ -827,13 +827,13 @@ for key, value in pairs(client_i) do
 end
 
 local function new(params)
-	local _, host_str = params.socket:peername()
-	local host = assert(jnet(host_str))
+	local _, peer_str = params.socket:peername()
+	local peer = assert(jnet(peer_str))
 	return setmetatable({
 		server_ = params.server,
 		socket_ = params.socket,
 		name_ = params.name,
-		host_ = host,
+		peer_ = peer,
 		status_ = "ready",
 		wake_ = condition.new(),
 		read_wake_ = condition.new(),

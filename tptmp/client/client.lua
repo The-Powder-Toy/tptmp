@@ -25,8 +25,8 @@ local index_to_lrax = {
 	[ 3 ] = "tool_x",
 }
 
-local function get_auth_token(uid, sess)
-	local req = http.get(config.auth_backend .. "?Action=Get", {
+local function get_auth_token(uid, sess, audience)
+	local req = http.get(config.auth_backend .. "?Action=Get&Audience=" .. util.urlencode(audience), {
 		[ "X-Auth-User-Id" ] = uid,
 		[ "X-Auth-Session-Key" ] = sess,
 	})
@@ -710,15 +710,15 @@ function client_i:handshake_()
 	self:write_bytes_(tpt.version.major, tpt.version.minor, config.version)
 	self:write_nullstr_((name or tpt.get_name() or ""):sub(1, 255))
 	self:write_bytes_(0) -- * Flags, currently unused.
-	local qa_uid, qa_token = self.get_qa_func_():match("^([^:]+):([^:]+)$")
-	self:write_str8_(qa_token and qa_uid == uid and qa_token or "")
+	local qa_host, qa_port, qa_uid, qa_token = self.get_qa_func_():match("^([^:]+):([^:]+):([^:]+):([^:]+)$")
+	self:write_str8_(qa_token and qa_uid == uid and qa_host == self.host_ and qa_port == self.port_ and qa_token or "")
 	self:write_str8_(self.initial_room_ or "")
 	self:write_flush_()
 	local conn_status = self:read_bytes_(1)
 	local auth_err
 	if conn_status == 4 then -- * Quickauth failed.
 		self.window_:set_subtitle("status", "Authenticating")
-		local token, err, info = get_auth_token(uid, sess)
+		local token, err, info = get_auth_token(uid, sess, self.host_ .. ":" .. self.port_)
 		if not token then
 			if err == "non200" then
 				auth_err = "authentication failed (status code " .. info .. "); try again later or try restarting TPT"
@@ -733,7 +733,7 @@ function client_i:handshake_()
 		self:write_flush_()
 		conn_status = self:read_bytes_(1)
 		if uid then
-			self.set_qa_func_((conn_status == 1) and (uid .. ":" .. token) or "")
+			self.set_qa_func_((conn_status == 1) and (self.host_ .. ":" .. self.port_ .. ":" .. uid .. ":" .. token) or "")
 		end
 	end
 	if conn_status == 1 then

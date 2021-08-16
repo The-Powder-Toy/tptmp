@@ -6,12 +6,32 @@ local function serialize_client(client)
 		client_nick = client:nick(),
 		guest = client:guest(),
 		uid = client:uid(),
-		host = tostring(client:host()),
+		host = tostring(client:peer()),
 		room_name = client:room():name(),
 	}
 end
 
 return {
+	commands = {
+		smsg = {
+			func = function(client, message, words, offsets)
+				if not words[2] then
+					return false
+				end
+				local str = message:sub(offsets[2])
+				local server = client:server()
+				client:send_server(("\an** << %s"):format(str))
+				server.log_inf_("$ >> $", client:nick(), str)
+				server:rconlog({
+					event = "smsg",
+					client_name = client:name(),
+					message = str,
+				})
+				return true
+			end,
+			help = "/smsg <message>: sends a private message to staff members",
+		},
+	},
 	console = {
 		kick = {
 			func = function(rcon, data)

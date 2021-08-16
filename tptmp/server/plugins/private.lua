@@ -408,6 +408,19 @@ return {
 				if type(data.room_name) ~= "string" then
 					return { status = "badroom", human = "invalid room" }
 				end
+				if data.action == "list" then
+					local uids = server:room_list_invites(data.room_name)
+					if not uids then
+						return { status = "enoent", human = "no such room" }
+					end
+					local invites = {}
+					for i = 1, #uids do
+						local _, nick = server:offline_user_by_uid(uids[i])
+						table.insert(invites, nick)
+					end
+					invites[0] = #invites
+					return { status = "ok", invites = invites }
+				end
 				local uid = server:offline_user_by_nick(data.nick)
 				if not uid then
 					return { status = "nouser", human = "no such user" }
@@ -425,7 +438,7 @@ return {
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					return { status = "ok", banned = server:room_uid_invited(data.room_name, uid) or false }
+					return { status = "ok", invited = server:room_uid_invited(data.room_name, uid) or false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
 			end,
@@ -448,17 +461,6 @@ return {
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
-				elseif data.action == "list" then
-					local uids = server:room_list_invites(data.room_name)
-					if not uids then
-						return { status = "enoent", human = "no such room" }
-					end
-					local invites = {}
-					for i = 1, #uids do
-						local _, nick = server:offline_user_by_uid(uids[i])
-						table.insert(invites, nick)
-					end
-					return { status = "ok", invites = invites }
 				elseif data.action == "check" then
 					return { status = "ok", private = server:is_private(data.room_name) or false }
 				end

@@ -44,14 +44,14 @@ function server_i:rooms()
 end
 
 function server_i:insert_client_(client)
-	local host_string = tostring(client:host())
-	self.host_connections_[host_string] = (self.host_connections_[host_string] or 0) + 1
+	local peer_string = tostring(client:peer())
+	self.peer_connections_[peer_string] = (self.peer_connections_[peer_string] or 0) + 1
 	self.name_to_client_[client:name()] = client
-	self.log_inf_("$ connected from $", client:name(), host_string)
+	self.log_inf_("$ connected from $", client:name(), peer_string)
 end
 
-function server_i:connection_limit_(host)
-	return (self.host_connections_[tostring(host)] or 0) >= config.max_clients_per_host
+function server_i:connection_limit_(peer)
+	return (self.peer_connections_[tostring(peer)] or 0) >= config.max_clients_per_peer
 end
 
 function server_i:register_client(client)
@@ -93,10 +93,10 @@ function server_i:remove_client(client, rconinfo)
 	end
 	self.phost_:call_hook("client_cleanup", client)
 	self.name_to_client_[client:name()] = nil
-	local host_string = tostring(client:host())
-	self.host_connections_[host_string] = self.host_connections_[host_string] - 1
-	if self.host_connections_[host_string] == 0 then
-		self.host_connections_[host_string] = nil
+	local peer_string = tostring(client:peer())
+	self.peer_connections_[peer_string] = self.peer_connections_[peer_string] - 1
+	if self.peer_connections_[peer_string] == 0 then
+		self.peer_connections_[peer_string] = nil
 	end
 	self.log_inf_("$ disconnected", client:name())
 	self:rconlog(util.info_merge({
@@ -111,12 +111,12 @@ end
 
 function server_i:listen_()
 	local server_socket = socket.listen({
-		host = config.host,
+		host = config.iface,
 		port = config.port,
 		nodelay = true,
 	})
 	server_socket:listen()
-	self.log_inf_("listening on $:$", config.host, config.port)
+	self.log_inf_("listening on $:$", config.iface, config.port)
 	local server_pollable = { pollfd = server_socket:pollfd(), events = "r" }
 	while self.status_ == "running" do
 		local ready = util.cqueues_poll(server_pollable, self.wake_)
@@ -130,9 +130,9 @@ function server_i:listen_()
 			self:rconlog({
 				event = "client_connect",
 				client_name = client:name(),
-				host = tostring(client:host()),
+				host = tostring(client:peer()),
 			})
-			if self:connection_limit_(client:host()) then
+			if self:connection_limit_(client:peer()) then
 				client:early_drop("connection limit exceeded")
 				self:rconlog({
 					event = "client_disconnect",
@@ -273,6 +273,10 @@ end
 
 function server_i:can_authenticate()
 	return self.auth_ and true
+end
+
+function server_i:quickauth_flush(uid)
+	return self.auth_:quickauth_flush(uid)
 end
 
 function server_i:version()
@@ -543,7 +547,7 @@ local function new(params)
 		name_to_room_ = {},
 		nick_to_client_ = {},
 		uid_to_client_ = {},
-		host_connections_ = {},
+		peer_connections_ = {},
 		dconf_ = params.dconf,
 		cmdp_ = cmdp,
 		phost_ = params.phost,

@@ -17,17 +17,17 @@ return {
 
 	-- * Local interface to listen on for player connections. Use "0.0.0.0" for
 	--   "all interfaces", "localhost" for localhost, etc.
-	host = prefer_secret_config("host", "0.0.0.0"),
+	iface = prefer_secret_config("iface", "0.0.0.0"),
 
 	-- * Port to listen on for player connections.
 	port = prefer_secret_config("port", common_config.port),
 
 	-- * Local interface to listen on for remote console connection, similar to
-	--   host. The server does not authenticate remote control clients, so make
+	--   iface. The server does not authenticate remote control clients, so make
 	--   sure to not let connections to this port through your firewall. If you
 	--   want to connect from another host, use a TLS termination proxy with
 	--   peer authentication, and have the proxy connect to this port.
-	rcon_host = prefer_secret_config("rcon_host", "localhost"),
+	rcon_iface = prefer_secret_config("rcon_iface", "localhost"),
 
 	-- * Local port to listen on for remote console connections.
 	rcon_port = prefer_secret_config("rcon_port", 34406),
@@ -60,12 +60,12 @@ return {
 	--   to change for a custom server.
 	secure = prefer_secret_config("secure", common_config.secure),
 
-	-- * Hostname to check the SNI field in the TLS handshake against. Only
-	--   relevant if secure = true. Makes it possible to detect and drop stray,
-	--   non-TPTMP connections earlier than via the protocol handshake, which
-	--   would otherwise have to time out in the worst case. Should match the
-	--   common host setting, but it is fine to change for a custom server.
-	secure_hostname = prefer_secret_config("secure_hostname", common_config.host),
+	-- * Hostname to check the SNI field in the TLS handshake against. Required
+	--   if auth = true. Makes it possible to detect and drop stray, non-TPTMP
+	--   connections earlier than via the protocol handshake if secure = true,
+	--   which would otherwise have to time out in the worst case. Should match
+	--   the common host setting, but it is fine to change for a custom server.
+	host = prefer_secret_config("host", common_config.host),
 
 	-- * Path to the public server certificate. Only relevant if secure = true.
 	--   This file should not include the intermediary certificates, i.e. the
@@ -125,7 +125,7 @@ return {
 	--   limit is 255, imposed by the protocol.
 	max_clients_per_room = 20,
 
-	-- * Maximum amount of connections made from any given host. This does not
+	-- * Maximum amount of connections made from any given peer. This does not
 	--   include clients that have not registered, although new client
 	--   connections are dropped if this limit would be violated upon their
 	--   registering successfully.
@@ -134,7 +134,7 @@ return {
 	--   exists on the server side. In this case, a second client connecting
 	--   and registering the same UID drops the first, dead connection. This
 	--   only works if auth = true.
-	max_clients_per_host = 4,
+	max_clients_per_peer = 4,
 
 	-- * Specifies the number of times a client may violate the message rate
 	--   limit before being dropped for spam.

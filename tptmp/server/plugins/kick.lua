@@ -51,6 +51,9 @@ return {
 				if not client then
 					return { status = "enoent", human = "user not online" }
 				end
+				if not client:guest() then
+					server:quickauth_flush(client:uid())
+				end
 				client:drop("skicked: " .. data.message, nil, {
 					reason = "skicked",
 					message = data.message,

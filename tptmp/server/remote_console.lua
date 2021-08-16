@@ -40,15 +40,15 @@ function remote_console_i:log(data)
 end
 
 function remote_console_i:listen_()
-	local server_sock = socket.listen(config.rcon_host, config.rcon_port)
+	local server_sock = socket.listen(config.rcon_iface, config.rcon_port)
 	server_sock:listen()
 	local server_pollable = { pollfd = server_sock:pollfd(), events = "r" }
 	while self.status_ == "running" do
 		local ready = util.cqueues_poll(server_pollable, self.wake_)
 		if ready[server_pollable] then
 			self.client_sock_ = server_sock:accept()
-			local _, host_str = self.client_sock_:peername()
-			self.log_inf_("connection from $", host_str)
+			local _, peer_str = self.client_sock_:peername()
+			self.log_inf_("connection from $", peer_str)
 			local client_pollable = { pollfd = self.client_sock_:pollfd(), events = "r" }
 			local last_ping_in = cqueues.monotime()
 			local last_ping_out = cqueues.monotime()

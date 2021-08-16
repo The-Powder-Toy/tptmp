@@ -560,6 +560,12 @@ local function get_save_id()
 	return id, hist
 end
 
+local function urlencode(str)
+	return (str:gsub("[^ !'()*%-%.0-9A-Z_a-z]", function(cap)
+		return ("%%%02x"):format(cap:byte())
+	end))
+end
+
 return {
 	get_user = get_user,
 	stamp_load = stamp_load,
@@ -590,4 +596,5 @@ return {
 	version_less = common_util.version_less,
 	version_equal = common_util.version_equal,
 	tpt_version = tpt_version,
+	urlencode = urlencode,
 }
