@@ -711,7 +711,7 @@ function client_i:handshake_()
 	self:write_nullstr_((name or tpt.get_name() or ""):sub(1, 255))
 	self:write_bytes_(0) -- * Flags, currently unused.
 	local qa_host, qa_port, qa_uid, qa_token = self.get_qa_func_():match("^([^:]+):([^:]+):([^:]+):([^:]+)$")
-	self:write_str8_(qa_token and qa_uid == uid and qa_host == self.host_ and qa_port == self.port_ and qa_token or "")
+	self:write_str8_(qa_token and qa_uid == uid and qa_host == self.host_ and tonumber(qa_port) == self.port_ and qa_token or "")
 	self:write_str8_(self.initial_room_ or "")
 	self:write_flush_()
 	local conn_status = self:read_bytes_(1)

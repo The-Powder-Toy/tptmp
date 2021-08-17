@@ -7,7 +7,7 @@ local function serialize_client(client)
 		guest = client:guest(),
 		uid = client:uid(),
 		host = tostring(client:peer()),
-		room_name = client:room():name(),
+		room_name = client:room() and client:room():name(),
 	}
 end
 
@@ -20,7 +20,7 @@ return {
 				end
 				local str = message:sub(offsets[2])
 				local server = client:server()
-				client:send_server(("\an** << %s"):format(str))
+				client:send_server(("\aj[SERVER]\an << %s"):format(str))
 				server.log_inf_("$ >> $", client:nick(), str)
 				server:rconlog({
 					event = "smsg",
@@ -31,6 +31,10 @@ return {
 			end,
 			help = "/smsg <message>: sends a private message to staff members",
 		},
+		pray = {
+			alias = "smsg",
+			hidden = "true",
+		}
 	},
 	console = {
 		kick = {
