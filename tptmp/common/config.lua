@@ -33,7 +33,7 @@ return {
 	host = "tptmp.starcatcher.us",
 
 	-- * Port to connect to by default.
-	port = 34404,
+	port = 34403,
 
 	-- * Encrypt traffic between player clients and the server.
 	secure = true,
