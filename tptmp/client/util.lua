@@ -172,6 +172,15 @@ local line_only = {
 	[ from_tool.DEFAULT_UI_WIND ] = true,
 }
 
+local function heat_clear()
+	local temp = sim.ambientAirTemp()
+	for x = 0, sim.XRES / sim.CELL - 1 do
+		for y = 0, sim.YRES / sim.CELL - 1 do
+			sim.ambientHeat(x, y, temp)
+		end
+	end
+end
+
 local function stamp_load(x, y, data, reset)
 	if data == "" then -- * Is this check needed at all?
 		return nil, "no stamp data"
@@ -183,7 +192,10 @@ local function stamp_load(x, y, data, reset)
 	handle:write(data)
 	handle:close()
 	if reset then
-		sim.clearSim()
+		sim.clearRect(0, 0, sim.XRES, sim.YRES)
+		heat_clear()
+		tpt.reset_velocity()
+		tpt.set_pressure()
 	end
 	local ok, err = sim.loadStamp(config.stamp_temp, x, y)
 	if not ok then
@@ -597,4 +609,5 @@ return {
 	version_equal = common_util.version_equal,
 	tpt_version = tpt_version,
 	urlencode = urlencode,
+	heat_clear = heat_clear,
 }

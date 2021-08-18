@@ -179,7 +179,7 @@ return {
 					end
 					return true
 				end
-				if room:is_private() and not room:owned_by_client(client) then
+				if not room:owned_by_client(client) then
 					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end

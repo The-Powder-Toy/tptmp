@@ -472,6 +472,7 @@ end
 function client_i:early_drop(message)
 	self.log_inf_("dropped early: $", message)
 	self:send_handshake_failure_(message:sub(1, 255))
+	self.stopping_since_ = cqueues.monotime()
 	self:close_socket_()
 end
 

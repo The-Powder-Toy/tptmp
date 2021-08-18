@@ -784,7 +784,7 @@ local function preshack_graphics(i)
 	return 0, 0
 end
 
-function profile_i:begin_placesave_size_(x, y, lazy_button_check)
+function profile_i:begin_placesave_size_(x, y, aux_button)
 	local id = sim.partCreate(-3, 0, 0, preshack_elem)
 	if id == -1 then
 		preshack_zero = save_and_kill_zero()
@@ -819,9 +819,10 @@ function profile_i:begin_placesave_size_(x, y, lazy_button_check)
 		pres = pres,
 		bx = bx,
 		by = by,
-		airmode = not lazy_button_check and sim.airMode(),
+		aux_button = aux_button,
+		airmode = sim.airMode(),
 	}
-	if lazy_button_check then
+	if aux_button then
 		-- * This means that begin_placesave_size_ was called from a button
 		--   callback, i.e. not really in response to pasting, but reloading /
 		--   clearing / opening a save. In this case, the air mode should
@@ -858,7 +859,12 @@ function profile_i:end_placesave_size_()
 			pop(bx, y)
 		end
 	end
-	if self.placesave_size_.airmode then
+	-- * Unlike normal stamp pastes, auxiliary button events (open, save, clear)
+	--   are guaranteed to have been cancelled if no air change is detected.
+	--   The following block roughly translates to resetting the air mode to
+	--   the sampled value if the change in the simulation occurred due to
+	--   a paste event, otherwise only if we actually detected a change in air.
+	if not self.placesave_size_.aux_button or lx == math.huge then
 		sim.airMode(self.placesave_size_.airmode)
 	end
 	self.placesave_size_ = nil
@@ -1071,8 +1077,14 @@ function profile_i:handle_mouseup(px, py, button, reason)
 				local y = sim.signs[i].screenY
 				local w = sim.signs[i].width + 1
 				local h = sim.signs[i].height
-				if util.inside_rect(x, y, w, h, self.pos_x_, self.pos_y_) and t:match("^{b|.*}$") then
-					self:report_sparksign_(sim.signs[i].x, sim.signs[i].y)
+				if util.inside_rect(x, y, w, h, self.pos_x_, self.pos_y_) then
+					if t:match("^{b|.*}$") then
+						self:report_sparksign_(sim.signs[i].x, sim.signs[i].y)
+					end
+					if t:match("^{c:[0-9]+|.*}$") then
+						self.placesave_open_ = true
+						self:begin_placesave_size_(100, 100, true)
+					end
 				end
 			end
 		end

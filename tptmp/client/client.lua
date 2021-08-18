@@ -538,12 +538,7 @@ end
 function client_i:handle_heatclear_64_()
 	-- * TODO[api]: add an api for this to tpt
 	local member = self:member_prefix_()
-	local temp = sim.ambientAirTemp()
-	for x = 0, sim.XRES / sim.CELL - 1 do
-		for y = 0, sim.YRES / sim.CELL - 1 do
-			sim.ambientHeat(x, y, temp)
-		end
-	end
+	util.heat_clear()
 	log_event(config.print_prefix .. colours.commonstr.event .. "Ambient heat reset by " .. member.formatted_nick)
 end
 
