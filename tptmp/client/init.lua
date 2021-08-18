@@ -111,11 +111,12 @@ local function run()
 		localcmd_parse_func = function(str)
 			return cmd:parse(str)
 		end,
-		placing_zoom_func = function(str)
-			return prof:placing_zoom()
+		should_ignore_mouse_func = function(str)
+			return prof:should_ignore_mouse()
 		end,
 	})
 	local cmd = localcmd.new({
+		window_hidden_func = window_hidden,
 		client_func = function()
 			return cli and cli:registered() and cli
 		end,

@@ -454,7 +454,7 @@ function window_i:handle_tick()
 end
 
 function window_i:handle_mousedown(px, py, button)
-	if self.placing_zoom_func_() then
+	if self.should_ignore_mouse_func_() then
 		return
 	end
 	-- * TODO[opt]: mouse selection
@@ -1037,7 +1037,7 @@ local function new(params)
 		window_hidden_func_ = params.window_hidden_func,
 		client_func_ = params.client_func,
 		hide_window_func_ = params.hide_window_func,
-		placing_zoom_func_ = params.placing_zoom_func,
+		should_ignore_mouse_func_ = params.should_ignore_mouse_func,
 		input_history_ = { {} },
 		input_history_next_ = 1,
 		input_editing_ = {},

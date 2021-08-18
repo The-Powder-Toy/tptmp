@@ -744,7 +744,7 @@ function client_i:handshake_()
 			self.window_:backlog_push_error("Warning: " .. auth_err)
 		end
 		self.window_:backlog_push_registered(self.formatted_nick_)
-		self.profile_.client = self
+		self.profile_:set_client(self)
 	elseif conn_status == 0 then
 		local reason = self:read_nullstr_(255)
 		self:proto_close_(auth_err or reason)
@@ -1255,7 +1255,7 @@ function client_i:stop(message)
 	if self.status_ == "dead" then
 		return
 	end
-	self.profile_.client = nil
+	self.profile_:clear_client()
 	if self.socket_ then
 		if self.connected_ then
 			self.socket_:shutdown()

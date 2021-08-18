@@ -42,9 +42,13 @@ local cmdp = command_parser.new({
 				local cli = localcmd.client_func_()
 				if cli then
 					cli:send_sync()
-					localcmd.window_:backlog_push_neutral("* Simulation synchronized")
+					if not localcmd.window_hidden_func_() then
+						localcmd.window_:backlog_push_neutral("* Simulation synchronized")
+					end
 				else
-					localcmd.window_:backlog_push_error("Not connected, cannot sync")
+					if not localcmd.window_hidden_func_() then
+						localcmd.window_:backlog_push_error("Not connected, cannot sync")
+					end
 				end
 				return true
 			end,
@@ -295,6 +299,7 @@ local function new(params)
 	local cmd = setmetatable({
 		fps_sync_ = fps_sync,
 		reconnect_ = reconnect,
+		window_hidden_func_ = params.window_hidden_func,
 		client_func_ = params.client_func,
 		new_client_func_ = params.new_client_func,
 		kill_client_func_ = params.kill_client_func,

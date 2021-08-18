@@ -174,74 +174,74 @@ local function in_zoom_window(x, y)
 end
 
 function profile_i:report_loadonline_(id, hist)
-	if self.client then
-		self.client:send_loadonline(id, hist)
+	if self.client_ then
+		self.client_:send_loadonline(id, hist)
 	end
 end
 
 function profile_i:report_pos_()
-	if self.client then
-		self.client:send_mousepos(self.pos_x_, self.pos_y_)
+	if self.client_ then
+		self.client_:send_mousepos(self.pos_x_, self.pos_y_)
 	end
 end
 
 function profile_i:report_size_()
-	if self.client then
-		self.client:send_brushsize(self.size_x_, self.size_y_)
+	if self.client_ then
+		self.client_:send_brushsize(self.size_x_, self.size_y_)
 	end
 end
 
 function profile_i:report_zoom_()
-	if self.client then
+	if self.client_ then
 		if self.zenabled_ then
-			self.client:send_zoomstart(self.zcx_, self.zcy_, self.zsize_)
+			self.client_:send_zoomstart(self.zcx_, self.zcy_, self.zsize_)
 		else
-			self.client:send_zoomend()
+			self.client_:send_zoomend()
 		end
 	end
 end
 
 function profile_i:report_bmode_()
-	if self.client then
-		self.client:send_brushmode(self.bmode_)
+	if self.client_ then
+		self.client_:send_brushmode(self.bmode_)
 	end
 end
 
 function profile_i:report_shape_()
-	if self.client then
-		self.client:send_brushshape(self.shape_ < BRUSH_COUNT and self.shape_ or 0)
+	if self.client_ then
+		self.client_:send_brushshape(self.shape_ < BRUSH_COUNT and self.shape_ or 0)
 	end
 end
 
 function profile_i:report_sparksign_(x, y)
-	if self.client then
-		self.client:send_sparksign(x, y)
+	if self.client_ then
+		self.client_:send_sparksign(x, y)
 	end
 end
 
 function profile_i:report_flood_(i, x, y)
-	if self.client then
-		self.client:send_flood(i, x, y)
+	if self.client_ then
+		self.client_:send_flood(i, x, y)
 	end
 end
 
 function profile_i:report_lineend_(x, y)
 	self.lss_i_ = nil
-	if self.client then
-		self.client:send_lineend(x, y)
+	if self.client_ then
+		self.client_:send_lineend(x, y)
 	end
 end
 
 function profile_i:report_rectend_(x, y)
 	self.rss_i_ = nil
-	if self.client then
-		self.client:send_rectend(x, y)
+	if self.client_ then
+		self.client_:send_rectend(x, y)
 	end
 end
 
 function profile_i:sync_linestart_(i, x, y)
-	if self.client and self.lss_i_ then
-		self.client:send_linestart(self.lss_i_, self.lss_x_, self.lss_y_)
+	if self.client_ and self.lss_i_ then
+		self.client_:send_linestart(self.lss_i_, self.lss_x_, self.lss_y_)
 	end
 end
 
@@ -249,14 +249,14 @@ function profile_i:report_linestart_(i, x, y)
 	self.lss_i_ = i
 	self.lss_x_ = x
 	self.lss_y_ = y
-	if self.client then
-		self.client:send_linestart(i, x, y)
+	if self.client_ then
+		self.client_:send_linestart(i, x, y)
 	end
 end
 
 function profile_i:sync_rectstart_(i, x, y)
-	if self.client and self.rss_i_ then
-		self.client:send_rectstart(self.rss_i_, self.rss_x_, self.rss_y_)
+	if self.client_ and self.rss_i_ then
+		self.client_:send_rectstart(self.rss_i_, self.rss_x_, self.rss_y_)
 	end
 end
 
@@ -264,14 +264,14 @@ function profile_i:report_rectstart_(i, x, y)
 	self.rss_i_ = i
 	self.rss_x_ = x
 	self.rss_y_ = y
-	if self.client then
-		self.client:send_rectstart(i, x, y)
+	if self.client_ then
+		self.client_:send_rectstart(i, x, y)
 	end
 end
 
 function profile_i:sync_pointsstart_()
-	if self.client and self.pts_i_ then
-		self.client:send_pointsstart(self.pts_i_, self.pts_x_, self.pts_y_)
+	if self.client_ and self.pts_i_ then
+		self.client_:send_pointsstart(self.pts_i_, self.pts_x_, self.pts_y_)
 	end
 end
 
@@ -279,14 +279,14 @@ function profile_i:report_pointsstart_(i, x, y)
 	self.pts_i_ = i
 	self.pts_x_ = x
 	self.pts_y_ = y
-	if self.client then
-		self.client:send_pointsstart(i, x, y)
+	if self.client_ then
+		self.client_:send_pointsstart(i, x, y)
 	end
 end
 
 function profile_i:report_pointscont_(x, y, done)
-	if self.client then
-		self.client:send_pointscont(x, y)
+	if self.client_ then
+		self.client_:send_pointscont(x, y)
 	end
 	self.pts_x_ = x
 	self.pts_y_ = y
@@ -296,73 +296,73 @@ function profile_i:report_pointscont_(x, y, done)
 end
 
 function profile_i:report_kmod_()
-	if self.client then
-		self.client:send_keybdmod(self.kmod_c_, self.kmod_s_, self.kmod_a_)
+	if self.client_ then
+		self.client_:send_keybdmod(self.kmod_c_, self.kmod_s_, self.kmod_a_)
 	end
 end
 
 function profile_i:report_framestep_()
-	if self.client then
-		self.client:send_stepsim()
+	if self.client_ then
+		self.client_:send_stepsim()
 	end
 end
 
 function profile_i:report_airinvert_()
-	if self.client then
-		self.client:send_airinv()
+	if self.client_ then
+		self.client_:send_airinv()
 	end
 end
 
 function profile_i:report_reset_spark_()
-	if self.client then
-		self.client:send_sparkclear()
+	if self.client_ then
+		self.client_:send_sparkclear()
 	end
 end
 
 function profile_i:report_reset_air_()
-	if self.client then
-		self.client:send_airclear()
+	if self.client_ then
+		self.client_:send_airclear()
 	end
 end
 
 function profile_i:report_reset_airtemp_()
-	if self.client then
-		self.client:send_heatclear()
+	if self.client_ then
+		self.client_:send_heatclear()
 	end
 end
 
 function profile_i:report_clearrect_(x, y, w, h)
-	if self.client then
-		self.client:send_clearrect(x, y, w, h)
+	if self.client_ then
+		self.client_:send_clearrect(x, y, w, h)
 	end
 end
 
 function profile_i:report_clearsim_()
-	if self.client then
-		self.client:send_clearsim()
+	if self.client_ then
+		self.client_:send_clearsim()
 	end
 end
 
 function profile_i:report_reloadsim_()
-	if self.client then
-		self.client:send_reloadsim()
+	if self.client_ then
+		self.client_:send_reloadsim()
 	end
 end
 
 function profile_i:simstate_sync()
-	if self.client then
-		self.client:send_simstate(self.ss_p_, self.ss_h_, self.ss_u_, self.ss_n_, self.ss_w_, self.ss_g_, self.ss_a_, self.ss_e_, self.ss_y_, self.ss_t_)
+	if self.client_ then
+		self.client_:send_simstate(self.ss_p_, self.ss_h_, self.ss_u_, self.ss_n_, self.ss_w_, self.ss_g_, self.ss_a_, self.ss_e_, self.ss_y_, self.ss_t_)
 	end
 end
 
 function profile_i:report_tool_(index)
-	if self.client then
-		self.client:send_selecttool(index, self[index_to_lrax[index]])
+	if self.client_ then
+		self.client_:send_selecttool(index, self[index_to_lrax[index]])
 		local identifier = self[index_to_lraxid[index]]
 		if identifier:find("^DEFAULT_PT_LIFECUST_") then
 			local ruleset, primary, secondary = get_custgolinfo(identifier)
 			if ruleset then
-				self.client:send_custgolinfo(ruleset, primary, secondary)
+				self.client_:send_custgolinfo(ruleset, primary, secondary)
 				-- * TODO[api]: add an api for setting gol colour
 				self.display_toolwarn_["cgolcolor"] = true
 			else
@@ -373,14 +373,14 @@ function profile_i:report_tool_(index)
 end
 
 function profile_i:report_deco_()
-	if self.client then
-		self.client:send_brushdeco(self.deco_)
+	if self.client_ then
+		self.client_:send_brushdeco(self.deco_)
 	end
 end
 
 function profile_i:sync_placestatus_()
-	if self.client and self.pes_k_ ~= 0 then
-		self.client:send_placestatus(self.pes_k_, self.pes_w_, self.pes_h_)
+	if self.client_ and self.pes_k_ ~= 0 then
+		self.client_:send_placestatus(self.pes_k_, self.pes_w_, self.pes_h_)
 	end
 end
 
@@ -388,14 +388,14 @@ function profile_i:report_placestatus_(k, w, h)
 	self.pes_k_ = k
 	self.pes_w_ = w
 	self.pes_h_ = h
-	if self.client then
-		self.client:send_placestatus(k, w, h)
+	if self.client_ then
+		self.client_:send_placestatus(k, w, h)
 	end
 end
 
 function profile_i:sync_selectstatus_()
-	if self.client and self.sts_k_ ~= 0 then
-		self.client:send_selectstatus(self.sts_k_, self.sts_x_, self.sts_y_)
+	if self.client_ and self.sts_k_ ~= 0 then
+		self.client_:send_selectstatus(self.sts_k_, self.sts_x_, self.sts_y_)
 	end
 end
 
@@ -403,20 +403,20 @@ function profile_i:report_selectstatus_(k, x, y)
 	self.sts_k_ = k
 	self.sts_x_ = x
 	self.sts_y_ = y
-	if self.client then
-		self.client:send_selectstatus(k, x, y)
+	if self.client_ then
+		self.client_:send_selectstatus(k, x, y)
 	end
 end
 
 function profile_i:report_pastestamp_(x, y, w, h)
-	if self.client then
-		self.client:send_pastestamp(x, y, w, h)
+	if self.client_ then
+		self.client_:send_pastestamp(x, y, w, h)
 	end
 end
 
 function profile_i:report_canceldraw_()
-	if self.client then
-		self.client:send_canceldraw()
+	if self.client_ then
+		self.client_:send_canceldraw()
 	end
 end
 
@@ -467,8 +467,8 @@ function profile_i:post_event_check_()
 		local partcount = self.placesave_postmsg_.partcount
 		if partcount and partcount ~= sim.NUM_PARTS and self.registered_func_() then
 			-- * TODO[api]: get rid of all of this nonsense once redo-ui lands
-			if self.client then
-				self.client:send_sync()
+			if self.client_ then
+				self.client_:send_sync()
 			end
 			-- log_event(config.print_prefix .. "If you just pasted something, you will have to use /sync")
 		end
@@ -1082,8 +1082,10 @@ function profile_i:handle_mouseup(px, py, button, reason)
 						self:report_sparksign_(sim.signs[i].x, sim.signs[i].y)
 					end
 					if t:match("^{c:[0-9]+|.*}$") then
-						self.placesave_open_ = true
-						self:begin_placesave_size_(100, 100, true)
+						if self.client_ then
+							self.placesave_open_ = true
+							self:begin_placesave_size_(100, 100, true)
+						end
 					end
 				end
 			end
@@ -1098,7 +1100,9 @@ function profile_i:handle_mouseup(px, py, button, reason)
 			if reason == MOUSEUP_REASON_MOUSEUP then
 				local x, y, w, h = util.corners_to_rect(self.sel_x1_, self.sel_y1_, self.sel_x2_, self.sel_y2_)
 				if self.select_mode_ == "place" then
-					self:begin_placesave_size_(x, y)
+					if self.client_ then
+						self:begin_placesave_size_(x, y)
+					end
 				elseif self.select_mode_ == "copy" then
 					self.clipsize_x_ = w
 					self.clipsize_y_ = h
@@ -1287,10 +1291,14 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	elseif scan == sdl.SDL_SCANCODE_I and not ctrl then
 		self:report_airinvert_()
 	elseif scan == sdl.SDL_SCANCODE_SEMICOLON then
-		self.bmode_invalid_ = true
+		if self.client_ then
+			self.bmode_invalid_ = true
+		end
 	end
 	if key == sdl.SDLK_INSERT or key == sdl.SDLK_DELETE then
-		self.bmode_invalid_ = true
+		if self.client_ then
+			self.bmode_invalid_ = true
+		end
 	end
 end
 
@@ -1343,23 +1351,39 @@ function profile_i:handle_blur()
 	self.draw_mode_ = "points"
 end
 
-function profile_i:placing_zoom()
-	return self.placing_zoom_
+function profile_i:should_ignore_mouse()
+	return self.placing_zoom_ or self.select_mode_ ~= "none"
 end
 
 function profile_i:button_open_()
-	self.placesave_open_ = true
-	self:begin_placesave_size_(100, 100, true)
+	if self.client_ then
+		self.placesave_open_ = true
+		self:begin_placesave_size_(100, 100, true)
+	end
 end
 
 function profile_i:button_reload_()
-	self.placesave_reload_ = true
-	self:begin_placesave_size_(100, 100, true)
+	if self.client_ then
+		self.placesave_reload_ = true
+		self:begin_placesave_size_(100, 100, true)
+	end
 end
 
 function profile_i:button_clear_()
-	self.placesave_clear_ = true
-	self:begin_placesave_size_(100, 100, true)
+	if self.client_ then
+		self.placesave_clear_ = true
+		self:begin_placesave_size_(100, 100, true)
+	end
+end
+
+function profile_i:set_client(client)
+	self.client_ = client
+	self.bmode_invalid_ = true
+	self.set_id_func_(util.get_save_id())
+end
+
+function profile_i:clear_client()
+	self.client_ = nil
 end
 
 local function new(params)
