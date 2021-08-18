@@ -39,7 +39,7 @@ local function run()
 		end
 	end
 	if loadtime_error then
-		print(config.print_prefix .. "Cannot load: " .. loadtime_error)
+		print(config.print_prefix_version .. "Cannot load: " .. loadtime_error)
 		return
 	end
 

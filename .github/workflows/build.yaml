@@ -20,7 +20,7 @@ jobs:
           draft: false
           prerelease: false
       - run: sudo apt update && sudo apt install luajit
-      - run: ./client.lua tptmp.lua
+      - run: ./client.lua tptmp.lua ${{ github.ref }}
       - uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

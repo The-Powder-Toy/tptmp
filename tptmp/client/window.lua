@@ -1019,7 +1019,7 @@ local function new(params)
 	local width = tonumber(manager.get("windowWidth", "")) or config.default_width
 	local height = tonumber(manager.get("windowHeight", "")) or config.default_height
 	local alpha = tonumber(manager.get("windowAlpha", "")) or config.default_alpha
-	local title = "TPT Multiplayer v" .. config.versionstr
+	local title = "TPT Multiplayer " .. config.versionstr
 	local title_width = gfx.textSize(title)
 	local win = setmetatable({
 		in_focus = false,

@@ -1,9 +1,10 @@
 #!/usr/bin/env luajit
 
-local DIST = ...
+local OUTPUT, REFNAME = ...
+local REFNAME_VERSION = REFNAME and REFNAME:match("^refs/tags/(.*)$")
 local MAIN_MODULE = "tptmp.client"
 local ENV_DEFAULTS = {
-	-- * Defaults for DIST mode.
+	-- * Defaults for amalgamation mode.
 	sim = { XRES = 0, YRES = 0, CELL = 4, PMAPBITS = 0, signs = {} },
 	elem = {
 		allocate = function() end,
@@ -24,7 +25,7 @@ local ENV_DEFAULTS = {
 	socket = {},
 }
 
-if DIST then
+if OUTPUT then
 	for key, value in pairs(ENV_DEFAULTS) do
 		rawset(getfenv(1), key, value)
 	end
@@ -106,8 +107,8 @@ end
 rawset(env, "require", require)
 
 local main_module = require(MAIN_MODULE)
-if DIST then
-	local handle = assert(io.open(DIST, "w"))
+if OUTPUT then
+	local handle = assert(io.open(OUTPUT, "w"))
 	handle:write([[
 local env__ = setmetatable({}, { __index = function(_, key)
 	return rawget(_G, key) or error("__index on env: " .. tostring(key), 2)
@@ -140,13 +141,17 @@ rawset(env__, "require", require)
 	end
 	table.sort(chunk_keys)
 	for i = 1, #chunk_keys do
+		local chunk = chunks[chunk_keys[i]]:gsub("\n", "\n\t")
+		if REFNAME_VERSION then
+			chunk = chunk:gsub([[local versionstr = "v2%.[^"]+"]], ([[local versionstr = "%s"]]):format(REFNAME_VERSION))
+		end
 		handle:write(([[
 require_preload__["%s"] = function()
 
 	%s
 end
 
-]]):format(chunk_keys[i], chunks[chunk_keys[i]]:gsub("\n", "\n\t")))
+]]):format(chunk_keys[i], chunk))
 	end
 	handle:write(([[
 require("%s").run()

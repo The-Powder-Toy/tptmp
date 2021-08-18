@@ -1,5 +1,7 @@
 local common_config = require("tptmp.common.config")
 
+local versionstr = "v2.dev"
+
 local config = {
 	-- ***********************************************************************
 	-- *** The following options are purely cosmetic and should be         ***
@@ -7,7 +9,7 @@ local config = {
 	-- ***********************************************************************
 
 	-- * Version string to display in the window title.
-	versionstr = "2.0",
+	versionstr = versionstr,
 
 	-- * Amount of incoming messages to remember, counted from the
 	--   last one received.
@@ -19,7 +21,7 @@ local config = {
 
 	-- * Default window width. Overridden by the value loaded from the manager
 	--   backend, if any.
-	default_width = 211,
+	default_width = 230,
 
 	-- * Default window height. Similar to default_width.
 	default_height = 155,
@@ -43,6 +45,9 @@ local config = {
 
 	-- * Prefix for messages logged.
 	print_prefix = "\bt[TPTMP]\bw ",
+
+	-- * Prefix for load-time failures.
+	print_prefix_version = "\bt[TPTMP " .. versionstr .. "]\bw ",
 
 
 	-- ***********************************************************************
