@@ -1068,7 +1068,7 @@ function client_i:tick_read_()
 			end
 			if closed then
 				self:tick_resume_()
-				self:stop("connection closed")
+				self:stop("connection closed: receive failed: " .. tostring(self.socket_:lasterror()))
 				break
 			end
 			if #data < config.read_size then
@@ -1118,7 +1118,7 @@ function client_i:tick_write_()
 			local written = written_up_to - first + 1
 			self.tx_:pop(written)
 			if closed then
-				self:stop("connection closed")
+				self:stop("connection closed: send failed: " .. tostring(self.socket_:lasterror()))
 				break
 			end
 			if written < count then
