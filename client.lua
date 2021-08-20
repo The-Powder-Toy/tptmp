@@ -37,7 +37,7 @@ end, __newindex = function(_, key)
 	error("__newindex on env: " .. tostring(key), 2)
 end})
 local _ENV = env
-if setfenv then
+if rawget(_G, "setfenv") then
 	setfenv(1, env)
 end
 
@@ -77,7 +77,7 @@ local function require(modname)
 				local content = handle:read("*a")
 				handle:close()
 				local func, err
-				if setfenv then
+				if rawget(_G, "setfenv") then
 					func, err = loadstring(content, "=" .. relative)
 				else
 					func, err = load(content, "=" .. relative, "bt", env)
@@ -85,7 +85,7 @@ local function require(modname)
 				if not func then
 					error(err, 0)
 				end
-				if setfenv then
+				if rawget(_G, "setfenv") then
 					setfenv(func, env)
 				end
 				local ok, err = pcall(func)
@@ -116,7 +116,7 @@ end, __newindex = function(_, key)
 	error("__newindex on env: " .. tostring(key), 2)
 end})
 local _ENV = env__
-if setfenv then
+if rawget(_G, "setfenv") then
 	setfenv(1, env__)
 end
 

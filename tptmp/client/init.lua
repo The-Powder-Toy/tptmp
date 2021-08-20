@@ -17,6 +17,8 @@ elseif socket.bind then
 	loadtime_error = "outdated socket API"
 elseif tpt.version.jacob1s_mod and not tpt.tab_menu then
 	loadtime_error = "mod version not supported"
+elseif tpt.version.mobilemajor then
+	loadtime_error = "platform not supported"
 end
 
 local config      =                        require("tptmp.client.config")
