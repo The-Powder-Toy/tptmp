@@ -81,6 +81,7 @@ local function run()
 	local should_reconnect = false
 	local function kill_client()
 		win:set_subtitle("status", "Not connected")
+		cli:fps_sync(false)
 		cli:stop()
 		if should_reconnect then
 			should_reconnect = false
