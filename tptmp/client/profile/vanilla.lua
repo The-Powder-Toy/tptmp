@@ -1428,10 +1428,7 @@ local function new(params)
 	prof:update_shape_()
 	prof:update_zoom_()
 	prof:check_signs({})
-	if not elem.TPTMP_PT_VANILLAPRESHACK then
-		assert(elem.allocate("TPTMP", "VANILLAPRESHACK") ~= -1, "out of element IDs")
-	end
-	preshack_elem = elem.TPTMP_PT_VANILLAPRESHACK
+	preshack_elem = util.alloc_utility_element("VANILLAPRESHACK")
 	elem.property(preshack_elem, "Graphics", preshack_graphics)
 	preshack_prof = prof
 	return prof

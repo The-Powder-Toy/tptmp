@@ -1,10 +1,15 @@
 local config      = require("tptmp.client.config")
 local common_util = require("tptmp.common.util")
 
-if not elem.TPTMP_PT_UNKNOWN then
-	assert(elem.allocate("TPTMP", "UNKNOWN") ~= -1, "out of element IDs")
-	elem.property(elem.TPTMP_PT_UNKNOWN, "MenuSection", 17) -- * TODO[req]: hack, remove
+local function alloc_utility_element(name)
+	if not elem["TPTMP_PT_" .. name] then
+		assert(elem.allocate("TPTMP", name) ~= -1, "out of element IDs")
+		elem.property(elem["TPTMP_PT_" .. name], "MenuSection", 17) -- * TODO[req]: hack, remove
+		elem.property(elem["TPTMP_PT_" .. name], "Name", "\238\128\163")
+	end
+	return elem["TPTMP_PT_" .. name]
 end
+alloc_utility_element("UNKNOWN")
 
 local jacobsmod = rawget(_G, "jacobsmod")
 local from_tool = {}
@@ -610,4 +615,5 @@ return {
 	tpt_version = tpt_version,
 	urlencode = urlencode,
 	heat_clear = heat_clear,
+	alloc_utility_element = alloc_utility_element,
 }
