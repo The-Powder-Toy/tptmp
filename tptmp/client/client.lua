@@ -655,7 +655,9 @@ function client_i:handle_fpssync_76_()
 		if self.fps_sync_count_ then
 			member.fps_sync_count_offset = count - self.fps_sync_count_
 		end
-		self.window_:backlog_push_fpssync_enable(member.formatted_nick)
+		if self.fps_sync_ then
+			self.window_:backlog_push_fpssync_enable(member.formatted_nick)
+		end
 	end
 	member.fps_sync_last = now_msec
 	member.fps_sync_elapsed = elapsed
@@ -1165,7 +1167,9 @@ function client_i:tick_sim_()
 end
 
 function client_i:fps_sync_end_(member)
-	self.window_:backlog_push_fpssync_disable(member.formatted_nick)
+	if self.fps_sync_ then
+		self.window_:backlog_push_fpssync_disable(member.formatted_nick)
+	end
 	member.fps_sync = false
 end
 
