@@ -35,7 +35,7 @@ return {
 						room_name = room:name(),
 						motd = motd,
 					})
-					client:send_server("\ae* MOTD set")
+					client:send_server("\an* MOTD set")
 				else
 					room:log("$ cleared motd", client:nick())
 					server:rconlog({
@@ -43,7 +43,7 @@ return {
 						client_name = client:name(),
 						room_name = room:name(),
 					})
-					client:send_server("\ae* MOTD cleared")
+					client:send_server("\an* MOTD cleared")
 				end
 				local dconf = server:dconf()
 				local room_info = dconf:root().rooms[room:name()]
