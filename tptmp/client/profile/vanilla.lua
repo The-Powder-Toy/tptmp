@@ -40,8 +40,6 @@ local toolwarn_messages = {
 	cgolcolor =  "Custom GOL currently syncs without colours, use /sync to get colours across",
 }
 
-local log_event = print
-
 local BRUSH_COUNT = 3
 local MOUSEUP_REASON_MOUSEUP = 0
 local MOUSEUP_REASON_BLUR    = 1
@@ -470,7 +468,7 @@ function profile_i:post_event_check_()
 			if self.client_ then
 				self.client_:send_sync()
 			end
-			-- log_event(config.print_prefix .. "If you just pasted something, you will have to use /sync")
+			-- self.log_event_func_("If you just pasted something, you will have to use /sync")
 		end
 		self.placesave_postmsg_ = nil
 	end
@@ -986,7 +984,7 @@ function profile_i:handle_mousedown(px, py, button)
 			if next(self.display_toolwarn_) then
 				if self.registered_func_() then
 					for key in pairs(self.display_toolwarn_) do
-						log_event(config.print_prefix .. toolwarn_messages[key])
+						self.log_event_func_(toolwarn_messages[key])
 					end
 				end
 				self.display_toolwarn_ = {}
@@ -1001,7 +999,7 @@ function profile_i:handle_mousedown(px, py, button)
 			end
 			if self.draw_mode_ == "flood" then
 				if util.xid_class[self[index_to_lrax[self.last_toolslot_]]] == "DECOR" and self.registered_func_() then
-					log_event(config.print_prefix .. "Decoration flooding does not sync, you will have to use /sync")
+					self.log_event_func_("Decoration flooding does not sync, you will have to use /sync")
 				end
 				self:report_flood_(self.last_toolslot_, self.pos_x_, self.pos_y_)
 			end
@@ -1209,14 +1207,14 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 		self.simstate_invalid_ = true
 	elseif scan == sdl.SDL_SCANCODE_GRAVE then
 		if self.registered_func_() and not alt then
-			log_event(config.print_prefix .. "The console is disabled because it does not sync (press the Alt key to override)")
+			self.log_event_func_("The console is disabled because it does not sync (press the Alt key to override)")
 			return true
 		end
 	elseif scan == sdl.SDL_SCANCODE_Z then
 		if self.select_mode_ == "none" or not self.dragging_mouse_ then
 			if ctrl and not self.dragging_mouse_ then
 				if self.registered_func_() and not alt then
-					log_event(config.print_prefix .. "Undo is disabled because it does not sync (press the Alt key to override)")
+					self.log_event_func_("Undo is disabled because it does not sync (press the Alt key to override)")
 					return true
 				end
 			else
@@ -1230,7 +1228,7 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	elseif scan == sdl.SDL_SCANCODE_F and not ctrl then
 		if ren.debugHUD() == 1 and (shift or alt) then
 			if self.registered_func_() and not alt then
-				log_event(config.print_prefix .. "Partial framesteps do not sync, you will have to use /sync")
+				self.log_event_func_("Partial framesteps do not sync, you will have to use /sync")
 			end
 		end
 		self:report_framestep_()
@@ -1240,7 +1238,7 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	elseif scan == sdl.SDL_SCANCODE_Y then
 		if ctrl then
 			if self.registered_func_() and not alt then
-				log_event(config.print_prefix .. "Redo is disabled because it does not sync (press the Alt key to override)")
+				self.log_event_func_("Redo is disabled because it does not sync (press the Alt key to override)")
 				return true
 			end
 		else
@@ -1403,6 +1401,7 @@ local function new(params)
 		stk2_out_ = false,
 		perfect_circle_invalid_ = true,
 		registered_func_ = params.registered_func,
+		log_event_func_ = params.log_event_func,
 		set_id_func_ = params.set_id_func,
 		get_id_func_ = params.get_id_func,
 		display_toolwarn_ = {},
@@ -1438,5 +1437,4 @@ return {
 	new = new,
 	brand = "vanilla",
 	profile_i = profile_i,
-	log_event = log_event,
 }

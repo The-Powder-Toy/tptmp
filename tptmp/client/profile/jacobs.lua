@@ -10,7 +10,7 @@ end
 
 function profile_i:handle_mousedown(px, py, button)
 	if self.client and (tpt.tab_menu() == 1 or self.kmod_c_) and px >= sim.XRES and py < 116 and not self.kmod_a_ then
-		vanilla.log_event(config.print_prefix .. "The tab menu is disabled because it does not sync (press the Alt key to override)")
+		self.log_event_func_(config.print_prefix .. "The tab menu is disabled because it does not sync (press the Alt key to override)")
 		return true
 	end
 	return vanilla.profile_i.handle_mousedown(self, px, py, button)

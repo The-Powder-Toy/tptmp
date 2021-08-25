@@ -271,9 +271,14 @@ function window_i:backlog_update_()
 	self.backlog_text_ = {}
 	local marker_after
 	for i = 1, #lines do
+		local text_width = gfx.textSize(lines[i].wrapped)
+		local padding = lines[i].needs_padding and wrap_padding or 0
+		local box_width = lines[i].extend_box and self.width_ or (padding + text_width + 10)
 		table.insert(self.backlog_text_, {
-			padding = lines[i].needs_padding and wrap_padding or 0,
+			padding = padding,
+			pushed_at = lines[i].msg.pushed_at,
 			text = lines[i].wrapped,
+			box_width = box_width,
 		})
 		if lines[i].marker then
 			marker_after = i
@@ -292,6 +297,7 @@ function window_i:backlog_push_(collect, important)
 		prev = self.backlog_last_.prev,
 		next = self.backlog_last_,
 		important = important,
+		pushed_at = socket.gettime(),
 	}
 	self.backlog_last_.prev.next = msg
 	self.backlog_last_.prev = msg
@@ -414,42 +420,67 @@ function window_i:handle_tick()
 		self:save_window_rect_()
 	end
 
+	local floating = self.window_status_func_() == "floating"
+	local now = socket.gettime()
+
 	local border_colour = colours.appearance[self.in_focus and "active" or "inactive"].border
 	local background_colour = colours.appearance.inactive.background
-	gfx.fillRect(self.pos_x_ + 1, self.pos_y_ + 1, self.width_ - 2, self.height_ - 2, background_colour[1], background_colour[2], background_colour[3], self.alpha_)
-	gfx.drawRect(self.pos_x_, self.pos_y_, self.width_, self.height_, unpack(border_colour))
+	if not floating then
+		gfx.fillRect(self.pos_x_ + 1, self.pos_y_ + 1, self.width_ - 2, self.height_ - 2, background_colour[1], background_colour[2], background_colour[3], self.alpha_)
+		gfx.drawRect(self.pos_x_, self.pos_y_, self.width_, self.height_, unpack(border_colour))
 
-	self:tick_close_()
+		self:tick_close_()
 
-	local subtitle_blue = 255
-	if #self.input_collect_ > 0 and self.input_last_say_ + config.message_interval >= socket.gettime() then
-		subtitle_blue = 0
+		local subtitle_blue = 255
+		if #self.input_collect_ > 0 and self.input_last_say_ + config.message_interval >= now then
+			subtitle_blue = 0
+		end
+		gfx.drawText(self.pos_x_ + 18, self.pos_y_ + 4, self.subtitle_text_, 255, 255, subtitle_blue)
+
+		gfx.drawText(self.pos_x_ + self.width_ - self.title_width_ - 17, self.pos_y_ + 4, self.title_)
+		for i = 1, 3 do
+			gfx.drawLine(self.pos_x_ + i * 3 + 1, self.pos_y_ + 3, self.pos_x_ + 3, self.pos_y_ + i * 3 + 1, unpack(border_colour))
+		end
+		gfx.drawLine(self.pos_x_ + 1, self.pos_y_ + 14, self.pos_x_ + self.width_ - 2, self.pos_y_ + 14, unpack(border_colour))
+		gfx.drawLine(self.pos_x_ + 14, self.pos_y_ + 1, self.pos_x_ + 14, self.pos_y_ + 13, unpack(border_colour))
 	end
-	gfx.drawText(self.pos_x_ + 18, self.pos_y_ + 4, self.subtitle_text_, 255, 255, subtitle_blue)
-
-	gfx.drawText(self.pos_x_ + self.width_ - self.title_width_ - 17, self.pos_y_ + 4, self.title_)
-	for i = 1, 3 do
-		gfx.drawLine(self.pos_x_ + i * 3 + 1, self.pos_y_ + 3, self.pos_x_ + 3, self.pos_y_ + i * 3 + 1, unpack(border_colour))
-	end
-	gfx.drawLine(self.pos_x_ + 1, self.pos_y_ + 14, self.pos_x_ + self.width_ - 2, self.pos_y_ + 14, unpack(border_colour))
-	gfx.drawLine(self.pos_x_ + 14, self.pos_y_ + 1, self.pos_x_ + 14, self.pos_y_ + 13, unpack(border_colour))
 
 	for i = 1, #self.backlog_text_ do
-		gfx.drawText(self.pos_x_ + 4 + self.backlog_text_[i].padding, self.pos_y_ + self.backlog_text_y_ + i * 12 - 12, self.backlog_text_[i].text)
+		local fades_at = self.backlog_text_[i].pushed_at + config.floating_linger_time + config.floating_fade_time
+		if floating and fades_at > now then
+			local alpha = math.min(1, (fades_at - now) / config.floating_fade_time)
+			gfx.fillRect(self.pos_x_ - 1, self.pos_y_ + self.backlog_text_y_ + i * 12 - 15, self.backlog_text_[i].box_width, self.backlog_text_[i + 1] and 12 or 14, 0, 0, 0, alpha * self.alpha_)
+			if self.backlog_text_[i + 1] and self.backlog_text_[i + 1].box_width < self.backlog_text_[i].box_width then
+				gfx.fillRect(self.pos_x_ - 1 + self.backlog_text_[i + 1].box_width, self.pos_y_ + self.backlog_text_y_ + i * 12 - 3, self.backlog_text_[i].box_width - self.backlog_text_[i + 1].box_width, 2, 0, 0, 0, alpha * self.alpha_)
+			end
+		end
 	end
-	if self.backlog_marker_y_ then
-		gfx.drawLine(self.pos_x_ + 1, self.pos_y_ + self.backlog_marker_y_, self.pos_x_ + self.width_ - 2, self.pos_y_ + self.backlog_marker_y_, 255, 50, 50)
+	for i = 1, #self.backlog_text_ do
+		local fades_at = self.backlog_text_[i].pushed_at + config.floating_linger_time + config.floating_fade_time
+		if not floating or fades_at > now then
+			local alpha = 1
+			if floating then
+				alpha = math.min(1, (fades_at - now) / config.floating_fade_time)
+			end
+			gfx.drawText(self.pos_x_ + 4 + self.backlog_text_[i].padding, self.pos_y_ + self.backlog_text_y_ + i * 12 - 12, self.backlog_text_[i].text, 255, 255, 255, alpha * 255)
+		end
 	end
 
-	gfx.drawLine(self.pos_x_ + 1, self.pos_y_ + self.height_ - 15, self.pos_x_ + self.width_ - 2, self.pos_y_ + self.height_ - 15, unpack(border_colour))
-	if self.input_has_selection_ then
-		gfx.fillRect(self.pos_x_ + self.input_sel_low_x_ + self.input_scroll_x_, self.pos_y_ + self.height_ - 13, self.input_sel_high_x_ - self.input_sel_low_x_, 11)
-	end
-	gfx.drawText(self.pos_x_ + 4 + self.input_text_1x_, self.pos_y_ + self.height_ - 11, self.input_text_1_)
-	gfx.drawText(self.pos_x_ + 4 + self.input_text_2x_, self.pos_y_ + self.height_ - 11, self.input_text_2_, 0, 0, 0)
-	gfx.drawText(self.pos_x_ + 4 + self.input_text_3x_, self.pos_y_ + self.height_ - 11, self.input_text_3_)
-	if self.in_focus and socket.gettime() % 1 < 0.5 then
-		gfx.drawLine(self.pos_x_ + self.input_cursor_x_ + self.input_scroll_x_, self.pos_y_ + self.height_ - 13, self.pos_x_ + self.input_cursor_x_ + self.input_scroll_x_, self.pos_y_ + self.height_ - 3)
+	if not floating then
+		if self.backlog_marker_y_ then
+			gfx.drawLine(self.pos_x_ + 1, self.pos_y_ + self.backlog_marker_y_, self.pos_x_ + self.width_ - 2, self.pos_y_ + self.backlog_marker_y_, 255, 50, 50)
+		end
+
+		gfx.drawLine(self.pos_x_ + 1, self.pos_y_ + self.height_ - 15, self.pos_x_ + self.width_ - 2, self.pos_y_ + self.height_ - 15, unpack(border_colour))
+		if self.input_has_selection_ then
+			gfx.fillRect(self.pos_x_ + self.input_sel_low_x_ + self.input_scroll_x_, self.pos_y_ + self.height_ - 13, self.input_sel_high_x_ - self.input_sel_low_x_, 11)
+		end
+		gfx.drawText(self.pos_x_ + 4 + self.input_text_1x_, self.pos_y_ + self.height_ - 11, self.input_text_1_)
+		gfx.drawText(self.pos_x_ + 4 + self.input_text_2x_, self.pos_y_ + self.height_ - 11, self.input_text_2_, 0, 0, 0)
+		gfx.drawText(self.pos_x_ + 4 + self.input_text_3x_, self.pos_y_ + self.height_ - 11, self.input_text_3_)
+		if self.in_focus and now % 1 < 0.5 then
+			gfx.drawLine(self.pos_x_ + self.input_cursor_x_ + self.input_scroll_x_, self.pos_y_ + self.height_ - 13, self.pos_x_ + self.input_cursor_x_ + self.input_scroll_x_, self.pos_y_ + self.height_ - 3)
+		end
 	end
 end
 
@@ -493,7 +524,7 @@ function window_i:handle_mousedown(px, py, button)
 					end
 				end
 				plat.clipboardPaste(table.concat(collect_sane))
-				print(config.print_prefix .. "Message copied to clipboard")
+				self.log_event_func_("Message copied to clipboard")
 			end
 			return true
 		end
@@ -558,7 +589,7 @@ local modkey_scan = {
 	[ sdl.SDL_SCANCODE_RALT   ] = true,
 }
 function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
-	if not self.in_focus and not self.window_hidden_func_() and scan == sdl.SDL_SCANCODE_RETURN then
+	if not self.in_focus and self.window_status_func_() == "shown" and scan == sdl.SDL_SCANCODE_RETURN then
 		self.in_focus = true
 		return true
 	end
@@ -822,6 +853,7 @@ function window_i:insert_wrapped_line_(tbl, msg, line)
 	table.insert(tbl, {
 		wrapped = msg.wrapped[line],
 		needs_padding = line > 1,
+		extend_box = line < #msg.wrapped,
 		msg = msg,
 		marker = self.backlog_marker_at_ == msg.unique and #msg.wrapped == line,
 	})
@@ -1034,7 +1066,8 @@ local function new(params)
 		resizer_active_ = false,
 		dragger_active_ = false,
 		close_active_ = false,
-		window_hidden_func_ = params.window_hidden_func,
+		window_status_func_ = params.window_status_func,
+		log_event_func_ = params.log_event_func,
 		client_func_ = params.client_func,
 		hide_window_func_ = params.hide_window_func,
 		should_ignore_mouse_func_ = params.should_ignore_mouse_func,

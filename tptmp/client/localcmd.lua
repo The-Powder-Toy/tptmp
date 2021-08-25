@@ -42,11 +42,11 @@ local cmdp = command_parser.new({
 				local cli = localcmd.client_func_()
 				if cli then
 					cli:send_sync()
-					if not localcmd.window_hidden_func_() then
+					if localcmd.window_status_func_() ~= "hidden" then
 						localcmd.window_:backlog_push_neutral("* Simulation synchronized")
 					end
 				else
-					if not localcmd.window_hidden_func_() then
+					if localcmd.window_status_func_() ~= "hidden" then
 						localcmd.window_:backlog_push_error("Not connected, cannot sync")
 					end
 				end
@@ -101,6 +101,33 @@ local cmdp = command_parser.new({
 				return false
 			end,
 			help = "/fpssync on [targetfps]\\check\\off: enables or disables FPS synchronization with those in the room who also have it enabled; targetfps defaults to the current FPS cap",
+		},
+		floating = {
+			func = function(localcmd, message, words, offsets)
+				local cli = localcmd.client_func_()
+				if words[2] == "on" then
+					localcmd.floating_ = true
+					localcmd.window_set_floating_func_(true)
+					manager.set("floating", "on")
+					localcmd.window_:backlog_push_neutral("* Floating mode enabled")
+					return true
+				elseif words[2] == "check" or not words[2] then
+					if localcmd.floating_ then
+						localcmd.window_:backlog_push_neutral("* Floating mode currenly enabled")
+					else
+						localcmd.window_:backlog_push_neutral("* Floating mode currenly disabled")
+					end
+					return true
+				elseif words[2] == "off" then
+					localcmd.floating_ = false
+					localcmd.window_set_floating_func_(false)
+					manager.set("floating", "false")
+					localcmd.window_:backlog_push_neutral("* Floating mode disabled")
+					return true
+				end
+				return false
+			end,
+			help = "/floating on\\check\\off: enables or disables floating mode: messages are drawn even when the window is hidden",
 		},
 		connect = {
 			macro = function(localcmd, message, words, offsets)
@@ -296,10 +323,13 @@ local function new(params)
 		reconnect = nil
 	end
 	local fps_sync = parse_fps_sync(manager.get("fpsSync", "0"))
+	local floating = manager.get("floating", "off") == "on"
 	local cmd = setmetatable({
 		fps_sync_ = fps_sync,
+		floating_ = floating,
 		reconnect_ = reconnect,
-		window_hidden_func_ = params.window_hidden_func,
+		window_status_func_ = params.window_status_func,
+		window_set_floating_func_ = params.window_set_floating_func,
 		client_func_ = params.client_func,
 		new_client_func_ = params.new_client_func,
 		kill_client_func_ = params.kill_client_func,
@@ -307,6 +337,7 @@ local function new(params)
 		window_ = params.window,
 	}, localcmd_m)
 	cmd.window_:nick_colour_seed(cmd.nick_colour_seed_)
+	cmd.window_set_floating_func_(floating)
 	return cmd
 end
 

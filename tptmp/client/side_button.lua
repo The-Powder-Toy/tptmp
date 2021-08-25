@@ -14,7 +14,7 @@ function side_button_i:draw_button_()
 		self.active_ = false
 	end
 	local state
-	if self.active_ or not self.window_hidden_func_() then
+	if self.active_ or self.window_status_func_() == "shown" then
 		state = "active"
 	elseif inside then
 		state = "hover"
@@ -76,10 +76,10 @@ function side_button_i:handle_mouseup(mx, my, button)
 			if manager.minimize_conflict and not manager.hidden() then
 				manager.print("minimize the manager before opening TPTMP")
 			else
-				if self.window_hidden_func_() then
-					self.show_window_func_()
-				else
+				if self.window_status_func_() == "shown" then
 					self.hide_window_func_()
+				else
+					self.show_window_func_()
 				end
 			end
 			self.active_ = false
@@ -143,7 +143,7 @@ local function new(params)
 		notif_important_func_ = params.notif_important_func,
 		show_window_func_ = params.show_window_func,
 		hide_window_func_ = params.hide_window_func,
-		window_hidden_func_ = params.window_hidden_func,
+		window_status_func_ = params.window_status_func,
 		sync_func_ = params.sync_func,
 	}, side_button_m)
 end

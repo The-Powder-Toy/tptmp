@@ -41,16 +41,40 @@ local function run()
 		end
 	end
 	if loadtime_error then
-		print(config.print_prefix_version .. "Cannot load: " .. loadtime_error)
+		print("TPTMP " .. config.versionstr .. ": Cannot load: " .. loadtime_error)
 		return
 	end
 
 	local hooks_enabled = false
+	local window_status = "hidden"
+	local window_hide_mode = "hidden"
+	local function set_floating(floating)
+		window_hide_mode = floating and "floating" or "hidden"
+	end
+	local function get_window_status()
+		return window_status
+	end
 	local TPTMP = {
 		version = config.version,
 		versionStr = config.versionstr,
-		chatHidden = true,
 	}
+	local hide_window, show_window
+	setmetatable(TPTMP, { __newindex = function(tbl, key, value)
+		if key == "chatHidden" then
+			if value then
+				hide_window()
+			else
+				show_window()
+			end
+			return
+		end
+		rawset(tbl, key, value)
+	end, __index = function(tbl, key)
+		if key == "chatHidden" then
+			return window_status == "shown"
+		end
+		return rawset(tbl, key)
+	end })
 	rawset(_G, "TPTMP", TPTMP)
 
 	local current_id, current_hist = util.get_save_id()
@@ -60,6 +84,7 @@ local function run()
 	local function get_id()
 		return current_id, current_hist
 	end
+
 	local quickauth = manager.get("quickauthToken", "")
 	local function set_qa(qa)
 		quickauth = qa
@@ -68,11 +93,17 @@ local function run()
 	local function get_qa()
 		return quickauth
 	end
+
+	local function log_event(text)
+		print(text)
+	end
+
 	local should_reconnect_at
 	local cli
 	local prof = profile.new({
 		set_id_func = set_id,
 		get_id_func = get_id,
+		log_event_func = log_event,
 		registered_func = function()
 			return cli and cli:registered()
 		end
@@ -90,24 +121,22 @@ local function run()
 		end
 		cli = nil
 	end
-	local function hide_window()
-		TPTMP.chatHidden = true
+	function hide_window()
+		window_status = window_hide_mode
 		win.in_focus = false
 	end
-	local function window_hidden()
-		return TPTMP.chatHidden
-	end
-	local function show_window()
+	function show_window()
 		if not hooks_enabled then
 			TPTMP.enableMultiplayer()
 		end
-		TPTMP.chatHidden = false
+		window_status = "shown"
 		win:backlog_bump_marker()
 		win.in_focus = true
 	end
 	win = window.new({
 		hide_window_func = hide_window,
-		window_hidden_func = window_hidden,
+		window_status_func = get_window_status,
+		log_event_func = log_event,
 		client_func = function()
 			return cli and cli:registered() and cli
 		end,
@@ -119,7 +148,8 @@ local function run()
 		end,
 	})
 	local cmd = localcmd.new({
-		window_hidden_func = window_hidden,
+		window_status_func = get_window_status,
+		window_set_floating_func = set_floating,
 		client_func = function()
 			return cli and cli:registered() and cli
 		end,
@@ -131,6 +161,7 @@ local function run()
 			params.get_id_func = get_id
 			params.set_qa_func = set_qa
 			params.get_qa_func = get_qa
+			params.log_event_func = log_event
 			params.should_reconnect_func = function()
 				should_reconnect = true
 			end
@@ -156,7 +187,7 @@ local function run()
 		end,
 		show_window_func = show_window,
 		hide_window_func = hide_window,
-		window_hidden_func = window_hidden,
+		window_status_func = get_window_status,
 		sync_func = function()
 			cmd:parse("/sync")
 		end,
@@ -196,7 +227,7 @@ local function run()
 			cmd:parse("/reconnect")
 		end
 		if grab_drop_text_input then
-			grab_drop_text_input(not TPTMP.chatHidden)
+			grab_drop_text_input(window_status == "shown")
 		end
 		if cli then
 			cli:tick()
@@ -218,7 +249,7 @@ local function run()
 					local tool = member.last_tool or member.tool_l
 					local tool_name = util.to_tool[tool] or decode_rulestring(tool) or "TPTMP_PT_UNKNOWN"
 					local tool_class = util.xid_class[tool]
-					if elem[tool_name] and tool ~= 0 then
+					if elem[tool_name] and tool ~= 0 and tool_name ~= "TPTMP_PT_UNKNOWN" then
 						local real_name = elem.property(elem[tool_name], "Name")
 						if real_name ~= "" then
 							tool_name = real_name
@@ -237,7 +268,7 @@ local function run()
 						local repl_tool = member.tool_x
 						repl_tool_name = util.to_tool[repl_tool] or "TPTMP_PT_UNKNOWN"
 						local repl_tool_class = util.xid_class[repl_tool]
-						if elem[repl_tool_name] and repl_tool ~= 0 then
+						if elem[repl_tool_name] and repl_tool ~= 0 and repl_tool_name ~= "TPTMP_PT_UNKNOWN" then
 							local real_name = elem.property(elem[repl_tool_name], "Name")
 							if real_name ~= "" then
 								repl_tool_name = real_name
@@ -321,7 +352,7 @@ local function run()
 				end
 			end
 		end
-		if not TPTMP.chatHidden and win:handle_tick() then
+		if window_status ~= "hidden" and win:handle_tick() then
 			return false
 		end
 		if sbtn:handle_tick() then
@@ -337,7 +368,7 @@ local function run()
 	end
 
 	local function handle_mousedown(px, py, button)
-		if not TPTMP.chatHidden and win:handle_mousedown(px, py, button) then
+		if window_status == "shown" and win:handle_mousedown(px, py, button) then
 			return false
 		end
 		if sbtn:handle_mousedown(px, py, button) then
@@ -349,7 +380,7 @@ local function run()
 	end
 
 	local function handle_mouseup(px, py, button, reason)
-		if not TPTMP.chatHidden and win:handle_mouseup(px, py, button, reason) then
+		if window_status == "shown" and win:handle_mouseup(px, py, button, reason) then
 			return false
 		end
 		if sbtn:handle_mouseup(px, py, button, reason) then
@@ -361,7 +392,7 @@ local function run()
 	end
 
 	local function handle_mousewheel(px, py, dir)
-		if not TPTMP.chatHidden and win:handle_mousewheel(px, py, dir) then
+		if window_status == "shown" and win:handle_mousewheel(px, py, dir) then
 			return false
 		end
 		if sbtn:handle_mousewheel(px, py, dir) then
@@ -373,7 +404,7 @@ local function run()
 	end
 
 	local function handle_keypress(key, scan, rep, shift, ctrl, alt)
-		if not TPTMP.chatHidden and win:handle_keypress(key, scan, rep, shift, ctrl, alt) then
+		if window_status == "shown" and win:handle_keypress(key, scan, rep, shift, ctrl, alt) then
 			return false
 		end
 		if sbtn:handle_keypress(key, scan, rep, shift, ctrl, alt) then
@@ -385,7 +416,7 @@ local function run()
 	end
 
 	local function handle_keyrelease(key, scan, rep, shift, ctrl, alt)
-		if not TPTMP.chatHidden and win:handle_keyrelease(key, scan, rep, shift, ctrl, alt) then
+		if window_status == "shown" and win:handle_keyrelease(key, scan, rep, shift, ctrl, alt) then
 			return false
 		end
 		if sbtn:handle_keyrelease(key, scan, rep, shift, ctrl, alt) then
@@ -397,7 +428,7 @@ local function run()
 	end
 
 	local function handle_textinput(text)
-		if not TPTMP.chatHidden and win:handle_textinput(text) then
+		if window_status == "shown" and win:handle_textinput(text) then
 			return false
 		end
 		if sbtn:handle_textinput(text) then
@@ -409,7 +440,7 @@ local function run()
 	end
 
 	local function handle_textediting(text)
-		if not TPTMP.chatHidden and win:handle_textediting(text) then
+		if window_status == "shown" and win:handle_textediting(text) then
 			return false
 		end
 		if sbtn:handle_textediting(text) then
@@ -421,7 +452,7 @@ local function run()
 	end
 
 	local function handle_blur()
-		if not TPTMP.chatHidden and win:handle_blur() then
+		if window_status == "shown" and win:handle_blur() then
 			return false
 		end
 		if sbtn:handle_blur() then

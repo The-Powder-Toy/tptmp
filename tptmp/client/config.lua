@@ -30,7 +30,7 @@ local config = {
 	default_alpha = 150,
 
 	-- * Minimum window width.
-	min_width = 150,
+	min_width = 160,
 
 	-- * Minimum window height.
 	min_height = 107,
@@ -43,11 +43,13 @@ local config = {
 	--   and the position where it settles.
 	notif_fly_distance = 3,
 
-	-- * Prefix for messages logged.
-	print_prefix = "\bt[TPTMP]\bw ",
+	-- * Amount of time in seconds that elapses between a message arriving and
+	--   it beginning to fade out if the window is floating.
+	floating_linger_time = 3,
 
-	-- * Prefix for load-time failures.
-	print_prefix_version = "\bt[TPTMP " .. versionstr .. "]\bw ",
+	-- * Amount of time in seconds that elapses between a message beginning to
+	--   fade out and disappearing completely if the window is floating.
+	floating_fade_time = 1,
 
 
 	-- ***********************************************************************

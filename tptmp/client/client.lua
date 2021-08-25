@@ -4,7 +4,6 @@ local config      = require("tptmp.client.config")
 local util        = require("tptmp.client.util")
 local format      = require("tptmp.client.format")
 
-local log_event = print
 local can_yield_xpcall = coroutine.resume(coroutine.create(function()
 	assert(pcall(coroutine.yield))
 end))
@@ -235,9 +234,9 @@ function client_i:handle_sync_30_()
 	local data = self:read_str24_()
 	local ok, err = util.stamp_load(0, 0, data, true)
 	if ok then
-		log_event(config.print_prefix .. colours.commonstr.event .. "Sync from " .. member.formatted_nick)
+		self.log_event_func_(colours.commonstr.event .. "Sync from " .. member.formatted_nick)
 	else
-		log_event(config.print_prefix .. colours.commonstr.error .. "Failed to sync from " .. member.formatted_nick .. colours.commonstr.error .. ": " .. err)
+		self.log_event_func_(colours.commonstr.error .. "Failed to sync from " .. member.formatted_nick .. colours.commonstr.error .. ": " .. err)
 	end
 end
 
@@ -247,9 +246,9 @@ function client_i:handle_pastestamp_31_()
 	local data = self:read_str24_()
 	local ok, err = util.stamp_load(x, y, data, false)
 	if ok then
-		log_event(config.print_prefix .. colours.commonstr.event .. "Stamp from " .. member.formatted_nick) -- * Not really needed thanks to the stamp intent displays in init.lua.
+		self.log_event_func_(colours.commonstr.event .. "Stamp from " .. member.formatted_nick) -- * Not really needed thanks to the stamp intent displays in init.lua.
 	else
-		log_event(config.print_prefix .. colours.commonstr.error .. "Failed to paste stamp from " .. member.formatted_nick .. colours.commonstr.error .. ": " .. err)
+		self.log_event_func_(colours.commonstr.error .. "Failed to paste stamp from " .. member.formatted_nick .. colours.commonstr.error .. ": " .. err)
 	end
 end
 
@@ -377,12 +376,12 @@ function client_i:handle_simstate_38_()
 		end
 		if desc.func() ~= value then
 			desc.func(value)
-			log_event(config.print_prefix .. colours.commonstr.event .. desc.format:format(desc.states[value + 1], member.formatted_nick))
+			self.log_event_func_(colours.commonstr.event .. desc.format:format(desc.states[value + 1], member.formatted_nick))
 		end
 	end
 	if util.ambient_air_temp() ~= temp then
 		local set = util.ambient_air_temp(temp)
-		log_event(config.print_prefix .. colours.commonstr.event .. ("Ambient air temperature set to %.2f by %s"):format(set, member.formatted_nick))
+		self.log_event_func_(colours.commonstr.event .. ("Ambient air temperature set to %.2f by %s"):format(set, member.formatted_nick))
 	end
 	self.profile_:sample_simstate()
 end
@@ -501,20 +500,20 @@ function client_i:handle_stepsim_50_()
 	local member = self:member_prefix_()
 	tpt.set_pause(1)
 	sim.framerender(1)
-	log_event(config.print_prefix .. colours.commonstr.event .. "Single-frame step from " .. member.formatted_nick)
+	self.log_event_func_(colours.commonstr.event .. "Single-frame step from " .. member.formatted_nick)
 end
 
 function client_i:handle_sparkclear_60_()
 	local member = self:member_prefix_()
 	tpt.reset_spark()
-	log_event(config.print_prefix .. colours.commonstr.event .. "Sparks cleared by " .. member.formatted_nick)
+	self.log_event_func_(colours.commonstr.event .. "Sparks cleared by " .. member.formatted_nick)
 end
 
 function client_i:handle_airclear_61_()
 	local member = self:member_prefix_()
 	tpt.reset_velocity()
 	tpt.set_pressure()
-	log_event(config.print_prefix .. colours.commonstr.event .. "Pressure cleared by " .. member.formatted_nick)
+	self.log_event_func_(colours.commonstr.event .. "Pressure cleared by " .. member.formatted_nick)
 end
 
 function client_i:handle_airinv_62_()
@@ -525,21 +524,21 @@ function client_i:handle_airinv_62_()
 			sim.pressure(x, y, -sim.pressure(x, y))
 		end
 	end
-	log_event(config.print_prefix .. colours.commonstr.event .. "Pressure inverted by " .. member.formatted_nick)
+	self.log_event_func_(colours.commonstr.event .. "Pressure inverted by " .. member.formatted_nick)
 end
 
 function client_i:handle_clearsim_63_()
 	local member = self:member_prefix_()
 	sim.clearSim()
 	self.set_id_func_(nil, nil)
-	log_event(config.print_prefix .. colours.commonstr.event .. "Simulation cleared by " .. member.formatted_nick)
+	self.log_event_func_(colours.commonstr.event .. "Simulation cleared by " .. member.formatted_nick)
 end
 
 function client_i:handle_heatclear_64_()
 	-- * TODO[api]: add an api for this to tpt
 	local member = self:member_prefix_()
 	util.heat_clear()
-	log_event(config.print_prefix .. colours.commonstr.event .. "Ambient heat reset by " .. member.formatted_nick)
+	self.log_event_func_(colours.commonstr.event .. "Ambient heat reset by " .. member.formatted_nick)
 end
 
 function client_i:handle_brushdeco_65_()
@@ -572,7 +571,7 @@ function client_i:handle_loadonline_69_()
 		sim.loadSave(id, 1, hist)
 		coroutine.yield() -- * sim.loadSave seems to take effect one frame late.
 		self.set_id_func_(id, hist)
-		log_event(config.print_prefix .. colours.commonstr.event .. "Online save " .. (hist == 0 and "id" or "history") .. ":" .. id .. " loaded by " .. member.formatted_nick)
+		self.log_event_func_(colours.commonstr.event .. "Online save " .. (hist == 0 and "id" or "history") .. ":" .. id .. " loaded by " .. member.formatted_nick)
 	end
 end
 
@@ -581,7 +580,7 @@ function client_i:handle_reloadsim_70_()
 	if self.get_id_func_() then
 		sim.reloadSave()
 	end
-	log_event(config.print_prefix .. colours.commonstr.event .. "Simulation reloaded by " .. member.formatted_nick)
+	self.log_event_func_(colours.commonstr.event .. "Simulation reloaded by " .. member.formatted_nick)
 end
 
 function client_i:handle_placestatus_71_()
@@ -953,14 +952,14 @@ end
 function client_i:send_pastestamp(x, y, w, h)
 	local ok, err = self:send_pastestamp_data_("\31", x, y, w, h)
 	if not ok then
-		log_event(config.print_prefix .. colours.commonstr.error .. "Failed to send stamp: " .. err)
+		self.log_event_func_(colours.commonstr.error .. "Failed to send stamp: " .. err)
 	end
 end
 
 function client_i:send_sync()
 	local ok, err = self:send_pastestamp_data_("\30", 0, 0, sim.XRES, sim.YRES)
 	if not ok then
-		log_event(config.print_prefix .. colours.commonstr.error .. "Failed to send screen: " .. err)
+		self.log_event_func_(colours.commonstr.error .. "Failed to send screen: " .. err)
 	end
 end
 
@@ -1411,6 +1410,7 @@ local function new(params)
 		get_id_func_ = params.get_id_func,
 		set_qa_func_ = params.set_qa_func,
 		get_qa_func_ = params.get_qa_func,
+		log_event_func_ = params.log_event_func,
 		should_reconnect_func_ = params.should_reconnect_func,
 		should_not_reconnect_func_ = params.should_not_reconnect_func,
 		id_to_member = {},
