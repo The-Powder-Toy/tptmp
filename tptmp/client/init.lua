@@ -58,7 +58,7 @@ local function run()
 		version = config.version,
 		versionStr = config.versionstr,
 	}
-	local hide_window, show_window
+	local hide_window, show_window, begin_chat
 	setmetatable(TPTMP, { __newindex = function(tbl, key, value)
 		if key == "chatHidden" then
 			if value then
@@ -120,6 +120,10 @@ local function run()
 			win:backlog_push_neutral("* Will attempt to reconnect in " .. config.reconnect_later_timeout .. " seconds")
 		end
 		cli = nil
+	end
+	function begin_chat()
+		show_window()
+		win.hide_when_chat_done = true
 	end
 	function hide_window()
 		window_status = window_hide_mode
@@ -187,6 +191,7 @@ local function run()
 		end,
 		show_window_func = show_window,
 		hide_window_func = hide_window,
+		begin_chat_func = begin_chat,
 		window_status_func = get_window_status,
 		sync_func = function()
 			cmd:parse("/sync")

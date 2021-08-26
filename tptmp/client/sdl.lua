@@ -10,6 +10,7 @@ return {
     SDL_SCANCODE_N            =  17,
     SDL_SCANCODE_R            =  21,
     SDL_SCANCODE_S            =  22,
+    SDL_SCANCODE_T            =  23,
     SDL_SCANCODE_U            =  24,
     SDL_SCANCODE_V            =  25,
     SDL_SCANCODE_W            =  26,

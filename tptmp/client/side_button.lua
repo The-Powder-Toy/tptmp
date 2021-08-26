@@ -91,11 +91,14 @@ function side_button_i:handle_mousewheel(pos_x, pos_y, dir)
 end
 
 function side_button_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
-	if shift and scan == sdl.SDL_SCANCODE_ESCAPE then
+	if shift and not ctrl and not alt and scan == sdl.SDL_SCANCODE_ESCAPE then
 		self.show_window_func_()
 		return true
-	elseif alt and scan == sdl.SDL_SCANCODE_S then
+	elseif alt and not ctrl and not shift and scan == sdl.SDL_SCANCODE_S then
 		self.sync_func_()
+		return true
+	elseif not alt and not ctrl and not shift and scan == sdl.SDL_SCANCODE_T and self.window_status_func_() == "floating" then
+		self.begin_chat_func_()
 		return true
 	end
 end
@@ -143,6 +146,7 @@ local function new(params)
 		notif_important_func_ = params.notif_important_func,
 		show_window_func_ = params.show_window_func,
 		hide_window_func_ = params.hide_window_func,
+		begin_chat_func_ = params.begin_chat_func,
 		window_status_func_ = params.window_status_func,
 		sync_func_ = params.sync_func,
 	}, side_button_m)
