@@ -127,7 +127,7 @@ local cmdp = command_parser.new({
 				end
 				return false
 			end,
-			help = "/floating on\\check\\off: enables or disables floating mode: messages are drawn even when the window is hidden",
+			help = "/floating on\\check\\off: enables or disables floating mode: messages are drawn even when the window is hidden; chat shortcut is T",
 		},
 		connect = {
 			macro = function(localcmd, message, words, offsets)

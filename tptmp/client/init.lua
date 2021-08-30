@@ -71,7 +71,7 @@ local function run()
 		rawset(tbl, key, value)
 	end, __index = function(tbl, key)
 		if key == "chatHidden" then
-			return window_status == "shown"
+			return window_status ~= "shown"
 		end
 		return rawset(tbl, key)
 	end })

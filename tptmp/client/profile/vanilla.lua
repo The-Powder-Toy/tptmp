@@ -115,54 +115,60 @@ for key, value in pairs(sim) do
 	end
 end
 
-local function save_and_kill_zero()
-	local zero = { [ sim.FIELD_TYPE ] = sim.partProperty(0, "type") }
-	for _, v in ipairs(props) do
-		zero[v] = sim.partProperty(0, v)
+local function stash_part()
+	local id = sim.parts()()
+	local x, y, info
+	if id then
+		x, y = sim.partPosition(id)
+		x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+		id = sim.partID(x, y)
+		local ty = sim.partProperty(id, "type")
+		if ty then
+			info = { [ sim.FIELD_TYPE ] = ty }
+			for _, v in ipairs(props) do
+				info[v] = sim.partProperty(id, v)
+			end
+		else
+			info = false
+		end
+		sim.partProperty(id, "type", elem.DEFAULT_PT_ELEC)
+	else
+		x, y = 0, 0
+		id = sim.partCreate(-3, x, y, elem.DEFAULT_PT_ELEC)
 	end
-	sim.partKill(0)
-	return zero
+	return id, info, x, y
 end
 
-local function restore_zero(zero)
-	if sim.partCreate(-3, 0, 0, 1) ~= 0 then
-		error("something is very wrong")
+local function unstash_part(id, info)
+	if info == nil then
+		return
 	end
-	sim.partProperty(0, "type", zero[sim.FIELD_TYPE])
+	if not info then
+		sim.partKill(id)
+		return
+	end
+	sim.partProperty(id, "type", info[sim.FIELD_TYPE])
 	for _, v in ipairs(props) do
-		sim.partProperty(0, v, zero[v])
+		sim.partProperty(id, v, info[v])
 	end
 end
 
 local function brush_mode()
 	-- * TODO[api]: add an api for this to tpt
-	local id = sim.partCreate(-3, 0, 0, elem.DEFAULT_PT_ELEC)
-	local zero
+	local id, stashed, x, y = stash_part()
 	local bmode = 0
-	if id == -1 then
-		zero = save_and_kill_zero()
-		id = sim.partCreate(-3, 0, 0, elem.DEFAULT_PT_ELEC)
-		if id ~= 0 then
-			restore_zero(zero)
-			error("something is very wrong")
-		end
-	end
 	local selectedreplace = tpt.selectedreplace
 	tpt.selectedreplace = "DEFAULT_PT_ELEC"
-	sim.createParts(0, 0, 0, 0, elem.DEFAULT_PT_PROT, 0)
+	sim.createParts(x, y, 0, 0, elem.DEFAULT_PT_PROT, 0)
 	local new_type = sim.partProperty(id, "type")
 	if not new_type then
+		assert(sim.partCreate(-3, x, y, elem.DEFAULT_PT_DMND) == id)
 		bmode = 2
 	elseif new_type == elem.DEFAULT_PT_PROT then
 		bmode = 1
 	end
 	tpt.selectedreplace = selectedreplace
-	if new_type then
-		sim.partKill(id)
-	end
-	if zero then
-		restore_zero(zero)
-	end
+	unstash_part(id, stashed)
 	return bmode
 end
 
@@ -463,7 +469,7 @@ end
 function profile_i:post_event_check_()
 	if self.placesave_postmsg_ then
 		local partcount = self.placesave_postmsg_.partcount
-		if partcount and partcount ~= sim.NUM_PARTS and self.registered_func_() then
+		if partcount and (partcount ~= sim.NUM_PARTS or sim.NUM_PARTS == sim.XRES * sim.YRES) and self.registered_func_() then
 			-- * TODO[api]: get rid of all of this nonsense once redo-ui lands
 			if self.client_ then
 				self.client_:send_sync()
@@ -771,27 +777,18 @@ end
 
 local preshack_prof
 local preshack_elem
-local preshack_zero
-local function preshack_graphics(i)
+local preshack_stashed
+local function preshack_graphics(id)
 	preshack_prof:post_event_check_()
-	sim.partKill(i)
-	if preshack_zero then
-		restore_zero(preshack_zero)
-		preshack_zero = nil
-	end
+	unstash_part(id, preshack_stashed)
+	preshack_stashed = nil
 	return 0, 0
 end
 
 function profile_i:begin_placesave_size_(x, y, aux_button)
-	local id = sim.partCreate(-3, 0, 0, preshack_elem)
-	if id == -1 then
-		preshack_zero = save_and_kill_zero()
-		id = sim.partCreate(-3, 0, 0, preshack_elem)
-		if id ~= 0 then
-			restore_zero(preshack_zero)
-			error("something is very wrong")
-		end
-	end
+	local id, x, y
+	id, preshack_stashed, x, y = stash_part()
+	sim.partProperty(id, "type", preshack_elem)
 	local bx, by = math.floor(x / 4), math.floor(y / 4)
 	local p = 0
 	local pres = {}
