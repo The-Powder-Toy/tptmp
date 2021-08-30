@@ -215,10 +215,7 @@ end
 
 function client_i:handle_say_19_()
 	local message = clean_message(self:read_str8_():sub(1, config.message_size))
-	if not message then
-		return
-	end
-	if not self:check_message_(message) then
+	if not message or message == "" or not self:check_message_(message) then
 		return
 	end
 	if message:find("^//") then
@@ -239,10 +236,7 @@ end
 
 function client_i:handle_say3rd_20_()
 	local message = clean_message(self:read_str8_():sub(1, config.message_size))
-	if not message then
-		return
-	end
-	if not self:check_message_(message) then
+	if not message or message == "" or not self:check_message_(message) then
 		return
 	end
 	self:forward_message_("* $ $", "say3rd", "\20", message)
