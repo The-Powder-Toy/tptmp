@@ -197,8 +197,27 @@ function client_i:forward_message_(format, event, packet, message)
 	})
 end
 
+local function clean_message(str)
+	local collect = {}
+	if pcall(function()
+		for _, cp in utf8.codes(str) do
+			if not ((cp >=        0 and cp <=     0x1F)
+			     or (cp >=   0xE000 and cp <=   0xF8FF)
+			     or (cp >=  0xF0000 and cp <=  0xFFFFD)
+			     or (cp >= 0x100000 and cp <= 0x10FFFD)) then
+				table.insert(collect, utf8.char(cp))
+			end
+		end
+	end) then
+		return table.concat(collect)
+	end
+end
+
 function client_i:handle_say_19_()
-	local message = self:read_str8_():sub(1, config.message_size):gsub("[^\32-\255]", "")
+	local message = clean_message(self:read_str8_():sub(1, config.message_size))
+	if not message then
+		return
+	end
 	if not self:check_message_(message) then
 		return
 	end
@@ -219,7 +238,10 @@ function client_i:handle_say_19_()
 end
 
 function client_i:handle_say3rd_20_()
-	local message = self:read_str8_():sub(1, config.message_size):gsub("[^\32-\255]", "")
+	local message = clean_message(self:read_str8_():sub(1, config.message_size))
+	if not message then
+		return
+	end
 	if not self:check_message_(message) then
 		return
 	end
