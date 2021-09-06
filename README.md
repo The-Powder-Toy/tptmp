@@ -3,6 +3,8 @@
 A script for [The Powder Toy](https://powdertoy.co.uk/) which lets you and your
 friends create landscapes and cities together... and then blow them up!
 
+![a developer and his cousin blowing up id:121412](https://user-images.githubusercontent.com/3286587/132169104-f3a33166-a2f7-4a62-9613-cded7d6fbb9e.gif)
+
 ## Client usage
 
 Ideally, you would install this script from the
@@ -14,7 +16,8 @@ Releases page and add it to your autorun sequence. How you do this is up to you.
 
 ### Prerequisites
 
-The server is meant to be run using
+The server is meant to be run on _anything but Windows_ ([a limitation of
+cqueues](http://25thandclement.com/~william/projects/cqueues.html)) using
 [Lua 5.3](https://www.lua.org/versions.html#5.3) or above. It has a number of
 dependencies, namely:
 
