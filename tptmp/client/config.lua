@@ -51,6 +51,10 @@ local config = {
 	--   fade out and disappearing completely if the window is floating.
 	floating_fade_time = 1,
 
+	-- * Path to tptmp.client.manager.null configuration file relative to
+	--   current directory. Only relevant if the null manager is active.
+	null_manager_path = "tptmpsettings.txt",
+
 
 	-- ***********************************************************************
 	-- *** The following options should only be changed if you know what   ***
