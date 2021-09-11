@@ -244,8 +244,8 @@ return {
 	-- ***********************************************************************
 
 	-- * Minimum accepted TPT version.
-	tpt_version_min = { 96, 1 },
+	tpt_version_min = { 96, 2 },
 
 	-- * Maximum accepted TPT version.
-	tpt_version_max = { 96, 1 },
+	tpt_version_max = { 96, 2 },
 }

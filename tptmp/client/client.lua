@@ -1069,7 +1069,7 @@ function client_i:tick_read_()
 			end
 			if closed then
 				self:tick_resume_()
-				self:stop("connection closed: receive failed: " .. tostring(self.socket_:lasterror()))
+				self:stop("connection closed: receive failed: " .. tostring(self.socket_lasterror_))
 				break
 			end
 			if #data < config.read_size then
@@ -1119,7 +1119,8 @@ function client_i:tick_write_()
 			local written = written_up_to - first + 1
 			self.tx_:pop(written)
 			if closed then
-				self:stop("connection closed: send failed: " .. tostring(self.socket_:lasterror()))
+				self.socket_lasterror_ = self.socket_:lasterror()
+				self:stop("connection closed: send failed: " .. tostring(self.socket_lasterror_))
 				break
 			end
 			if written < count then
@@ -1264,6 +1265,7 @@ function client_i:stop(message)
 			self.socket_:shutdown()
 		end
 		self.socket_:close()
+		self.socket_lasterror_ = self.socket_:lasterror()
 		self.socket_ = nil
 		self.connected_ = nil
 		self.registered_ = nil

@@ -284,6 +284,8 @@ local cmdp = command_parser.new({
 		local cli = localcmd.client_func_()
 		if cli then
 			cli:send_say("/slist")
+		else
+			localcmd.window_:backlog_push_neutral("* Server commands are not currently available (connect to a server first)")
 		end
 	end,
 	help_format = colours.commonstr.neutral .. "* %s",

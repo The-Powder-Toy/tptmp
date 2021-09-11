@@ -12,17 +12,35 @@ return {
 		motd = {
 			func = function(client, message, words, offsets)
 				local room = client:room()
+				local server = client:server()
+				local dconf = server:dconf()
+				local room_info = dconf:root().rooms[room:name()]
+				if words[2] == "get" or not words[2] then
+					if room:is_temporary() then
+						client:send_server("\an* Temporary rooms cannot have an MOTD set")
+					elseif room_info and room_info.motd then
+						client:send_server("\aj* MOTD: " .. room_info.motd)
+					else
+						client:send_server("\an* This room does not have an MOTD set")
+					end
+					return true
+				end
+				if words[2] ~= "set" and words[2] ~= "clear" then
+					return false
+				end
 				if room:is_temporary() then
-					client:send_server("\ae* Not possible to set the message of the day for a temporary room")
+					client:send_server("\ae* Temporary rooms cannot have an MOTD set")
 					return true
 				end
 				if not room:owned_by_client(client) then
 					client:send_server("\ae* You are not an owner of this room")
 					return true
 				end
-				local motd = offsets[2] and message:sub(offsets[2]) or nil
-				local server = client:server()
-				if motd then
+				local motd = offsets[3] and message:sub(offsets[3]) or nil
+				if words[2] == "set" then
+					if not motd then
+						return false
+					end
 					local ok, err = server:phost():call_check_all("content_ok", server, motd)
 					if not ok then
 						client:send_server("\ae* Cannot set MOTD: " .. err)
@@ -36,7 +54,7 @@ return {
 						motd = motd,
 					})
 					client:send_server("\an* MOTD set")
-				else
+				elseif words[2] == "clear" then
 					room:log("$ cleared motd", client:nick())
 					server:rconlog({
 						event = "motd_clear",
@@ -45,13 +63,11 @@ return {
 					})
 					client:send_server("\an* MOTD cleared")
 				end
-				local dconf = server:dconf()
-				local room_info = dconf:root().rooms[room:name()]
 				room_info.motd = motd
 				dconf:commit()
 				return true
 			end,
-			help = "/motd [motd]: sets the message of the day for the room, or removes it if one is not provided",
+			help = "/motd get\\clear\\set <motd>: sets, gets or clears the message of the day for the room",
 		},
 	},
 	hooks = {
