@@ -6,6 +6,7 @@ local function alloc_utility_element(name)
 		assert(elem.allocate("TPTMP", name) ~= -1, "out of element IDs")
 		elem.property(elem["TPTMP_PT_" .. name], "MenuSection", 17) -- * TODO[req]: hack, remove
 		elem.property(elem["TPTMP_PT_" .. name], "Name", "\238\128\163")
+		elem.property(elem["TPTMP_PT_" .. name], "Description", "\238\128\163")
 	end
 	return elem["TPTMP_PT_" .. name]
 end
