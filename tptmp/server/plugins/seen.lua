@@ -25,28 +25,29 @@ return {
 					client:send_server(("\an* \au%s\an has never been online"):format(other_nick))
 					return true
 				end
-				local diff = os.time() - seen
-				local days  = diff // 86400
-				diff        = diff  % 86400
-				local hours = diff //  3600
-				diff        = diff  %  3600
-				local mins  = diff //    60
-				local secs  = diff  %    60
-				local count, unit
-				if days > 0 then
-					count = days
-					unit = days == 1 and "day" or "days"
-				elseif hours > 0 then
-					count = hours
-					unit = hours == 1 and "hour" or "hours"
-				elseif mins > 0 then
-					count = mins
-					unit = mins == 1 and "minute" or "minutes"
-				else
-					count = secs
-					unit = secs == 1 and "second" or "seconds"
+				local diff = os.difftime(os.time(), seen)
+				local units = {
+					{ one =   "a year", more =   "%i years", seconds = 31556736 },
+					{ one =   "a week", more =   "%i weeks", seconds =   604800 },
+					{ one =    "a day", more =    "%i days", seconds =    86400 },
+					{ one =  "an hour", more =   "%i hours", seconds =     3600 },
+					{ one = "a minute", more = "%i minutes", seconds =       60 },
+					{ one = "a second", more = "%i seconds", seconds =        1 },
+				}
+				local unit, count
+				for i = 1, #units do
+					local count_frac = diff / units[i].seconds
+					if count_frac >= 1 then
+						count = math.floor(count_frac)
+						unit = units[i]
+						break
+					end
 				end
-				client:send_server(("\an* \au%s\an was last online %s %s ago"):format(other_nick, count, unit))
+				if unit then
+					client:send_server(("\an* \au%s\an was last online %s ago"):format(other_nick, count == 1 and unit.one or unit.more:format(count)))
+				else
+					client:send_server(("\an* \au%s\an is a Time Lord"):format(other_nick))
+				end
 				return true
 			end,
 			help = "/seen <user>: tells you when a user was last seen online",
