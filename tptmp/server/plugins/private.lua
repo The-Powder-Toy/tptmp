@@ -462,7 +462,7 @@ return {
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					return { status = "ok", private = server:is_private(data.room_name) or false }
+					return { status = "ok", private = server:room_is_private(data.room_name) or false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
 			end,

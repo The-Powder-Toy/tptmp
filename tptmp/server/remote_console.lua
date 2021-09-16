@@ -76,13 +76,7 @@ function remote_console_i:listen_()
 						if ok and type(data) == "table" then
 							if data.type == "request" then
 								local handler = self.handlers_[data.request]
-								if handler then
-									self:send_json_({
-										type = "response",
-										status = "handled",
-										data = handler.func(self, data.data),
-									})
-								else
+								if not handler then
 									self:send_json_({
 										type = "response",
 										status = "nohandler",
@@ -91,6 +85,16 @@ function remote_console_i:listen_()
 									self.log_wrn_("no handler for request type $", data.request)
 									break_outer = true
 									break
+								elseif type(data.data) ~= "table" then
+									self.log_wrn_("no request data")
+									break_outer = true
+									break
+								else
+									self:send_json_({
+										type = "response",
+										status = "handled",
+										data = handler.func(self, data.data),
+									})
 								end
 							elseif data.type == "ping" then
 								last_ping_in = cqueues.monotime()
