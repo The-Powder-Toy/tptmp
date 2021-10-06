@@ -173,7 +173,7 @@ function remote_console_i:start()
 	end
 	util.cqueues_wrap(cqueues.running(), function()
 		self:listen_()
-	end)
+	end, self:name() .. "/listen_")
 end
 
 function remote_console_i:stop()
@@ -193,6 +193,10 @@ function remote_console_i:server()
 	return self.server_
 end
 
+function remote_console_i:name()
+	return self.name_
+end
+
 local function new(params)
 	local handlers = {}
 	for key, value in pairs(params.phost:console()) do
@@ -208,6 +212,7 @@ local function new(params)
 		log_wrn_ = log.derive(log.err, "[" .. params.name .. "] "),
 		writing_ = false,
 		writing_wake_ = condition.new(),
+		name_ = params.name,
 	}, remote_console_m)
 end
 

@@ -465,7 +465,7 @@ function client_i:handshake_()
 	self.handshake_done_ = true
 	util.cqueues_wrap(cqueues.running(), function()
 		self:ping_()
-	end)
+	end, self:name() .. "/ping_")
 	if initial_room == "" then
 		local ok, err = self.server_:join_room(self, self:lobby_name())
 		if not ok then
@@ -633,10 +633,10 @@ function client_i:proto_()
 		end
 		util.cqueues_wrap(cqueues.running(), function()
 			self:manage_socket_()
-		end)
+		end, self:name() .. "/manage_socket_")
 		util.cqueues_wrap(cqueues.running(), function()
 			self:expect_ping_()
-		end)
+		end, self:name() .. "/expect_ping_")
 		if not first_byte_ok then
 			self:proto_error_("no client handshake", {
 				kind = "first_byte_timeout",
@@ -778,7 +778,7 @@ function client_i:start()
 	self.status_ = "running"
 	util.cqueues_wrap(cqueues.running(), function()
 		self:proto_()
-	end)
+	end, self:name() .. "/proto_")
 end
 
 function client_i:stop_(rconinfo)

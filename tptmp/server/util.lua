@@ -16,8 +16,20 @@ local function cqueues_poll(...)
 	return ret_assoc
 end
 
-local function cqueues_wrap(queue, func)
+local periodic_traceback_instructions = false
+
+local function periodic_tracebacks(instructions)
+	periodic_traceback_instructions = instructions
+end
+
+local function cqueues_wrap(queue, func, name)
+	name = name or ("coroutine created at:\n" .. debug.traceback())
 	queue:wrap(function()
+		if periodic_traceback_instructions then
+			debug.sethook(function()
+				print("traceback of [" .. name .. "]: " .. debug.traceback())
+			end, "", periodic_traceback_instructions)
+		end
 		if not xpcall(func, function(err)
 			log.here(err)
 		end) then
@@ -72,4 +84,5 @@ return {
 	argunpack = argunpack,
 	array_find = array_find,
 	info_merge = info_merge,
+	periodic_tracebacks = periodic_tracebacks,
 }

@@ -159,7 +159,7 @@ function server_i:start()
 	self.status_ = "running"
 	util.cqueues_wrap(cqueues.running(), function()
 		self:listen_()
-	end)
+	end, self:name() .. "/listen_")
 end
 
 function server_i:stop()
@@ -193,6 +193,10 @@ end
 
 function server_i:room_count()
 	return self.room_count_
+end
+
+function server_i:name()
+	return self.name_
 end
 
 function server_i:cleanup_room(name)
@@ -552,6 +556,7 @@ local function new(params)
 		cmdp_ = cmdp,
 		phost_ = params.phost,
 		offline_user_cache_ = {},
+		name_ = params.name,
 	}, server_m)
 	server:init()
 	return server

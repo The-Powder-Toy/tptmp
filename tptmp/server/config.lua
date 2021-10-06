@@ -186,6 +186,11 @@ return {
 	-- *** developers. Otherwise, these are sane values you should trust.  ***
 	-- ***********************************************************************
 
+	-- * Print stack tracebacks every specified number of instructions. The
+	--   counter is per-coroutine. An integer number enables, while a false-y
+	--   value disables the feature.
+	periodic_tracebacks = 100000000,
+
 	-- * Size of the buffer passed to the recv system call. Bigger values
 	--   consume more memory, smaller ones incur larger system call overhead.
 	read_size = 0x10000,

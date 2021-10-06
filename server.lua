@@ -9,7 +9,7 @@ xpcall(function()
 			return
 		end
 		error("__newindex on env", 2)
-	end})
+	end })
 
 	local lfs            = require("lfs")
 	local cqueues        = require("cqueues")
@@ -24,6 +24,7 @@ xpcall(function()
 	local room           = require("tptmp.server.room")
 	local client         = require("tptmp.server.client")
 
+	util.periodic_tracebacks(config.periodic_tracebacks)
 	math.randomseed(os.time())
 
 	local plugins = {}
@@ -78,7 +79,7 @@ xpcall(function()
 			phost = phost,
 		})
 		rcon:start()
-	end)
+	end, "rcon")
 
 	-- * util.cqueues_wrap shouldn't throw errors.
 	local ok, err = pcall(function()
