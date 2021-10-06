@@ -26,7 +26,7 @@ local toolwarn_tools = {
 	[ "DEFAULT_PT_SPAWN"    ] = "stkm",
 	[ "DEFAULT_PT_SPAWN2"   ] = "stkm",
 	[ "DEFAULT_PT_FIGH"     ] = "stkm",
-	[ "TPTMP_PT_UNKNOWN"    ] = "unknown",
+	[ "UNKNOWN"             ] = "unknown",
 }
 local toolwarn_messages = {
 	prop      =                      "The PROP tool does not sync, you will have to use /sync",
@@ -117,11 +117,10 @@ end
 
 local function stash_part()
 	local id = sim.parts()()
-	local x, y, info
+	local info
 	if id then
-		x, y = sim.partPosition(id)
-		x, y = math.floor(x + 0.5), math.floor(y + 0.5)
-		id = sim.partID(x, y)
+		local x, y = sim.partPosition(id)
+		id = sim.partID(math.floor(x + 0.5), math.floor(y + 0.5))
 		local ty = sim.partProperty(id, "type")
 		if ty then
 			info = { [ sim.FIELD_TYPE ] = ty }
@@ -133,10 +132,9 @@ local function stash_part()
 		end
 		sim.partProperty(id, "type", elem.DEFAULT_PT_ELEC)
 	else
-		x, y = 0, 0
-		id = sim.partCreate(-3, x, y, elem.DEFAULT_PT_ELEC)
+		id = sim.partCreate(-3, 0, 0, elem.DEFAULT_PT_ELEC)
 	end
-	return id, info, x, y
+	return id, info
 end
 
 local function unstash_part(id, info)
@@ -151,25 +149,6 @@ local function unstash_part(id, info)
 	for _, v in ipairs(props) do
 		sim.partProperty(id, v, info[v])
 	end
-end
-
-local function brush_mode()
-	-- * TODO[api]: add an api for this to tpt
-	local id, stashed, x, y = stash_part()
-	local bmode = 0
-	local selectedreplace = tpt.selectedreplace
-	tpt.selectedreplace = "DEFAULT_PT_ELEC"
-	sim.createParts(x, y, 0, 0, elem.DEFAULT_PT_PROT, 0)
-	local new_type = sim.partProperty(id, "type")
-	if not new_type then
-		assert(sim.partCreate(-3, x, y, elem.DEFAULT_PT_DMND) == id)
-		bmode = 2
-	elseif new_type == elem.DEFAULT_PT_PROT then
-		bmode = 1
-	end
-	tpt.selectedreplace = selectedreplace
-	unstash_part(id, stashed)
-	return bmode
 end
 
 local function in_zoom_window(x, y)
@@ -469,18 +448,26 @@ end
 function profile_i:post_event_check_()
 	if self.placesave_postmsg_ then
 		local partcount = self.placesave_postmsg_.partcount
+		if self.debug_ then
+			self.debug_("fallback placesave detection", sim.NUM_PARTS, partcount)
+		end
 		if partcount and (partcount ~= sim.NUM_PARTS or sim.NUM_PARTS == sim.XRES * sim.YRES) and self.registered_func_() then
 			-- * TODO[api]: get rid of all of this nonsense once redo-ui lands
 			if self.client_ then
 				self.client_:send_sync()
 			end
-			-- self.log_event_func_("If you just pasted something, you will have to use /sync")
+			if self.debug_ then
+				self.debug_("failed to determine paste area while connected, syncing everything")
+			end
 		end
 		self.placesave_postmsg_ = nil
 	end
 	if self.placesave_size_ then
 		local x1, y1, x2, y2 = self:end_placesave_size_()
 		if x1 then
+			if self.debug_ then
+				self.debug_("placesave size determined to be", x1, y1, x2, y2)
+			end
 			local x, y, w, h = util.corners_to_rect(x1, y1, x2, y2)
 			self.simstate_invalid_ = true
 			if self.placesave_open_ then
@@ -501,6 +488,10 @@ function profile_i:post_event_check_()
 				self:report_clearsim_()
 			else
 				self:report_pastestamp_(x, y, w, h)
+			end
+		else
+			if self.debug_ then
+				self.debug_("placesave size not determined")
 			end
 		end
 		self.placesave_open_ = nil
@@ -693,7 +684,7 @@ function profile_i:update_zoom_()
 end
 
 function profile_i:update_bmode_()
-	local bmode = brush_mode()
+	local bmode = sim.replaceModeFlags()
 	if self.bmode_ ~= bmode then
 		self.bmode_ = bmode
 		self:report_bmode_()
@@ -729,22 +720,22 @@ function profile_i:update_tools_()
 	local taid = tpt.selecteda
 	local txid = tpt.selectedreplace
 	if self.tool_lid_ ~= tlid then
-		self.tool_l_ = util.from_tool[tlid] or util.from_tool.TPTMP_PT_UNKNOWN
+		self.tool_l_ = util.from_tool[tlid] or util.unknown_xid
 		self.tool_lid_ = tlid
 		self:report_tool_(0)
 	end
 	if self.tool_rid_ ~= trid then
-		self.tool_r_ = util.from_tool[trid] or util.from_tool.TPTMP_PT_UNKNOWN
+		self.tool_r_ = util.from_tool[trid] or util.unknown_xid
 		self.tool_rid_ = trid
 		self:report_tool_(1)
 	end
 	if self.tool_aid_ ~= taid then
-		self.tool_a_ = util.from_tool[taid] or util.from_tool.TPTMP_PT_UNKNOWN
+		self.tool_a_ = util.from_tool[taid] or util.unknown_xid
 		self.tool_aid_ = taid
 		self:report_tool_(2)
 	end
 	if self.tool_xid_ ~= txid then
-		self.tool_x_ = util.from_tool[txid] or util.from_tool.TPTMP_PT_UNKNOWN
+		self.tool_x_ = util.from_tool[txid] or util.unknown_xid
 		self.tool_xid_ = txid
 		self:report_tool_(3)
 	end
@@ -775,20 +766,7 @@ function profile_i:update_deco_()
 	end
 end
 
-local preshack_prof
-local preshack_elem
-local preshack_stashed
-local function preshack_graphics(id)
-	preshack_prof:post_event_check_()
-	unstash_part(id, preshack_stashed)
-	preshack_stashed = nil
-	return 0, 0
-end
-
 function profile_i:begin_placesave_size_(x, y, aux_button)
-	local id, x, y
-	id, preshack_stashed, x, y = stash_part()
-	sim.partProperty(id, "type", preshack_elem)
 	local bx, by = math.floor(x / 4), math.floor(y / 4)
 	local p = 0
 	local pres = {}
@@ -816,6 +794,7 @@ function profile_i:begin_placesave_size_(x, y, aux_button)
 		by = by,
 		aux_button = aux_button,
 		airmode = sim.airMode(),
+		partcount = sim.NUM_PARTS,
 	}
 	if aux_button then
 		-- * This means that begin_placesave_size_ was called from a button
@@ -862,10 +841,11 @@ function profile_i:end_placesave_size_()
 	if not self.placesave_size_.aux_button or lx == math.huge then
 		sim.airMode(self.placesave_size_.airmode)
 	end
+	local partcount = self.placesave_size_.partcount
 	self.placesave_size_ = nil
 	if lx == math.huge then
 		self.placesave_postmsg_ = {
-			partcount = sim.NUM_PARTS,
+			partcount = partcount,
 		}
 	else
 		return math.max((lx - 2) * 4, 0),
@@ -1408,10 +1388,10 @@ local function new(params)
 			clear  = { x = gfx.WIDTH - 159, y = gfx.HEIGHT - 16, w = 17, h = 15 },
 		},
 	}, profile_m)
-	prof.tool_l_ = util.from_tool.TPTMP_PT_UNKNOWN
-	prof.tool_r_ = util.from_tool.TPTMP_PT_UNKNOWN
-	prof.tool_a_ = util.from_tool.TPTMP_PT_UNKNOWN
-	prof.tool_x_ = util.from_tool.TPTMP_PT_UNKNOWN
+	prof.tool_l_ = util.from_tool.UNKNOWN
+	prof.tool_r_ = util.from_tool.UNKNOWN
+	prof.tool_a_ = util.from_tool.UNKNOWN
+	prof.tool_x_ = util.from_tool.UNKNOWN
 	prof.last_tool_ = prof.tool_l_
 	prof.deco_ = sim.decoColour()
 	prof:update_pos_(tpt.mousex, tpt.mousey)
@@ -1424,9 +1404,11 @@ local function new(params)
 	prof:update_shape_()
 	prof:update_zoom_()
 	prof:check_signs({})
-	preshack_elem = util.alloc_utility_element("VANILLAPRESHACK")
-	elem.property(preshack_elem, "Graphics", preshack_graphics)
-	preshack_prof = prof
+	if false then
+		prof.debug_ = function(...)
+			print("[prof debug]", ...)
+		end
+	end
 	return prof
 end
 

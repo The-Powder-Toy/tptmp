@@ -294,7 +294,7 @@ function client_i:handle_selecttool_37_()
 	local tool = bit.bor(lo, bit.lshift(hi, 8))
 	local index = bit.rshift(tool, 14)
 	local xtype = bit.band(tool, 0x3FFF)
-	member[index_to_lrax[index]] = util.to_tool[xtype] and xtype or util.from_tool.TPTMP_PT_UNKNOWN
+	member[index_to_lrax[index]] = util.to_tool[xtype] and xtype or util.unknown_xid
 	member.last_toolslot = index
 end
 

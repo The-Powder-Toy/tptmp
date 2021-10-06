@@ -1,17 +1,6 @@
 local config      = require("tptmp.client.config")
 local common_util = require("tptmp.common.util")
 
-local function alloc_utility_element(name)
-	if not elem["TPTMP_PT_" .. name] then
-		assert(elem.allocate("TPTMP", name) ~= -1, "out of element IDs")
-		elem.property(elem["TPTMP_PT_" .. name], "MenuSection", 17) -- * TODO[req]: hack, remove
-		elem.property(elem["TPTMP_PT_" .. name], "Name", "\238\128\163")
-		elem.property(elem["TPTMP_PT_" .. name], "Description", "\238\128\163")
-	end
-	return elem["TPTMP_PT_" .. name]
-end
-alloc_utility_element("UNKNOWN")
-
 local jacobsmod = rawget(_G, "jacobsmod")
 local from_tool = {}
 local to_tool = {}
@@ -22,7 +11,7 @@ local tpt_version = { tpt.version.major, tpt.version.minor }
 local has_ambient_heat_tools
 do
 	local old_selectedl = tpt.selectedl
-	if old_selectedl == "DEFAULT_UI_PROPERTY" then
+	if old_selectedl == "DEFAULT_UI_PROPERTY" or old_selectedl == "DEFAULT_UI_ADDLIFE" then
 		old_selectedl = "DEFAULT_PT_DUST"
 	end
 	has_ambient_heat_tools = pcall(function() tpt.selectedl = "DEFAULT_TOOL_AMBM" end)
@@ -36,6 +25,14 @@ local function array_concat(...)
 		for j = 1, #arrays[i] do
 			table.insert(tbl, arrays[i][j])
 		end
+	end
+	return tbl
+end
+
+local function array_keyify(arr)
+	local tbl = {}
+	for i = 1, #arr do
+		tbl[arr[i]] = true
 	end
 	return tbl
 end
@@ -90,6 +87,7 @@ local tools = array_concat({
 	"DEFAULT_UI_SIGN",
 	"DEFAULT_UI_PROPERTY",
 	"DEFAULT_UI_WIND",
+	"DEFAULT_UI_ADDLIFE",
 }, {
 	"DEFAULT_TOOL_HEAT",
 	"DEFAULT_TOOL_COOL",
@@ -120,13 +118,237 @@ for i = 1, #tools do
 	xid_class[xtype] = class
 	xid_first[class] = math.min(xid_first[class] or math.huge, xtype)
 end
+-- * TODO[opt]: support custom elements
+local known_elements = array_keyify({
+	"DEFAULT_PT_NONE",
+	"DEFAULT_PT_DUST",
+	"DEFAULT_PT_WATR",
+	"DEFAULT_PT_OIL",
+	"DEFAULT_PT_FIRE",
+	"DEFAULT_PT_STNE",
+	"DEFAULT_PT_LAVA",
+	"DEFAULT_PT_GUN",
+	"DEFAULT_PT_GUNP",
+	"DEFAULT_PT_NITR",
+	"DEFAULT_PT_CLNE",
+	"DEFAULT_PT_GAS",
+	"DEFAULT_PT_C-4",
+	"DEFAULT_PT_PLEX",
+	"DEFAULT_PT_GOO",
+	"DEFAULT_PT_ICE",
+	"DEFAULT_PT_ICEI",
+	"DEFAULT_PT_METL",
+	"DEFAULT_PT_SPRK",
+	"DEFAULT_PT_SNOW",
+	"DEFAULT_PT_WOOD",
+	"DEFAULT_PT_NEUT",
+	"DEFAULT_PT_PLUT",
+	"DEFAULT_PT_PLNT",
+	"DEFAULT_PT_ACID",
+	"DEFAULT_PT_VOID",
+	"DEFAULT_PT_WTRV",
+	"DEFAULT_PT_CNCT",
+	"DEFAULT_PT_DSTW",
+	"DEFAULT_PT_SALT",
+	"DEFAULT_PT_SLTW",
+	"DEFAULT_PT_DMND",
+	"DEFAULT_PT_BMTL",
+	"DEFAULT_PT_BRMT",
+	"DEFAULT_PT_PHOT",
+	"DEFAULT_PT_URAN",
+	"DEFAULT_PT_WAX",
+	"DEFAULT_PT_MWAX",
+	"DEFAULT_PT_PSCN",
+	"DEFAULT_PT_NSCN",
+	"DEFAULT_PT_LNTG",
+	"DEFAULT_PT_LN2",
+	"DEFAULT_PT_INSL",
+	"DEFAULT_PT_BHOL",
+	"DEFAULT_PT_VACU",
+	"DEFAULT_PT_WHOL",
+	"DEFAULT_PT_VENT",
+	"DEFAULT_PT_RBDM",
+	"DEFAULT_PT_LRBD",
+	"DEFAULT_PT_NTCT",
+	"DEFAULT_PT_SAND",
+	"DEFAULT_PT_GLAS",
+	"DEFAULT_PT_PTCT",
+	"DEFAULT_PT_BGLA",
+	"DEFAULT_PT_THDR",
+	"DEFAULT_PT_PLSM",
+	"DEFAULT_PT_ETRD",
+	"DEFAULT_PT_NICE",
+	"DEFAULT_PT_NBLE",
+	"DEFAULT_PT_BTRY",
+	"DEFAULT_PT_LCRY",
+	"DEFAULT_PT_STKM",
+	"DEFAULT_PT_SWCH",
+	"DEFAULT_PT_SMKE",
+	"DEFAULT_PT_DESL",
+	"DEFAULT_PT_COAL",
+	"DEFAULT_PT_LO2",
+	"DEFAULT_PT_LOXY",
+	"DEFAULT_PT_O2",
+	"DEFAULT_PT_OXYG",
+	"DEFAULT_PT_INWR",
+	"DEFAULT_PT_YEST",
+	"DEFAULT_PT_DYST",
+	"DEFAULT_PT_THRM",
+	"DEFAULT_PT_GLOW",
+	"DEFAULT_PT_BRCK",
+	"DEFAULT_PT_HFLM",
+	"DEFAULT_PT_CFLM",
+	"DEFAULT_PT_FIRW",
+	"DEFAULT_PT_FUSE",
+	"DEFAULT_PT_FSEP",
+	"DEFAULT_PT_AMTR",
+	"DEFAULT_PT_BCOL",
+	"DEFAULT_PT_PCLN",
+	"DEFAULT_PT_HSWC",
+	"DEFAULT_PT_IRON",
+	"DEFAULT_PT_MORT",
+	"DEFAULT_PT_LIFE",
+	"DEFAULT_PT_DLAY",
+	"DEFAULT_PT_CO2",
+	"DEFAULT_PT_DRIC",
+	"DEFAULT_PT_BUBW",
+	"DEFAULT_PT_CBNW",
+	"DEFAULT_PT_STOR",
+	"DEFAULT_PT_PVOD",
+	"DEFAULT_PT_CONV",
+	"DEFAULT_PT_CAUS",
+	"DEFAULT_PT_LIGH",
+	"DEFAULT_PT_TESC",
+	"DEFAULT_PT_DEST",
+	"DEFAULT_PT_SPNG",
+	"DEFAULT_PT_RIME",
+	"DEFAULT_PT_FOG",
+	"DEFAULT_PT_BCLN",
+	"DEFAULT_PT_LOVE",
+	"DEFAULT_PT_DEUT",
+	"DEFAULT_PT_WARP",
+	"DEFAULT_PT_PUMP",
+	"DEFAULT_PT_FWRK",
+	"DEFAULT_PT_PIPE",
+	"DEFAULT_PT_FRZZ",
+	"DEFAULT_PT_FRZW",
+	"DEFAULT_PT_GRAV",
+	"DEFAULT_PT_BIZR",
+	"DEFAULT_PT_BIZG",
+	"DEFAULT_PT_BIZRG",
+	"DEFAULT_PT_BIZRS",
+	"DEFAULT_PT_BIZS",
+	"DEFAULT_PT_INST",
+	"DEFAULT_PT_ISOZ",
+	"DEFAULT_PT_ISZS",
+	"DEFAULT_PT_PRTI",
+	"DEFAULT_PT_PRTO",
+	"DEFAULT_PT_PSTE",
+	"DEFAULT_PT_PSTS",
+	"DEFAULT_PT_ANAR",
+	"DEFAULT_PT_VINE",
+	"DEFAULT_PT_INVIS",
+	"DEFAULT_PT_INVS",
+	"DEFAULT_PT_116",
+	"DEFAULT_PT_EQVE",
+	"DEFAULT_PT_SPAWN2",
+	"DEFAULT_PT_SPWN2",
+	"DEFAULT_PT_SPWN",
+	"DEFAULT_PT_SPAWN",
+	"DEFAULT_PT_SHLD",
+	"DEFAULT_PT_SHLD1",
+	"DEFAULT_PT_SHLD2",
+	"DEFAULT_PT_SHD2",
+	"DEFAULT_PT_SHD3",
+	"DEFAULT_PT_SHLD3",
+	"DEFAULT_PT_SHLD4",
+	"DEFAULT_PT_SHD4",
+	"DEFAULT_PT_LOLZ",
+	"DEFAULT_PT_WIFI",
+	"DEFAULT_PT_FILT",
+	"DEFAULT_PT_ARAY",
+	"DEFAULT_PT_BRAY",
+	"DEFAULT_PT_STKM2",
+	"DEFAULT_PT_STK2",
+	"DEFAULT_PT_BOMB",
+	"DEFAULT_PT_C5",
+	"DEFAULT_PT_C-5",
+	"DEFAULT_PT_SING",
+	"DEFAULT_PT_QRTZ",
+	"DEFAULT_PT_PQRT",
+	"DEFAULT_PT_EMP",
+	"DEFAULT_PT_BREC",
+	"DEFAULT_PT_BREL",
+	"DEFAULT_PT_ELEC",
+	"DEFAULT_PT_ACEL",
+	"DEFAULT_PT_DCEL",
+	"DEFAULT_PT_TNT",
+	"DEFAULT_PT_BANG",
+	"DEFAULT_PT_IGNT",
+	"DEFAULT_PT_IGNC",
+	"DEFAULT_PT_BOYL",
+	"DEFAULT_PT_GEL",
+	"DEFAULT_PT_TRON",
+	"DEFAULT_PT_TTAN",
+	"DEFAULT_PT_EXOT",
+	"DEFAULT_PT_EMBR",
+	"DEFAULT_PT_HYGN",
+	"DEFAULT_PT_H2",
+	"DEFAULT_PT_SOAP",
+	"DEFAULT_PT_NBHL",
+	"DEFAULT_PT_NWHL",
+	"DEFAULT_PT_MERC",
+	"DEFAULT_PT_PBCN",
+	"DEFAULT_PT_GPMP",
+	"DEFAULT_PT_CLST",
+	"DEFAULT_PT_WWLD",
+	"DEFAULT_PT_WIRE",
+	"DEFAULT_PT_GBMB",
+	"DEFAULT_PT_FIGH",
+	"DEFAULT_PT_FRAY",
+	"DEFAULT_PT_RPEL",
+	"DEFAULT_PT_PPIP",
+	"DEFAULT_PT_DTEC",
+	"DEFAULT_PT_DMG",
+	"DEFAULT_PT_TSNS",
+	"DEFAULT_PT_VIBR",
+	"DEFAULT_PT_BVBR",
+	"DEFAULT_PT_CRAY",
+	"DEFAULT_PT_PSTN",
+	"DEFAULT_PT_FRME",
+	"DEFAULT_PT_GOLD",
+	"DEFAULT_PT_TUNG",
+	"DEFAULT_PT_PSNS",
+	"DEFAULT_PT_PROT",
+	"DEFAULT_PT_VIRS",
+	"DEFAULT_PT_VRSS",
+	"DEFAULT_PT_VRSG",
+	"DEFAULT_PT_GRVT",
+	"DEFAULT_PT_DRAY",
+	"DEFAULT_PT_CRMC",
+	"DEFAULT_PT_HEAC",
+	"DEFAULT_PT_SAWD",
+	"DEFAULT_PT_POLO",
+	"DEFAULT_PT_RFRG",
+	"DEFAULT_PT_RFGL",
+	"DEFAULT_PT_LSNS",
+	"DEFAULT_PT_LDTC",
+	"DEFAULT_PT_SLCN",
+	"DEFAULT_PT_PTNM",
+	"DEFAULT_PT_VSNS",
+	"DEFAULT_PT_ROCK",
+	"DEFAULT_PT_LITH",
+})
 for key, value in pairs(elem) do
-	-- * TODO[opt]: support custom elements
-	if key:find("^DEFAULT_PT_") or key == "TPTMP_PT_UNKNOWN" then
+	if known_elements[key] then
 		from_tool[key] = value
 		to_tool[value] = key
 	end
 end
+local unknown_xid = 0x3FFF
+assert(not to_tool[unknown_xid])
+from_tool["UNKNOWN"] = unknown_xid
+to_tool[unknown_xid] = "UNKNOWN"
 
 local WL_FAN = from_tool.DEFAULT_WL_FAN - xid_first.WL
 
@@ -172,7 +394,7 @@ local no_create = {
 	[ from_tool.DEFAULT_UI_PROPERTY ] = true,
 	[ from_tool.DEFAULT_UI_SAMPLE   ] = true,
 	[ from_tool.DEFAULT_UI_SIGN     ] = true,
-	[ from_tool.TPTMP_PT_UNKNOWN    ] = true,
+	[ from_tool.UNKNOWN             ] = true,
 }
 local line_only = {
 	[ from_tool.DEFAULT_UI_WIND ] = true,
@@ -363,7 +585,7 @@ local function create_parts_any(x, y, rx, ry, xtype, brush, member)
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x] or "TPTMP_PT_UNKNOWN"
+		tpt.selectedreplace = to_tool[member.tool_x] or "DEFAULT_PT_NONE"
 	end
 	sim.createParts(x, y, rx, ry, xtype, brush, member.bmode)
 	if member.bmode ~= 0 then
@@ -462,7 +684,7 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x] or "TPTMP_PT_UNKNOWN"
+		tpt.selectedreplace = to_tool[member.tool_x] or "DEFAULT_PT_NONE"
 	end
 	sim.createLine(x1, y1, x2, y2, rx, ry, xtype, brush, member.bmode)
 	if member.bmode ~= 0 then
@@ -498,7 +720,7 @@ local function create_box_any(x1, y1, x2, y2, xtype, member)
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x] or "TPTMP_PT_UNKNOWN"
+		tpt.selectedreplace = to_tool[member.tool_x] or "DEFAULT_PT_NONE"
 	end
 	sim.createBox(x1, y1, x2, y2, xtype, member and member.bmode)
 	if member.bmode ~= 0 then
@@ -530,7 +752,7 @@ local function flood_any(x, y, xtype, part_flood_hint, wall_flood_hint, member)
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x] or "TPTMP_PT_UNKNOWN"
+		tpt.selectedreplace = to_tool[member.tool_x] or "DEFAULT_PT_NONE"
 	end
 	sim.floodParts(x, y, xtype, part_flood_hint, member.bmode)
 	if member.bmode ~= 0 then
@@ -616,5 +838,5 @@ return {
 	tpt_version = tpt_version,
 	urlencode = urlencode,
 	heat_clear = heat_clear,
-	alloc_utility_element = alloc_utility_element,
+	unknown_xid = unknown_xid,
 }
