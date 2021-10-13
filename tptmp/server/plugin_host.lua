@@ -116,11 +116,7 @@ local function new(params)
 		end
 	end
 	phost.checks_ = checks
-	phost:call_hook("plugin_load", function(name, idx)
-		for key, value in pairs(idx) do
-			params.mtidx[name][key] = value
-		end
-	end)
+	phost:call_hook("plugin_load", params.mtidx)
 	return phost
 end
 

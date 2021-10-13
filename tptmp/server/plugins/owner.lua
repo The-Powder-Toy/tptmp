@@ -321,10 +321,10 @@ return {
 	},
 	hooks = {
 		plugin_load = {
-			func = function(mtidx_augment)
+			func = function(mtidx)
 				assert(config.auth)
-				mtidx_augment("room", room_owner_i)
-				mtidx_augment("server", server_owner_i)
+				util.table_augment(mtidx.room, room_owner_i)
+				util.table_augment(mtidx.server, server_owner_i)
 			end,
 		},
 		server_init = {

@@ -66,7 +66,7 @@ local function array_find(tbl, thing)
 	end
 end
 
-local function info_merge(tbl, thing)
+local function table_augment(tbl, thing)
 	for key, value in pairs(thing) do
 		tbl[key] = value
 	end
@@ -83,6 +83,7 @@ return {
 	argpack = argpack,
 	argunpack = argunpack,
 	array_find = array_find,
-	info_merge = info_merge,
+	info_merge = table_augment,
 	periodic_tracebacks = periodic_tracebacks,
+	table_augment = table_augment,
 }

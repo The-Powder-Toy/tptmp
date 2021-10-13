@@ -327,9 +327,9 @@ return {
 	},
 	hooks = {
 		plugin_load = {
-			func = function(mtidx_augment)
-				mtidx_augment("room", room_private_i)
-				mtidx_augment("server", server_private_i)
+			func = function(mtidx)
+				util.table_augment(mtidx.room, room_private_i)
+				util.table_augment(mtidx.server, server_private_i)
 			end,
 		},
 		room_create = {

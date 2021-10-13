@@ -1,4 +1,5 @@
 local config = require("tptmp.server.config")
+local util   = require("tptmp.server.util")
 local jnet   = require("jnet")
 
 local server_ban_i = {}
@@ -142,8 +143,8 @@ return {
 	},
 	hooks = {
 		plugin_load = {
-			func = function(mtidx_augment)
-				mtidx_augment("server", server_ban_i)
+			func = function(mtidx)
+				util.table_augment(mtidx.server, server_ban_i)
 			end,
 		},
 		server_init = {

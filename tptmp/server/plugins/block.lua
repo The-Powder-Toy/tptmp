@@ -143,8 +143,8 @@ return {
 	},
 	hooks = {
 		plugin_load = {
-			func = function(mtidx_augment)
-				mtidx_augment("server", server_block_i)
+			func = function(mtidx)
+				util.table_augment(mtidx.server, server_block_i)
 			end,
 		},
 		server_init = {

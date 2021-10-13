@@ -1,3 +1,5 @@
+local util = require("tptmp.server.util")
+
 local room_motd_i = {}
 
 function room_motd_i:motd_empty_notify_owner_(client)
@@ -72,8 +74,8 @@ return {
 	},
 	hooks = {
 		plugin_load = {
-			func = function(mtidx_augment)
-				mtidx_augment("room", room_motd_i)
+			func = function(mtidx)
+				util.table_augment(mtidx.room, room_motd_i)
 			end,
 		},
 		room_join = {
