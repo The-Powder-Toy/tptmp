@@ -714,16 +714,20 @@ function client_i:handshake_()
 	local auth_err
 	if conn_status == 4 then -- * Quickauth failed.
 		self.window_:set_subtitle("status", "Authenticating")
-		local token, err, info = get_auth_token(uid, sess, self.host_ .. ":" .. self.port_)
-		if not token then
-			if err == "non200" then
-				auth_err = "authentication failed (status code " .. info .. "); try again later or try restarting TPT"
-			elseif err == "timeout" then
-				auth_err = "authentication failed (timeout: " .. info .. "); try again later or try restarting TPT"
+		local token = ""
+		if uid then
+			local fresh_token, err, info = get_auth_token(uid, sess, self.host_ .. ":" .. self.port_)
+			if fresh_token then
+				token = fresh_token
 			else
-				auth_err = "authentication failed (" .. err .. ": " .. info .. "); try logging out and back in and restarting TPT"
+				if err == "non200" then
+					auth_err = "authentication failed (status code " .. info .. "); try again later or try restarting TPT"
+				elseif err == "timeout" then
+					auth_err = "authentication failed (timeout: " .. info .. "); try again later or try restarting TPT"
+				else
+					auth_err = "authentication failed (" .. err .. ": " .. info .. "); try logging out and back in and restarting TPT"
+				end
 			end
-			token = ""
 		end
 		self:write_str8_(token)
 		self:write_flush_()
