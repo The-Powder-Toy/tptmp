@@ -149,6 +149,12 @@ function client_i:send_server(message)
 	self:write_flush_()
 end
 
+function client_i:cancel_sync(target)
+	if self.syncing_for_ then
+		self.syncing_for_[target] = nil
+	end
+end
+
 function client_i:send_sync_request(target)
 	if self.syncing_for_ then
 		self.syncing_for_[target] = true
