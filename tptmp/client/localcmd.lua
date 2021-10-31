@@ -325,7 +325,7 @@ local function new(params)
 		reconnect = nil
 	end
 	local fps_sync = parse_fps_sync(manager.get("fpsSync", "0"))
-	local floating = manager.get("floating", "off") == "on"
+	local floating = manager.get("floating", "on") == "on"
 	local cmd = setmetatable({
 		fps_sync_ = fps_sync,
 		floating_ = floating,
