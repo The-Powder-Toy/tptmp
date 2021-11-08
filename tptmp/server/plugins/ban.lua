@@ -92,9 +92,16 @@ return {
 				if type(data.nick) ~= "string" then
 					return { status = "badnick", human = "invalid nick" }
 				end
-				local user = server:offline_user_by_nick(data.nick)
-				if not user then
-					return { status = "nouser", human = "no such user" }
+				local user
+				do
+					local err, human
+					local user, err, human = server:offline_user_by_nick(data.nick)
+					if not user then
+						if err == "backendfail" then
+							return { status = "backendfail", human = "failed to query user: " .. human }
+						end
+						return { status = "nouser", human = "no such user" }
+					end
 				end
 				if data.action == "insert" then
 					local ok, err, human = server:insert_uid_ban_(user.uid)

@@ -84,9 +84,11 @@ return {
 						other_uid = GUEST_WILDCARD
 						other_nick = GUEST_WILDCARD
 					else
-						local other_user = server:offline_user_by_nick(words[3])
+						local other_user, oerr = server:offline_user_by_nick(words[3])
 						if other_user then
 							other_uid, other_nick = other_user.uid, other_user.nick
+						elseif oerr == "backendfail" then
+							client:send_server("\ae* Warning: authentication backend down, you may have to try again later")
 						end
 					end
 					if not other_uid then
@@ -206,13 +208,27 @@ return {
 				if type(data.dest) ~= "string" then
 					return { status = "badtarget", human = "invalid dest nick" }
 				end
-				local src = data.src:lower() == GUEST_WILDCARD and GUEST_WILDCARD or server:offline_user_by_nick(data.src)
+				local src = data.src:lower() == GUEST_WILDCARD and GUEST_WILDCARD
 				if not src then
-					return { status = "nousersource", human = "no such src user" }
+					local err, human
+					src, err, human = server:offline_user_by_nick(data.src)
+					if not src then
+						if err == "backendfail" then
+							return { status = "backendfail", human = "failed to query user: " .. human }
+						end
+						return { status = "nousersource", human = "no such src user" }
+					end
 				end
-				local dest = server:offline_user_by_nick(data.dest)
-				if not dest then
-					return { status = "nousertarget", human = "no such dest user" }
+				local dest
+				do
+					local err, human
+					dest, err, human = server:offline_user_by_nick(data.dest)
+					if not dest then
+						if err == "backendfail" then
+							return { status = "backendfail", human = "failed to query user: " .. human }
+						end
+						return { status = "nousertarget", human = "no such dest user" }
+					end
 				end
 				if data.action == "insert" then
 					local ok, err, human = server:uid_insert_block_(dest.uid, src)

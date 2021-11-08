@@ -159,9 +159,11 @@ return {
 				local room = client:room()
 				local server = client:server()
 				local other_uid, other_nick
-				local other_user = server:offline_user_by_nick(words[3])
+				local other_user, oerr = server:offline_user_by_nick(words[3])
 				if other_user then
 					other_uid, other_nick = other_user.uid, other_user.nick
+				elseif oerr == "backendfail" then
+					client:send_server("\ae* Warning: authentication backend down, you may have to try again later")
 				end
 				local other = server:client_by_nick(words[3])
 				if words[2] == "check" then
@@ -425,9 +427,16 @@ return {
 					invites[0] = #invites
 					return { status = "ok", invites = invites }
 				end
-				local user = server:offline_user_by_nick(data.nick)
-				if not user then
-					return { status = "nouser", human = "no such user" }
+				local user
+				do
+					local err, human
+					user, err, human = server:offline_user_by_nick(data.nick)
+					if not user then
+						if err == "backendfail" then
+							return { status = "backendfail", human = "failed to query user: " .. human }
+						end
+						return { status = "nouser", human = "no such user" }
+					end
 				end
 				if data.action == "insert" then
 					local ok, err, human = server:room_insert_invite_(data.room_name, user.uid)

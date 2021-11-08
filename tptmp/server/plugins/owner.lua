@@ -178,9 +178,11 @@ return {
 				if words[3]:lower() == OWNER_WILDCARD then
 					other_uid = OWNER_WILDCARD
 				else
-					local other_user = server:offline_user_by_nick(words[3])
+					local other_user, oerr = server:offline_user_by_nick(words[3])
 					if other_user then
 						other_uid, other_nick = other_user.uid, other_user.nick
+					elseif oerr == "backendfail" then
+						client:send_server("\ae* Warning: authentication backend down, you may have to try again later")
 					end
 					other = server:client_by_nick(words[3])
 				end
@@ -437,9 +439,16 @@ return {
 					owners[0] = #owners
 					return { status = "ok", owners = owners }
 				end
-				local user = server:offline_user_by_nick(data.nick)
-				if not user then
-					return { status = "nouser", human = "no such user" }
+				local user
+				do
+					local err, human
+					uid, err, human = server:offline_user_by_nick(data.nick)
+					if not user then
+						if err == "backendfail" then
+							return { status = "backendfail", human = "failed to query user: " .. human }
+						end
+						return { status = "nouser", human = "no such user" }
+					end
 				end
 				if data.action == "insert" then
 					local ok, err, human = server:room_insert_owner_(data.room_name, user.uid)

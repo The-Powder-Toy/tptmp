@@ -384,10 +384,10 @@ end
 function server_i:offline_user_by_nick(nick)
 	nick = nick:lower()
 	if nick:find("[^0-9a-z-_]") then
-		return
+		return nil, "badnick", "invalid nick"
 	end
 	if not config.auth then
-		return
+		return nil, "nobackend", "no nick resolution method available"
 	end
 	local now = cqueues.monotime()
 	local cached = self.offline_user_cache_[nick]
@@ -412,6 +412,7 @@ function server_i:offline_user_by_nick(nick)
 		local user, err = self:fetch_user_(nick)
 		if user == nil then
 			self.log_inf_("failed to fetch user $: $", nick, err)
+			return nil, "backendfail", "nick resolution method failed, try again later"
 		end
 		if user then
 			to_cache = {
@@ -427,6 +428,7 @@ function server_i:offline_user_by_nick(nick)
 		self.offline_user_cache_[nick] = to_cache
 		return to_cache
 	end
+	return nil, "enoent", "no such user"
 end
 
 function server_i:offline_user_by_uid(uid)
