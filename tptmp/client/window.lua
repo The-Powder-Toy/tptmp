@@ -1104,6 +1104,13 @@ function window_i:set_subtitle(template, text)
 	self:subtitle_update_()
 end
 
+function window_i:alpha(alpha)
+	if not alpha then
+		return self.alpha_
+	end
+	self.alpha_ = alpha
+end
+
 function window_i:set_subtitle_secondary(formatted_text)
 	self.subtitle_secondary_ = formatted_text
 	self:subtitle_update_()

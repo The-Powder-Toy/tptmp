@@ -2,9 +2,6 @@ local config      = require("tptmp.client.config")
 local common_util = require("tptmp.common.util")
 
 local jacobsmod = rawget(_G, "jacobsmod")
-local from_tool = {}
-local to_tool = {}
-local xid_first = {}
 local PMAPBITS = sim.PMAPBITS
 
 local tpt_version = { tpt.version.major, tpt.version.minor }
@@ -25,14 +22,6 @@ local function array_concat(...)
 		for j = 1, #arrays[i] do
 			table.insert(tbl, arrays[i][j])
 		end
-	end
-	return tbl
-end
-
-local function array_keyify(arr)
-	local tbl = {}
-	for i = 1, #arr do
-		tbl[arr[i]] = true
 	end
 	return tbl
 end
@@ -108,297 +97,112 @@ local tools = array_concat({
 	"DEFAULT_DECOR_DIV",
 	"DEFAULT_DECOR_SMDG",
 })
-local xid_class = {}
-for i = 1, #tools do
-	local xtype = 0x2000 + i
-	local tool = tools[i]
-	from_tool[tool] = xtype
-	to_tool[xtype] = tool
-	local class = tool:match("^[^_]+_(.-)_[^_]+$")
-	xid_class[xtype] = class
-	xid_first[class] = math.min(xid_first[class] or math.huge, xtype)
-end
--- * TODO[opt]: support custom elements
-local known_elements = array_keyify({
-	"DEFAULT_PT_NONE",
-	"DEFAULT_PT_DUST",
-	"DEFAULT_PT_WATR",
-	"DEFAULT_PT_OIL",
-	"DEFAULT_PT_FIRE",
-	"DEFAULT_PT_STNE",
-	"DEFAULT_PT_LAVA",
-	"DEFAULT_PT_GUN",
-	"DEFAULT_PT_GUNP",
-	"DEFAULT_PT_NITR",
-	"DEFAULT_PT_CLNE",
-	"DEFAULT_PT_GAS",
-	"DEFAULT_PT_C-4",
-	"DEFAULT_PT_PLEX",
-	"DEFAULT_PT_GOO",
-	"DEFAULT_PT_ICE",
-	"DEFAULT_PT_ICEI",
-	"DEFAULT_PT_METL",
-	"DEFAULT_PT_SPRK",
-	"DEFAULT_PT_SNOW",
-	"DEFAULT_PT_WOOD",
-	"DEFAULT_PT_NEUT",
-	"DEFAULT_PT_PLUT",
-	"DEFAULT_PT_PLNT",
-	"DEFAULT_PT_ACID",
-	"DEFAULT_PT_VOID",
-	"DEFAULT_PT_WTRV",
-	"DEFAULT_PT_CNCT",
-	"DEFAULT_PT_DSTW",
-	"DEFAULT_PT_SALT",
-	"DEFAULT_PT_SLTW",
-	"DEFAULT_PT_DMND",
-	"DEFAULT_PT_BMTL",
-	"DEFAULT_PT_BRMT",
-	"DEFAULT_PT_PHOT",
-	"DEFAULT_PT_URAN",
-	"DEFAULT_PT_WAX",
-	"DEFAULT_PT_MWAX",
-	"DEFAULT_PT_PSCN",
-	"DEFAULT_PT_NSCN",
-	"DEFAULT_PT_LNTG",
-	"DEFAULT_PT_LN2",
-	"DEFAULT_PT_INSL",
-	"DEFAULT_PT_BHOL",
-	"DEFAULT_PT_VACU",
-	"DEFAULT_PT_WHOL",
-	"DEFAULT_PT_VENT",
-	"DEFAULT_PT_RBDM",
-	"DEFAULT_PT_LRBD",
-	"DEFAULT_PT_NTCT",
-	"DEFAULT_PT_SAND",
-	"DEFAULT_PT_GLAS",
-	"DEFAULT_PT_PTCT",
-	"DEFAULT_PT_BGLA",
-	"DEFAULT_PT_THDR",
-	"DEFAULT_PT_PLSM",
-	"DEFAULT_PT_ETRD",
-	"DEFAULT_PT_NICE",
-	"DEFAULT_PT_NBLE",
-	"DEFAULT_PT_BTRY",
-	"DEFAULT_PT_LCRY",
-	"DEFAULT_PT_STKM",
-	"DEFAULT_PT_SWCH",
-	"DEFAULT_PT_SMKE",
-	"DEFAULT_PT_DESL",
-	"DEFAULT_PT_COAL",
-	"DEFAULT_PT_LO2",
-	"DEFAULT_PT_LOXY",
-	"DEFAULT_PT_O2",
-	"DEFAULT_PT_OXYG",
-	"DEFAULT_PT_INWR",
-	"DEFAULT_PT_YEST",
-	"DEFAULT_PT_DYST",
-	"DEFAULT_PT_THRM",
-	"DEFAULT_PT_GLOW",
-	"DEFAULT_PT_BRCK",
-	"DEFAULT_PT_HFLM",
-	"DEFAULT_PT_CFLM",
-	"DEFAULT_PT_FIRW",
-	"DEFAULT_PT_FUSE",
-	"DEFAULT_PT_FSEP",
-	"DEFAULT_PT_AMTR",
-	"DEFAULT_PT_BCOL",
-	"DEFAULT_PT_PCLN",
-	"DEFAULT_PT_HSWC",
-	"DEFAULT_PT_IRON",
-	"DEFAULT_PT_MORT",
-	"DEFAULT_PT_LIFE",
-	"DEFAULT_PT_DLAY",
-	"DEFAULT_PT_CO2",
-	"DEFAULT_PT_DRIC",
-	"DEFAULT_PT_BUBW",
-	"DEFAULT_PT_CBNW",
-	"DEFAULT_PT_STOR",
-	"DEFAULT_PT_PVOD",
-	"DEFAULT_PT_CONV",
-	"DEFAULT_PT_CAUS",
-	"DEFAULT_PT_LIGH",
-	"DEFAULT_PT_TESC",
-	"DEFAULT_PT_DEST",
-	"DEFAULT_PT_SPNG",
-	"DEFAULT_PT_RIME",
-	"DEFAULT_PT_FOG",
-	"DEFAULT_PT_BCLN",
-	"DEFAULT_PT_LOVE",
-	"DEFAULT_PT_DEUT",
-	"DEFAULT_PT_WARP",
-	"DEFAULT_PT_PUMP",
-	"DEFAULT_PT_FWRK",
-	"DEFAULT_PT_PIPE",
-	"DEFAULT_PT_FRZZ",
-	"DEFAULT_PT_FRZW",
-	"DEFAULT_PT_GRAV",
-	"DEFAULT_PT_BIZR",
-	"DEFAULT_PT_BIZG",
-	"DEFAULT_PT_BIZRG",
-	"DEFAULT_PT_BIZRS",
-	"DEFAULT_PT_BIZS",
-	"DEFAULT_PT_INST",
-	"DEFAULT_PT_ISOZ",
-	"DEFAULT_PT_ISZS",
-	"DEFAULT_PT_PRTI",
-	"DEFAULT_PT_PRTO",
-	"DEFAULT_PT_PSTE",
-	"DEFAULT_PT_PSTS",
-	"DEFAULT_PT_ANAR",
-	"DEFAULT_PT_VINE",
-	"DEFAULT_PT_INVIS",
-	"DEFAULT_PT_INVS",
-	"DEFAULT_PT_116",
-	"DEFAULT_PT_EQVE",
-	"DEFAULT_PT_SPAWN2",
-	"DEFAULT_PT_SPWN2",
-	"DEFAULT_PT_SPWN",
-	"DEFAULT_PT_SPAWN",
-	"DEFAULT_PT_SHLD",
-	"DEFAULT_PT_SHLD1",
-	"DEFAULT_PT_SHLD2",
-	"DEFAULT_PT_SHD2",
-	"DEFAULT_PT_SHD3",
-	"DEFAULT_PT_SHLD3",
-	"DEFAULT_PT_SHLD4",
-	"DEFAULT_PT_SHD4",
-	"DEFAULT_PT_LOLZ",
-	"DEFAULT_PT_WIFI",
-	"DEFAULT_PT_FILT",
-	"DEFAULT_PT_ARAY",
-	"DEFAULT_PT_BRAY",
-	"DEFAULT_PT_STKM2",
-	"DEFAULT_PT_STK2",
-	"DEFAULT_PT_BOMB",
-	"DEFAULT_PT_C5",
-	"DEFAULT_PT_C-5",
-	"DEFAULT_PT_SING",
-	"DEFAULT_PT_QRTZ",
-	"DEFAULT_PT_PQRT",
-	"DEFAULT_PT_EMP",
-	"DEFAULT_PT_BREC",
-	"DEFAULT_PT_BREL",
-	"DEFAULT_PT_ELEC",
-	"DEFAULT_PT_ACEL",
-	"DEFAULT_PT_DCEL",
-	"DEFAULT_PT_TNT",
-	"DEFAULT_PT_BANG",
-	"DEFAULT_PT_IGNT",
-	"DEFAULT_PT_IGNC",
-	"DEFAULT_PT_BOYL",
-	"DEFAULT_PT_GEL",
-	"DEFAULT_PT_TRON",
-	"DEFAULT_PT_TTAN",
-	"DEFAULT_PT_EXOT",
-	"DEFAULT_PT_EMBR",
-	"DEFAULT_PT_HYGN",
-	"DEFAULT_PT_H2",
-	"DEFAULT_PT_SOAP",
-	"DEFAULT_PT_NBHL",
-	"DEFAULT_PT_NWHL",
-	"DEFAULT_PT_MERC",
-	"DEFAULT_PT_PBCN",
-	"DEFAULT_PT_GPMP",
-	"DEFAULT_PT_CLST",
-	"DEFAULT_PT_WWLD",
-	"DEFAULT_PT_WIRE",
-	"DEFAULT_PT_GBMB",
-	"DEFAULT_PT_FIGH",
-	"DEFAULT_PT_FRAY",
-	"DEFAULT_PT_RPEL",
-	"DEFAULT_PT_PPIP",
-	"DEFAULT_PT_DTEC",
-	"DEFAULT_PT_DMG",
-	"DEFAULT_PT_TSNS",
-	"DEFAULT_PT_VIBR",
-	"DEFAULT_PT_BVBR",
-	"DEFAULT_PT_CRAY",
-	"DEFAULT_PT_PSTN",
-	"DEFAULT_PT_FRME",
-	"DEFAULT_PT_GOLD",
-	"DEFAULT_PT_TUNG",
-	"DEFAULT_PT_PSNS",
-	"DEFAULT_PT_PROT",
-	"DEFAULT_PT_VIRS",
-	"DEFAULT_PT_VRSS",
-	"DEFAULT_PT_VRSG",
-	"DEFAULT_PT_GRVT",
-	"DEFAULT_PT_DRAY",
-	"DEFAULT_PT_CRMC",
-	"DEFAULT_PT_HEAC",
-	"DEFAULT_PT_SAWD",
-	"DEFAULT_PT_POLO",
-	"DEFAULT_PT_RFRG",
-	"DEFAULT_PT_RFGL",
-	"DEFAULT_PT_LSNS",
-	"DEFAULT_PT_LDTC",
-	"DEFAULT_PT_SLCN",
-	"DEFAULT_PT_PTNM",
-	"DEFAULT_PT_VSNS",
-	"DEFAULT_PT_ROCK",
-	"DEFAULT_PT_LITH",
-})
-for key, value in pairs(elem) do
-	if known_elements[key] then
-		from_tool[key] = value
-		to_tool[value] = key
+
+local function xid_registry(supported)
+	table.sort(supported, function(lhs, rhs)
+		-- * Doesn't matter what this is as long as it's canonical. Built-in
+		--   __lt on strings is not trustworthy because it's based on the
+		--   current locale, so it's not necessarily canonical.
+		for i = 1, math.max(#lhs, #rhs) do
+			local lb = string.byte(lhs, i) or -math.huge
+			local rb = string.byte(rhs, i) or -math.huge
+			if lb < rb then return true  end
+			if lb > rb then return false end
+		end
+		return false
+	end)
+	local xid_first = {}
+	local xid_class = {}
+	local from_tool = {}
+	local to_tool = {}
+	for i = 1, #tools do
+		local xtype = 0x2000 + i
+		local tool = tools[i]
+		from_tool[tool] = xtype
+		to_tool[xtype] = tool
+		local class = tool:match("^[^_]+_(.-)_[^_]+$")
+		xid_class[xtype] = class
+		xid_first[class] = math.min(xid_first[class] or math.huge, xtype)
 	end
+	for key, value in pairs(supported) do
+		assert(not to_tool[key])
+		assert(not from_tool[value])
+		to_tool[key] = value
+		from_tool[value] = key
+	end
+	local unknown_xid = 0x3FFF
+	assert(not to_tool[unknown_xid])
+	from_tool["UNKNOWN"] = unknown_xid
+	to_tool[unknown_xid] = "UNKNOWN"
+	local function assign_if_supported(tbl)
+		local res = {}
+		for key, value in pairs(tbl) do
+			if from_tool[key] then
+				res[from_tool[key]] = value
+			end
+		end
+		return res
+	end
+	local create_override = assign_if_supported({
+		[ "DEFAULT_PT_STKM" ] = function(rx, ry, c)
+			return 0, 0, c
+		end,
+		[ "DEFAULT_PT_LIGH" ] = function(rx, ry, c)
+			local tmp = rx + ry
+			if tmp > 55 then
+				tmp = 55
+			end
+			return 0, 0, c + bit.lshift(tmp, PMAPBITS)
+		end,
+		[ "DEFAULT_PT_TESC" ] = function(rx, ry, c)
+			local tmp = rx * 4 + ry * 4 + 7
+			if tmp > 300 then
+				tmp = 300
+			end
+			return rx, ry, c + bit.lshift(tmp, PMAPBITS)
+		end,
+		[ "DEFAULT_PT_STKM2" ] = function(rx, ry, c)
+			return 0, 0, c
+		end,
+		[ "DEFAULT_PT_FIGH" ] = function(rx, ry, c)
+			return 0, 0, c
+		end,
+	})
+	local no_flood = assign_if_supported({
+		[ "DEFAULT_PT_SPRK"  ] = true,
+		[ "DEFAULT_PT_STKM"  ] = true,
+		[ "DEFAULT_PT_LIGH"  ] = true,
+		[ "DEFAULT_PT_STKM2" ] = true,
+		[ "DEFAULT_PT_FIGH"  ] = true,
+	})
+	local no_shape = assign_if_supported({
+		[ "DEFAULT_PT_STKM"  ] = true,
+		[ "DEFAULT_PT_LIGH"  ] = true,
+		[ "DEFAULT_PT_STKM2" ] = true,
+		[ "DEFAULT_PT_FIGH"  ] = true,
+	})
+	local no_create = assign_if_supported({
+		[ "DEFAULT_UI_PROPERTY" ] = true,
+		[ "DEFAULT_UI_SAMPLE"   ] = true,
+		[ "DEFAULT_UI_SIGN"     ] = true,
+		[ "UNKNOWN"             ] = true,
+	})
+	local line_only = assign_if_supported({
+		[ "DEFAULT_UI_WIND" ] = true,
+	})
+	return {
+		xid_first = xid_first,
+		xid_class = xid_class,
+		from_tool = from_tool,
+		to_tool = to_tool,
+		create_override = create_override,
+		no_flood = no_flood,
+		no_shape = no_shape,
+		no_create = no_create,
+		line_only = line_only,
+		unknown_xid = unknown_xid,
+	}
 end
-local unknown_xid = 0x3FFF
-assert(not to_tool[unknown_xid])
-from_tool["UNKNOWN"] = unknown_xid
-to_tool[unknown_xid] = "UNKNOWN"
-
-local WL_FAN = from_tool.DEFAULT_WL_FAN - xid_first.WL
-
-local create_override = {
-	[ from_tool.DEFAULT_PT_STKM ] = function(rx, ry, c)
-		return 0, 0, c
-	end,
-	[ from_tool.DEFAULT_PT_LIGH ] = function(rx, ry, c)
-		local tmp = rx + ry
-		if tmp > 55 then
-			tmp = 55
-		end
-		return 0, 0, c + bit.lshift(tmp, PMAPBITS)
-	end,
-	[ from_tool.DEFAULT_PT_TESC ] = function(rx, ry, c)
-		local tmp = rx * 4 + ry * 4 + 7
-		if tmp > 300 then
-			tmp = 300
-		end
-		return rx, ry, c + bit.lshift(tmp, PMAPBITS)
-	end,
-	[ from_tool.DEFAULT_PT_STKM2 ] = function(rx, ry, c)
-		return 0, 0, c
-	end,
-	[ from_tool.DEFAULT_PT_FIGH ] = function(rx, ry, c)
-		return 0, 0, c
-	end,
-}
-local no_flood = {
-	[ from_tool.DEFAULT_PT_SPRK  ] = true,
-	[ from_tool.DEFAULT_PT_STKM  ] = true,
-	[ from_tool.DEFAULT_PT_LIGH  ] = true,
-	[ from_tool.DEFAULT_PT_STKM2 ] = true,
-	[ from_tool.DEFAULT_PT_FIGH  ] = true,
-}
-local no_shape = {
-	[ from_tool.DEFAULT_PT_STKM  ] = true,
-	[ from_tool.DEFAULT_PT_LIGH  ] = true,
-	[ from_tool.DEFAULT_PT_STKM2 ] = true,
-	[ from_tool.DEFAULT_PT_FIGH  ] = true,
-}
-local no_create = {
-	[ from_tool.DEFAULT_UI_PROPERTY ] = true,
-	[ from_tool.DEFAULT_UI_SAMPLE   ] = true,
-	[ from_tool.DEFAULT_UI_SIGN     ] = true,
-	[ from_tool.UNKNOWN             ] = true,
-}
-local line_only = {
-	[ from_tool.DEFAULT_UI_WIND ] = true,
-}
 
 local function heat_clear()
 	local temp = sim.ambientAirTemp()
@@ -413,7 +217,8 @@ local function stamp_load(x, y, data, reset)
 	if data == "" then -- * Is this check needed at all?
 		return nil, "no stamp data"
 	end
-	local handle = io.open(config.stamp_temp, "wb")
+	local stamp_temp = ("%s.%s.%s"):format(config.stamp_temp, tostring(socket.gettime()), tostring(math.random(10000, 99999)))
+	local handle = io.open(stamp_temp, "wb")
 	if not handle then
 		return nil, "cannot write stamp data"
 	end
@@ -425,16 +230,16 @@ local function stamp_load(x, y, data, reset)
 		tpt.reset_velocity()
 		tpt.set_pressure()
 	end
-	local ok, err = sim.loadStamp(config.stamp_temp, x, y)
+	local ok, err = sim.loadStamp(stamp_temp, x, y)
 	if not ok then
-		os.remove(config.stamp_temp)
+		os.remove(stamp_temp)
 		if err then
 			return nil, "cannot load stamp data: " .. err
 		else
 			return nil, "cannot load stamp data"
 		end
 	end
-	os.remove(config.stamp_temp)
+	os.remove(stamp_temp)
 	return true
 end
 
@@ -526,19 +331,20 @@ local function rect_snap_coords(x1, y1, x2, y2)
 	end
 end
 
-local function create_parts_any(x, y, rx, ry, xtype, brush, member)
+local function create_parts_any(xidr, x, y, rx, ry, xtype, brush, member)
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x, y) then
 		return
 	end
-	if line_only[xtype] or no_create[xtype] then
+	if xidr.line_only[xtype] or xidr.no_create[xtype] then
 		return
 	end
-	local class = xid_class[xtype]
+	local translate = true
+	local class = xidr.xid_class[xtype]
 	if class == "WL" then
-		if xtype == from_tool.DEFAULT_WL_STRM then
+		if xtype == xidr.from_tool.DEFAULT_WL_STRM then
 			rx, ry = 0, 0
 		end
-		sim.createWalls(x, y, rx, ry, xtype - xid_first.WL, brush)
+		sim.createWalls(x, y, rx, ry, xtype - xidr.xid_first.WL, brush)
 		return
 	elseif class == "TOOL" then
 		local str = 1
@@ -547,25 +353,30 @@ local function create_parts_any(x, y, rx, ry, xtype, brush, member)
 		elseif member.kmod_c then
 			str = 0.1
 		end
-		sim.toolBrush(x, y, rx, ry, xtype - xid_first.TOOL, brush, str)
+		sim.toolBrush(x, y, rx, ry, xtype - xidr.xid_first.TOOL, brush, str)
 		return
 	elseif class == "DECOR" then
-		sim.decoBrush(x, y, rx, ry, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xid_first.DECOR, brush)
+		sim.decoBrush(x, y, rx, ry, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xidr.xid_first.DECOR, brush)
 		return
 	elseif class == "PT_LIFE" then
-		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS))
+		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xidr.xid_first.PT_LIFE, PMAPBITS))
+		translate = false
 	elseif type(xtype) == "table" and xtype.type == "cgol" then
 		-- * TODO[api]: add an api for setting gol colour
 		xtype = xtype.elem
+		translate = false
 	end
-	local ov = create_override[xtype]
+	local ov = xidr.create_override[xtype]
 	if ov then
 		rx, ry, xtype = ov(rx, ry, xtype)
 	end
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x] or "DEFAULT_PT_NONE"
+		tpt.selectedreplace = xidr.to_tool[member.tool_x] or "DEFAULT_PT_NONE"
+	end
+	if translate then
+		xtype = elem[xidr.to_tool[xtype]]
 	end
 	sim.createParts(x, y, rx, ry, xtype, brush, member.bmode)
 	if member.bmode ~= 0 then
@@ -573,15 +384,17 @@ local function create_parts_any(x, y, rx, ry, xtype, brush, member)
 	end
 end
 
-local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, cont)
+local function create_line_any(xidr, x1, y1, x2, y2, rx, ry, xtype, brush, member, cont)
+	-- * TODO[opt]: Revert jacob1's mod ball check.
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x1, y1) or
 	   not inside_rect(0, 0, sim.XRES, sim.YRES, x2, y2) then
 		return
 	end
-	if no_create[xtype] or no_shape[xtype] or (jacobsmod and xtype == tpt.element("ball") and not member.kmod_s) then
+	if xidr.no_create[xtype] or xidr.no_shape[xtype] then
 		return
 	end
-	local class = xid_class[xtype]
+	local translate = true
+	local class = xidr.xid_class[xtype]
 	if class == "WL" then
 		local str = 1
 		if cont then
@@ -592,7 +405,8 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 			end
 			str = str * 5
 		end
-		if not cont and xtype == from_tool.DEFAULT_WL_FAN and tpt.get_wallmap(math.floor(x1 / 4), math.floor(y1 / 4)) == WL_FAN then
+		local wl_fan = xidr.from_tool.DEFAULT_WL_FAN - xidr.xid_first.WL
+		if not cont and xtype == xidr.from_tool.DEFAULT_WL_FAN and tpt.get_wallmap(math.floor(x1 / 4), math.floor(y1 / 4)) == wl_fan then
 			local fvx = (x2 - x1) * 0.005
 			local fvy = (y2 - y1) * 0.005
 			local bw = sim.XRES / 4
@@ -601,7 +415,7 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 			local mark = {}
 			local last = 0
 			local function enqueue(x, y)
-				if x >= 0 and y >= 0 and x < bw and y < bh and tpt.get_wallmap(x, y) == WL_FAN then
+				if x >= 0 and y >= 0 and x < bw and y < bh and tpt.get_wallmap(x, y) == wl_fan then
 					local k = x + y * bw
 					if not mark[k] then
 						last = last + 1
@@ -615,7 +429,7 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 			while visit[curr] do
 				local k = visit[curr]
 				local x, y = k % bw, math.floor(k / bw)
-				tpt.set_wallmap(x, y, 1, 1, fvx, fvy, WL_FAN)
+				tpt.set_wallmap(x, y, 1, 1, fvx, fvy, wl_fan)
 				enqueue(x - 1, y)
 				enqueue(x, y - 1)
 				enqueue(x + 1, y)
@@ -624,12 +438,12 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 			end
 			return
 		end
-		if xtype == from_tool.DEFAULT_WL_STRM then
+		if xtype == xidr.from_tool.DEFAULT_WL_STRM then
 			rx, ry = 0, 0
 		end
-		sim.createWallLine(x1, y1, x2, y2, rx, ry, xtype - xid_first.WL, brush)
+		sim.createWallLine(x1, y1, x2, y2, rx, ry, xtype - xidr.xid_first.WL, brush)
 		return
-	elseif xtype == from_tool.DEFAULT_UI_WIND then
+	elseif xtype == xidr.from_tool.DEFAULT_UI_WIND then
 		local str = 1
 		if cont then
 			if member.kmod_s then
@@ -650,25 +464,30 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 				str = 0.1
 			end
 		end
-		sim.toolLine(x1, y1, x2, y2, rx, ry, xtype - xid_first.TOOL, brush, str)
+		sim.toolLine(x1, y1, x2, y2, rx, ry, xtype - xidr.xid_first.TOOL, brush, str)
 		return
 	elseif class == "DECOR" then
-		sim.decoLine(x1, y1, x2, y2, rx, ry, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xid_first.DECOR, brush)
+		sim.decoLine(x1, y1, x2, y2, rx, ry, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xidr.xid_first.DECOR, brush)
 		return
 	elseif class == "PT_LIFE" then
-		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS))
+		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xidr.xid_first.PT_LIFE, PMAPBITS))
+		translate = false
 	elseif type(xtype) == "table" and xtype.type == "cgol" then
 		-- * TODO[api]: add an api for setting gol colour
 		xtype = xtype.elem
+		translate = false
 	end
-	local ov = create_override[xtype]
+	local ov = xidr.create_override[xtype]
 	if ov then
 		rx, ry, xtype = ov(rx, ry, xtype)
 	end
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x] or "DEFAULT_PT_NONE"
+		tpt.selectedreplace = xidr.to_tool[member.tool_x] or "DEFAULT_PT_NONE"
+	end
+	if translate then
+		xtype = elem[xidr.to_tool[xtype]]
 	end
 	sim.createLine(x1, y1, x2, y2, rx, ry, xtype, brush, member.bmode)
 	if member.bmode ~= 0 then
@@ -676,39 +495,45 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 	end
 end
 
-local function create_box_any(x1, y1, x2, y2, xtype, member)
+local function create_box_any(xidr, x1, y1, x2, y2, xtype, member)
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x1, y1) or
 	   not inside_rect(0, 0, sim.XRES, sim.YRES, x2, y2) then
 		return
 	end
-	if line_only[xtype] or no_create[xtype] or no_shape[xtype] then
+	if xidr.line_only[xtype] or xidr.no_create[xtype] or xidr.no_shape[xtype] then
 		return
 	end
-	local class = xid_class[xtype]
+	local translate = true
+	local class = xidr.xid_class[xtype]
 	if class == "WL" then
-		sim.createWallBox(x1, y1, x2, y2, xtype - xid_first.WL)
+		sim.createWallBox(x1, y1, x2, y2, xtype - xidr.xid_first.WL)
 		return
 	elseif class == "TOOL" then
-		sim.toolBox(x1, y1, x2, y2, xtype - xid_first.TOOL)
+		sim.toolBox(x1, y1, x2, y2, xtype - xidr.xid_first.TOOL)
 		return
 	elseif class == "DECOR" then
-		sim.decoBox(x1, y1, x2, y2, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xid_first.DECOR)
+		sim.decoBox(x1, y1, x2, y2, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xidr.xid_first.DECOR)
 		return
 	elseif class == "PT_LIFE" then
-		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS))
+		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xidr.xid_first.PT_LIFE, PMAPBITS))
+		translate = false
 	elseif type(xtype) == "table" and xtype.type == "cgol" then
 		-- * TODO[api]: add an api for setting gol colour
 		xtype = xtype.elem
+		translate = false
 	end
 	local _
-	local ov = create_override[xtype]
+	local ov = xidr.create_override[xtype]
 	if ov then
 		_, _, xtype = ov(member.size_x, member.size_y, xtype)
 	end
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x] or "DEFAULT_PT_NONE"
+		tpt.selectedreplace = xidr.to_tool[member.tool_x] or "DEFAULT_PT_NONE"
+	end
+	if translate then
+		xtype = elem[xidr.to_tool[xtype]]
 	end
 	sim.createBox(x1, y1, x2, y2, xtype, member and member.bmode)
 	if member.bmode ~= 0 then
@@ -716,34 +541,40 @@ local function create_box_any(x1, y1, x2, y2, xtype, member)
 	end
 end
 
-local function flood_any(x, y, xtype, part_flood_hint, wall_flood_hint, member)
+local function flood_any(xidr, x, y, xtype, part_flood_hint, wall_flood_hint, member)
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x, y) then
 		return
 	end
-	if line_only[xtype] or no_create[xtype] or no_flood[xtype] then
+	if xidr.line_only[xtype] or xidr.no_create[xtype] or xidr.no_flood[xtype] then
 		return
 	end
-	local class = xid_class[xtype]
+	local translate = true
+	local class = xidr.xid_class[xtype]
 	if class == "WL" then
-		sim.floodWalls(x, y, xtype - xid_first.WL, wall_flood_hint)
+		sim.floodWalls(x, y, xtype - xidr.xid_first.WL, wall_flood_hint)
 		return
 	elseif class == "DECOR" or class == "TOOL" then
 		return
 	elseif class == "PT_LIFE" then
-		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xid_first.PT_LIFE, PMAPBITS))
+		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xidr.xid_first.PT_LIFE, PMAPBITS))
+		translate = false
 	elseif type(xtype) == "table" and xtype.type == "cgol" then
 		-- * TODO[api]: add an api for setting gol colour
 		xtype = xtype.elem
+		translate = false
 	end
 	local _
-	local ov = create_override[xtype]
+	local ov = xidr.create_override[xtype]
 	if ov then
 		_, _, xtype = ov(member.size_x, member.size_y, xtype)
 	end
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
-		tpt.selectedreplace = to_tool[member.tool_x] or "DEFAULT_PT_NONE"
+		tpt.selectedreplace = xidr.to_tool[member.tool_x] or "DEFAULT_PT_NONE"
+	end
+	if translate then
+		xtype = elem[xidr.to_tool[xtype]]
 	end
 	sim.floodParts(x, y, xtype, part_flood_hint, member.bmode)
 	if member.bmode ~= 0 then
@@ -826,39 +657,62 @@ local function get_name()
 	return name ~= "" and name or nil
 end
 
+local function element_identifiers()
+	local identifiers = {}
+	for name in pairs(elem) do
+		if name:find("^[^_]*_PT_[^_]*$") then
+			identifiers[name] = true
+		end
+	end
+	return identifiers
+end
+
+local function decode_rulestring(tool)
+	if type(tool) == "table" and tool.type == "cgol" then
+		return tool.repr
+	end
+end
+
+local function tool_proper_name(tool, xidr)
+	local tool_name = (tool and xidr.to_tool[tool] or decode_rulestring(tool)) or "UNKNOWN"
+	if elem[tool_name] and xidr.to_tool[tool] and tool ~= 0 and tool_name ~= "UNKNOWN" then
+		local real_name = elem.property(elem[tool_name], "Name")
+		if real_name ~= "" then
+			tool_name = real_name
+		end
+	end
+	return tool_name
+end
+
 return {
-	get_name = get_name,
-	stamp_load = stamp_load,
-	stamp_save = stamp_save,
+	get_name               = get_name,
+	stamp_load             = stamp_load,
+	stamp_save             = stamp_save,
 	binary_search_implicit = binary_search_implicit,
-	inside_rect = inside_rect,
-	mouse_pos = mouse_pos,
-	brush_size = brush_size,
-	selected_tools = selected_tools,
-	wall_snap_coords = wall_snap_coords,
-	line_snap_coords = line_snap_coords,
-	rect_snap_coords = rect_snap_coords,
-	create_parts_any = create_parts_any,
-	create_line_any = create_line_any,
-	create_box_any = create_box_any,
-	flood_any = flood_any,
-	clear_rect = clear_rect,
-	from_tool = from_tool,
-	to_tool = to_tool,
-	create_override = create_override,
-	no_flood = no_flood,
-	no_shape = no_shape,
-	xid_class = xid_class,
-	corners_to_rect = corners_to_rect,
-	escape_regex = escape_regex,
-	fnv1a32 = fnv1a32,
-	ambient_air_temp = ambient_air_temp,
-	custom_gravity = custom_gravity,
-	get_save_id = get_save_id,
-	version_less = common_util.version_less,
-	version_equal = common_util.version_equal,
-	tpt_version = tpt_version,
-	urlencode = urlencode,
-	heat_clear = heat_clear,
-	unknown_xid = unknown_xid,
+	inside_rect            = inside_rect,
+	mouse_pos              = mouse_pos,
+	brush_size             = brush_size,
+	selected_tools         = selected_tools,
+	wall_snap_coords       = wall_snap_coords,
+	line_snap_coords       = line_snap_coords,
+	rect_snap_coords       = rect_snap_coords,
+	create_parts_any       = create_parts_any,
+	create_line_any        = create_line_any,
+	create_box_any         = create_box_any,
+	flood_any              = flood_any,
+	clear_rect             = clear_rect,
+	xid_registry           = xid_registry,
+	corners_to_rect        = corners_to_rect,
+	escape_regex           = escape_regex,
+	fnv1a32                = fnv1a32,
+	ambient_air_temp       = ambient_air_temp,
+	custom_gravity         = custom_gravity,
+	get_save_id            = get_save_id,
+	version_less           = common_util.version_less,
+	version_equal          = common_util.version_equal,
+	tpt_version            = tpt_version,
+	urlencode              = urlencode,
+	heat_clear             = heat_clear,
+	element_identifiers    = element_identifiers,
+	tool_proper_name       = tool_proper_name,
 }

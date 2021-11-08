@@ -260,6 +260,28 @@ local cmdp = command_parser.new({
 			end,
 			help = "/ncseed [seed]: set nick colour seed, randomize it if not specified, default is 0",
 		},
+		alpha = {
+			func = function(localcmd, message, words, offsets)
+				if words[2] then
+					if words[2]:find("[^0-9]") then
+						return false
+					end
+					local alpha = tonumber(words[2])
+					if not alpha then
+						return false
+					end
+					if alpha < 0 or alpha > 255 then
+						return false
+					end
+					localcmd.nick_colour_seed_ = words[2] or tostring(math.random())
+					manager.set("windowAlpha", tostring(alpha))
+					localcmd.window_:alpha(alpha)
+				end
+				localcmd.window_:backlog_push_neutral("* Current alpha value: " .. localcmd.window_:alpha())
+				return true
+			end,
+			help = "/alpha [value]: set or get the window alpha value, which goes from 0 (transparent) to 255 (opaque), default is " .. config.default_alpha,
+		},
 	},
 	respond = function(localcmd, message)
 		localcmd.window_:backlog_push_neutral(message)

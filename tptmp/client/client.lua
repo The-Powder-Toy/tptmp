@@ -142,6 +142,7 @@ function client_i:add_member_(id, nick)
 	self.id_to_member[id] = setmetatable({
 		nick = nick,
 		fps_sync = false,
+		identifiers = {},
 	}, member_m)
 end
 
@@ -179,6 +180,11 @@ function client_i:handle_room_16_()
 		port = self.port_,
 		secure = self.secure_,
 	})
+	self:user_sync_()
+end
+
+function client_i:user_sync_()
+	self:send_elemlist(util.element_identifiers())
 	self.profile_:user_sync()
 end
 
@@ -188,7 +194,8 @@ function client_i:handle_join_17_()
 	self:add_member_(id, nick)
 	self:reformat_nicks_()
 	self.window_:backlog_push_join(self.id_to_member[id].formatted_nick)
-	self.profile_:user_sync()
+	self:rehash_supported_elements_()
+	self:user_sync_()
 end
 
 function client_i:member_prefix_()
@@ -205,6 +212,7 @@ function client_i:handle_leave_18_()
 	local nick = member.nick
 	self.window_:backlog_push_leave(self.id_to_member[id].formatted_nick)
 	self.id_to_member[id] = nil
+	self:rehash_supported_elements_()
 end
 
 function client_i:handle_say_19_()
@@ -222,6 +230,46 @@ end
 function client_i:handle_server_22_()
 	local msg = self:read_str8_()
 	self.window_:backlog_push_server(msg)
+end
+
+function client_i:handle_elemlist_23_()
+	local member = self:member_prefix_()
+	local length = self:read_24be_()
+	local cstr = self:read_str24_()
+	local str, _, err = bz2.decompress(cstr, length)
+	local identifiers = {}
+	if str then
+		for name in str:gmatch("[^ ]+") do
+			identifiers[name] = true
+		end
+	else
+		self.log_event_func_(colours.commonstr.error .. "Failed to parse supported element list from " .. member.formatted_nick .. colours.commonstr.error .. ": " .. err)
+	end
+	member.identifiers = identifiers
+	self:rehash_supported_elements_()
+end
+
+function client_i:rehash_supported_elements_()
+	local unsupported = {}
+	for key in pairs(self.identifiers_) do
+		for member_id, member in pairs(self.id_to_member) do
+			if not member.identifiers[key] then
+				if not unsupported[key] then
+					unsupported[key] = {}
+				end
+				table.insert(unsupported[key], member_id)
+			end
+		end
+	end
+	local supported = {}
+	for key in pairs(self.identifiers_) do
+		if not unsupported[key] then
+			table.insert(supported, key)
+		end
+	end
+	self.xidr = util.xid_registry(supported)
+	self.xidr_unsupported = unsupported
+	self.profile_:xidr_sync()
 end
 
 function client_i:handle_sync_30_()
@@ -290,7 +338,7 @@ function client_i:handle_selecttool_37_()
 	local tool = bit.bor(lo, bit.lshift(hi, 8))
 	local index = bit.rshift(tool, 14)
 	local xtype = bit.band(tool, 0x3FFF)
-	member[index_to_lrax[index]] = util.to_tool[xtype] and xtype or util.unknown_xid
+	member[index_to_lrax[index]] = self.xidr.to_tool[xtype] and xtype or self.xidr.unknown_xid
 	member.last_toolslot = index
 end
 
@@ -402,7 +450,7 @@ function client_i:handle_flood_39_()
 	member.last_tool = member[index_to_lrax[index]]
 	local x, y = self:read_xy_12_()
 	if member.last_tool then
-		util.flood_any(x, y, member.last_tool, -1, -1, member)
+		util.flood_any(self.xidr, x, y, member.last_tool, -1, -1, member)
 	end
 end
 
@@ -414,7 +462,7 @@ function client_i:handle_lineend_40_()
 		if member.kmod_a then
 			x2, y2 = util.line_snap_coords(x1, y1, x2, y2)
 		end
-		util.create_line_any(x1, y1, x2, y2, member.size_x, member.size_y, member.last_tool, member.shape, member, false)
+		util.create_line_any(self.xidr, x1, y1, x2, y2, member.size_x, member.size_y, member.last_tool, member.shape, member, false)
 	end
 	member.line_x, member.line_y = nil, nil
 end
@@ -427,7 +475,7 @@ function client_i:handle_rectend_41_()
 		if member.kmod_a then
 			x2, y2 = util.rect_snap_coords(x1, y1, x2, y2)
 		end
-		util.create_box_any(x1, y1, x2, y2, member.last_tool, member)
+		util.create_box_any(self.xidr, x1, y1, x2, y2, member.last_tool, member)
 	end
 	member.rect_x, member.rect_y = nil, nil
 end
@@ -441,7 +489,7 @@ function client_i:handle_pointsstart_42_()
 	member.last_tool = member[index_to_lrax[index]]
 	local x, y = self:read_xy_12_()
 	if member:can_render() and member.last_tool then
-		util.create_parts_any(x, y, member.size_x, member.size_y, member.last_tool, member.shape, member)
+		util.create_parts_any(self.xidr, x, y, member.size_x, member.size_y, member.last_tool, member.shape, member)
 	end
 	member.last_x = x
 	member.last_y = y
@@ -451,7 +499,7 @@ function client_i:handle_pointscont_43_()
 	local member = self:member_prefix_()
 	local x, y = self:read_xy_12_()
 	if member:can_render() and member.last_tool and member.last_x then
-		util.create_line_any(member.last_x, member.last_y, x, y, member.size_x, member.size_y, member.last_tool, member.shape, member, true)
+		util.create_line_any(self.xidr, member.last_x, member.last_y, x, y, member.size_x, member.size_y, member.last_tool, member.shape, member, true)
 	end
 	member.last_x = x
 	member.last_y = y
@@ -797,6 +845,19 @@ end
 function client_i:send_say3rd(str)
 	self:write_("\20")
 	self:write_str8_(str)
+	self:write_flush_()
+end
+
+function client_i:send_elemlist(identifiers)
+	self:write_("\23")
+	local arr = {}
+	for name in pairs(identifiers) do
+		table.insert(arr, name)
+	end
+	local str = table.concat(arr, " ")
+	local cstr = bz2.compress(str)
+	self:write_24be_(#str)
+	self:write_str24_(cstr)
 	self:write_flush_()
 end
 
@@ -1190,12 +1251,12 @@ function client_i:tick_sim_()
 	for _, member in pairs(self.id_to_member) do
 		if member:can_render() then
 			local lx, ly = member.line_x, member.line_y
-			if lx and member.last_tool == util.from_tool.DEFAULT_UI_WIND and not (member.select or member.place) and lx then
+			if lx and member.last_tool == self.xidr.from_tool.DEFAULT_UI_WIND and not (member.select or member.place) and lx then
 				local px, py = member.pos_x, member.pos_y
 				if member.kmod_a then
 					px, py = util.line_snap_coords(lx, ly, px, py)
 				end
-				util.create_line_any(lx, ly, px, py, member.size_x, member.size_y, member.last_tool, member.shape, member, false)
+				util.create_line_any(self.xidr, lx, ly, px, py, member.size_x, member.size_y, member.last_tool, member.shape, member, false)
 			end
 		end
 	end
@@ -1416,6 +1477,10 @@ function client_i:reformat_nicks_()
 	end
 end
 
+function client_i:tool_proper_name(tool)
+	return util.tool_proper_name(tool, self.xidr)
+end
+
 for key, value in pairs(client_i) do
 	local packet_id_str = key:match("^handle_.+_(%d+)_$")
 	if packet_id_str then
@@ -1427,7 +1492,7 @@ end
 
 local function new(params)
 	local now = socket.gettime()
-	return setmetatable({
+	local cli = setmetatable({
 		host_                      = params.host,
 		port_                      = params.port,
 		secure_                    = params.secure,
@@ -1453,8 +1518,11 @@ local function new(params)
 		should_not_reconnect_func_ = params.should_not_reconnect_func,
 		id_to_member               = {},
 		nick_colour_seed_          = 0,
+		identifiers_               = util.element_identifiers(),
 		fps_sync_                  = false,
 	}, client_m)
+	cli:rehash_supported_elements_()
+	return cli
 end
 
 return {

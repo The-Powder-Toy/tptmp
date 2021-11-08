@@ -269,6 +269,13 @@ local function header_24be(d24)
 	return string.char(hi, mi, lo)
 end
 
+function client_i:handle_elemlist_23_()
+	local length = self:read_(3)
+	local cstr = self:read_str24_()
+	self.room_:broadcast(self, "\23" .. self.room_id_str_ .. length .. header_24be(#cstr))
+	self.room_:broadcast(self, cstr)
+end
+
 local sync_30_size = 3
 do
 	local location_size = 3

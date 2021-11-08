@@ -35,7 +35,6 @@ local toolwarn_messages = {
 	stkm      =                             "Stickmen do not sync, you will have to use /sync",
 	cbrush    =                       "Custom brushes do not sync, you will have to use /sync",
 	ipcirc    =               "The old circle brush does not sync, you will have to use /sync",
-	unknown   =  "This custom element is not supported, please avoid using it while connected",
 	cgol      = "This custom GOL type is not supported, please avoid using it while connected",
 	cgolcolor =  "Custom GOL currently syncs without colours, use /sync to get colours across",
 }
@@ -121,25 +120,25 @@ local function in_zoom_window(x, y)
 end
 
 function profile_i:report_loadonline_(id, hist)
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_loadonline(id, hist)
 	end
 end
 
 function profile_i:report_pos_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_mousepos(self.pos_x_, self.pos_y_)
 	end
 end
 
 function profile_i:report_size_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_brushsize(self.size_x_, self.size_y_)
 	end
 end
 
 function profile_i:report_zoom_()
-	if self.client_ then
+	if self.registered_func_() then
 		if self.zenabled_ then
 			self.client_:send_zoomstart(self.zcx_, self.zcy_, self.zsize_)
 		else
@@ -149,39 +148,39 @@ function profile_i:report_zoom_()
 end
 
 function profile_i:report_bmode_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_brushmode(self.bmode_)
 	end
 end
 
 function profile_i:report_shape_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_brushshape(self.shape_ < BRUSH_COUNT and self.shape_ or 0)
 	end
 end
 
 function profile_i:report_sparksign_(x, y)
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_sparksign(x, y)
 	end
 end
 
 function profile_i:report_flood_(i, x, y)
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_flood(i, x, y)
 	end
 end
 
 function profile_i:report_lineend_(x, y)
 	self.lss_i_ = nil
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_lineend(x, y)
 	end
 end
 
 function profile_i:report_rectend_(x, y)
 	self.rss_i_ = nil
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_rectend(x, y)
 	end
 end
@@ -196,7 +195,7 @@ function profile_i:report_linestart_(i, x, y)
 	self.lss_i_ = i
 	self.lss_x_ = x
 	self.lss_y_ = y
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_linestart(i, x, y)
 	end
 end
@@ -211,7 +210,7 @@ function profile_i:report_rectstart_(i, x, y)
 	self.rss_i_ = i
 	self.rss_x_ = x
 	self.rss_y_ = y
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_rectstart(i, x, y)
 	end
 end
@@ -226,13 +225,13 @@ function profile_i:report_pointsstart_(i, x, y)
 	self.pts_i_ = i
 	self.pts_x_ = x
 	self.pts_y_ = y
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_pointsstart(i, x, y)
 	end
 end
 
 function profile_i:report_pointscont_(x, y, done)
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_pointscont(x, y)
 	end
 	self.pts_x_ = x
@@ -243,67 +242,67 @@ function profile_i:report_pointscont_(x, y, done)
 end
 
 function profile_i:report_kmod_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_keybdmod(self.kmod_c_, self.kmod_s_, self.kmod_a_)
 	end
 end
 
 function profile_i:report_framestep_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_stepsim()
 	end
 end
 
 function profile_i:report_airinvert_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_airinv()
 	end
 end
 
 function profile_i:report_reset_spark_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_sparkclear()
 	end
 end
 
 function profile_i:report_reset_air_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_airclear()
 	end
 end
 
 function profile_i:report_reset_airtemp_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_heatclear()
 	end
 end
 
 function profile_i:report_clearrect_(x, y, w, h)
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_clearrect(x, y, w, h)
 	end
 end
 
 function profile_i:report_clearsim_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_clearsim()
 	end
 end
 
 function profile_i:report_reloadsim_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_reloadsim()
 	end
 end
 
 function profile_i:simstate_sync()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_simstate(self.ss_p_, self.ss_h_, self.ss_u_, self.ss_n_, self.ss_w_, self.ss_g_, self.ss_a_, self.ss_e_, self.ss_y_, self.ss_t_, self.ss_r_, self.ss_s_)
 	end
 end
 
 function profile_i:report_tool_(index)
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_selecttool(index, self[index_to_lrax[index]])
 		local identifier = self[index_to_lraxid[index]]
 		if identifier:find("^DEFAULT_PT_LIFECUST_") then
@@ -320,7 +319,7 @@ function profile_i:report_tool_(index)
 end
 
 function profile_i:report_deco_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_brushdeco(self.deco_)
 	end
 end
@@ -335,7 +334,7 @@ function profile_i:report_placestatus_(k, w, h)
 	self.pes_k_ = k
 	self.pes_w_ = w
 	self.pes_h_ = h
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_placestatus(k, w, h)
 	end
 end
@@ -350,19 +349,19 @@ function profile_i:report_selectstatus_(k, x, y)
 	self.sts_k_ = k
 	self.sts_x_ = x
 	self.sts_y_ = y
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_selectstatus(k, x, y)
 	end
 end
 
 function profile_i:report_pastestamp_(x, y, w, h)
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_pastestamp(x, y, w, h)
 	end
 end
 
 function profile_i:report_canceldraw_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.client_:send_canceldraw()
 	end
 end
@@ -407,16 +406,10 @@ end
 function profile_i:post_event_check_()
 	if self.placesave_postmsg_ then
 		local partcount = self.placesave_postmsg_.partcount
-		if self.debug_ then
-			self.debug_("fallback placesave detection", sim.NUM_PARTS, partcount)
-		end
 		if partcount and (partcount ~= sim.NUM_PARTS or sim.NUM_PARTS == sim.XRES * sim.YRES) and self.registered_func_() then
 			-- * TODO[api]: get rid of all of this nonsense once redo-ui lands
-			if self.client_ then
+			if self.registered_func_() then
 				self.client_:send_sync()
-			end
-			if self.debug_ then
-				self.debug_("failed to determine paste area while connected, syncing everything")
 			end
 		end
 		self.placesave_postmsg_ = nil
@@ -424,9 +417,6 @@ function profile_i:post_event_check_()
 	if self.placesave_size_ then
 		local x1, y1, x2, y2 = self:end_placesave_size_()
 		if x1 then
-			if self.debug_ then
-				self.debug_("placesave size determined to be", x1, y1, x2, y2)
-			end
 			local x, y, w, h = util.corners_to_rect(x1, y1, x2, y2)
 			self.simstate_invalid_ = true
 			if self.placesave_open_ then
@@ -448,10 +438,6 @@ function profile_i:post_event_check_()
 			else
 				self:report_pastestamp_(x, y, w, h)
 			end
-		else
-			if self.debug_ then
-				self.debug_("placesave size not determined")
-			end
 		end
 		self.placesave_open_ = nil
 		self.placesave_reload_ = nil
@@ -471,7 +457,9 @@ function profile_i:post_event_check_()
 	end
 	self:update_size_()
 	self:update_shape_()
-	self:update_tools_()
+	if self.registered_func_() then
+		self:update_tools_()
+	end
 	self:update_deco_()
 end
 
@@ -553,7 +541,7 @@ end
 
 function profile_i:update_draw_mode_()
 	if self.kmod_c_ and self.kmod_s_ then
-		if util.xid_class[self[index_to_lrax[self.last_toolslot_]]] == "TOOL" then
+		if self[index_to_lraxid[self.last_toolslot_]]:find("^DEFAULT_TOOL_") then
 			self.draw_mode_ = "points"
 		else
 			self.draw_mode_ = "flood"
@@ -684,34 +672,34 @@ function profile_i:update_tools_()
 	local taid = tpt.selecteda
 	local txid = tpt.selectedreplace
 	if self.tool_lid_ ~= tlid then
-		self.tool_l_ = util.from_tool[tlid] or util.unknown_xid
+		self.tool_l_ = self.xidr_.from_tool[tlid] or self.xidr_.unknown_xid
 		self.tool_lid_ = tlid
 		self:report_tool_(0)
 	end
 	if self.tool_rid_ ~= trid then
-		self.tool_r_ = util.from_tool[trid] or util.unknown_xid
+		self.tool_r_ = self.xidr_.from_tool[trid] or self.xidr_.unknown_xid
 		self.tool_rid_ = trid
 		self:report_tool_(1)
 	end
 	if self.tool_aid_ ~= taid then
-		self.tool_a_ = util.from_tool[taid] or util.unknown_xid
+		self.tool_a_ = self.xidr_.from_tool[taid] or self.xidr_.unknown_xid
 		self.tool_aid_ = taid
 		self:report_tool_(2)
 	end
 	if self.tool_xid_ ~= txid then
-		self.tool_x_ = util.from_tool[txid] or util.unknown_xid
+		self.tool_x_ = self.xidr_.from_tool[txid] or self.xidr_.unknown_xid
 		self.tool_xid_ = txid
 		self:report_tool_(3)
 	end
-	local new_tool = util.to_tool[self[index_to_lrax[self.last_toolslot_]]]
+	local new_tool = self.xidr_.to_tool[self[index_to_lrax[self.last_toolslot_]]]
 	local new_tool_id = self[index_to_lraxid[self.last_toolslot_]]
-	if self.last_tool_ ~= new_tool then
+	if self.last_toolid_ ~= new_tool_id then
 		if not new_tool_id:find("^DEFAULT_PT_LIFECUST_") then
 			if toolwarn_tools[new_tool] then
 				self.display_toolwarn_[toolwarn_tools[new_tool]] = true
 			end
 		end
-		self.last_tool_ = new_tool
+		self.last_toolid_ = new_tool_id
 	end
 end
 
@@ -921,11 +909,38 @@ function profile_i:handle_mousedown(px, py, button)
 			else
 				return
 			end
-			self:update_tools_()
+			if self.registered_func_() then
+				self:update_tools_()
+			end
 			if next(self.display_toolwarn_) then
 				if self.registered_func_() then
 					for key in pairs(self.display_toolwarn_) do
-						self.log_event_func_(toolwarn_messages[key])
+						if key == "unknown" then
+							local identifier = self[index_to_lraxid[self.last_toolslot_]]
+							local ids = self.xidr_unsupported_[identifier]
+							local display_as = identifier
+							if elem[identifier] then
+								display_as = elem.property(elem[identifier], "Name")
+							end
+							self.log_event_func_(("The following users in the room cannot use %s, please avoid using it while connected:"):format(display_as))
+							local str = ""
+							local function commit()
+								self.log_event_func_(" - " .. str)
+								str = ""
+							end
+							for i = 1, #ids do
+								str = str .. self.client_.id_to_member[ids[i]].formatted_nick
+								if i < #ids then
+									str = str .. "\bw, "
+								end
+								if gfx.textSize(str) > gfx.WIDTH / 2 then
+									commit()
+								end
+							end
+							commit()
+						else
+							self.log_event_func_(toolwarn_messages[key])
+						end
 					end
 				end
 				self.display_toolwarn_ = {}
@@ -939,7 +954,7 @@ function profile_i:handle_mousedown(px, py, button)
 				self:report_linestart_(self.last_toolslot_, self.pos_x_, self.pos_y_)
 			end
 			if self.draw_mode_ == "flood" then
-				if util.xid_class[self[index_to_lrax[self.last_toolslot_]]] == "DECOR" and self.registered_func_() then
+				if self.registered_func_() and self[index_to_lraxid[self.last_toolslot_]]:find("^DEFAULT_DECOR_") then
 					self.log_event_func_("Decoration flooding does not sync, you will have to use /sync")
 				end
 				self:report_flood_(self.last_toolslot_, self.pos_x_, self.pos_y_)
@@ -1008,7 +1023,7 @@ function profile_i:handle_mouseup(px, py, button, reason)
 		self.perfect_circle_invalid_ = true
 		self.simstate_invalid_next_ = true
 	end
-	if reason == MOUSEUP_REASON_MOUSEUP and self[index_to_lrax[self.last_toolslot_]] ~= util.from_tool.DEFAULT_UI_SIGN or button ~= 1 then
+	if self.registered_func_() and ((reason == MOUSEUP_REASON_MOUSEUP and self[index_to_lraxid[self.last_toolslot_]] ~= "DEFAULT_UI_SIGN") or button ~= 1) then
 		for i = 1, MAX_SIGNS do
 			local x = sim.signs[i].screenX
 			if x then
@@ -1021,7 +1036,7 @@ function profile_i:handle_mouseup(px, py, button, reason)
 						self:report_sparksign_(sim.signs[i].x, sim.signs[i].y)
 					end
 					if t:match("^{c:[0-9]+|.*}$") then
-						if self.client_ then
+						if self.registered_func_() then
 							self.placesave_open_ = true
 							self:begin_placesave_size_(100, 100, true)
 						end
@@ -1039,7 +1054,7 @@ function profile_i:handle_mouseup(px, py, button, reason)
 			if reason == MOUSEUP_REASON_MOUSEUP then
 				local x, y, w, h = util.corners_to_rect(self.sel_x1_, self.sel_y1_, self.sel_x2_, self.sel_y2_)
 				if self.select_mode_ == "place" then
-					if self.client_ then
+					if self.registered_func_() then
 						self:begin_placesave_size_(x, y)
 					end
 				elseif self.select_mode_ == "copy" then
@@ -1232,12 +1247,12 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 	elseif scan == sdl.SDL_SCANCODE_I and not ctrl then
 		self:report_airinvert_()
 	elseif scan == sdl.SDL_SCANCODE_SEMICOLON then
-		if self.client_ then
+		if self.registered_func_() then
 			self.bmode_invalid_ = true
 		end
 	end
 	if key == sdl.SDLK_INSERT or key == sdl.SDLK_DELETE then
-		if self.client_ then
+		if self.registered_func_() then
 			self.bmode_invalid_ = true
 		end
 	end
@@ -1281,7 +1296,7 @@ function profile_i:handle_blur()
 	for _, btn in pairs(self.buttons_) do
 		btn.active = false
 	end
-	if self[index_to_lrax[self.last_toolslot_]] == util.from_tool.DEFAULT_UI_SIGN then
+	if self.registered_func_() and self[index_to_lraxid[self.last_toolslot_]] == "DEFAULT_UI_SIGN" then
 		self.signs_invalid_ = get_sign_data()
 	end
 	self:disable_shift_()
@@ -1297,21 +1312,21 @@ function profile_i:should_ignore_mouse()
 end
 
 function profile_i:button_open_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.placesave_open_ = true
 		self:begin_placesave_size_(100, 100, true)
 	end
 end
 
 function profile_i:button_reload_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.placesave_reload_ = true
 		self:begin_placesave_size_(100, 100, true)
 	end
 end
 
 function profile_i:button_clear_()
-	if self.client_ then
+	if self.registered_func_() then
 		self.placesave_clear_ = true
 		self:begin_placesave_size_(100, 100, true)
 	end
@@ -1321,10 +1336,40 @@ function profile_i:set_client(client)
 	self.client_ = client
 	self.bmode_invalid_ = true
 	self.set_id_func_(util.get_save_id())
+	self:xidr_sync()
 end
 
 function profile_i:clear_client()
 	self.client_ = nil
+	self.xidr_ = nil
+	self.xidr_unsupported_ = nil
+	self.tool_l_ = nil
+	self.tool_r_ = nil
+	self.tool_a_ = nil
+	self.tool_x_ = nil
+	self.last_toolid_ = nil
+	self.tool_lid_ = nil
+	self.tool_rid_ = nil
+	self.tool_aid_ = nil
+	self.tool_xid_ = nil
+end
+
+function profile_i:xidr_sync()
+	if self.registered_func_() then
+		self.display_toolwarn_ = {}
+		self.xidr_ = self.client_.xidr
+		self.xidr_unsupported_ = self.client_.xidr_unsupported
+		self.tool_l_ = self.xidr_.unknown_xid
+		self.tool_r_ = self.xidr_.unknown_xid
+		self.tool_a_ = self.xidr_.unknown_xid
+		self.tool_x_ = self.xidr_.unknown_xid
+		self.tool_lid_ = nil
+		self.tool_rid_ = nil
+		self.tool_aid_ = nil
+		self.tool_xid_ = nil
+		self.last_toolid_ = self.tool_lid_
+		self:update_tools_()
+	end
 end
 
 local function new(params)
@@ -1354,15 +1399,9 @@ local function new(params)
 			clear  = { x = gfx.WIDTH - 159, y = gfx.HEIGHT - 16, w = 17, h = 15 },
 		},
 	}, profile_m)
-	prof.tool_l_ = util.from_tool.UNKNOWN
-	prof.tool_r_ = util.from_tool.UNKNOWN
-	prof.tool_a_ = util.from_tool.UNKNOWN
-	prof.tool_x_ = util.from_tool.UNKNOWN
-	prof.last_tool_ = prof.tool_l_
 	prof.deco_ = sim.decoColour()
 	prof:update_pos_(tpt.mousex, tpt.mousey)
 	prof:update_size_()
-	prof:update_tools_()
 	prof:update_deco_()
 	prof:check_simstate()
 	prof:update_kmod_()
@@ -1370,11 +1409,6 @@ local function new(params)
 	prof:update_shape_()
 	prof:update_zoom_()
 	prof:check_signs({})
-	if false then
-		prof.debug_ = function(...)
-			print("[prof debug]", ...)
-		end
-	end
 	return prof
 end
 
