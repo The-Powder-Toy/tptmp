@@ -387,7 +387,7 @@ function client_i:handshake_()
 	local tpt_version = { tpt_major, tpt_minor }
 	local version_ok = self.server_:version()
 	if version ~= version_ok then
-		self:proto_close_("protocol version mismatch; try updating TPTMP", ("protocol version mismatch (%i ~= %i)"):format(version, version_ok), {
+		self:proto_close_("protocol version mismatch; try updating TPTMP, or if it is built into your mod, install it from the Online tab in the Script Manager", ("protocol version mismatch (%i ~= %i)"):format(version, version_ok), {
 			reason = "proto_mismatch",
 			got = version,
 		})
@@ -521,6 +521,7 @@ end
 function client_i:manage_socket_()
 	local read_pollable = { pollfd = self.socket_:pollfd(), events = "r" }
 	local write_pollable = { pollfd = self.socket_:pollfd(), events = "w" }
+	local try_to_recv = true
 	while self.status_ == "running" or (self.tx_:next() and self.stopping_since_ + config.sendq_flush_timeout > cqueues.monotime()) do
 		if self.ungotten_ == 0 then
 			if self.tx_:next() then
@@ -529,7 +530,7 @@ function client_i:manage_socket_()
 				util.cqueues_poll(read_pollable, self.write_wake_, self.wake_)
 			end
 		end
-		while not self.socket_:eof("r") do
+		while try_to_recv do
 			local closed = false
 			local data, err = self.socket_:recv(-config.read_size)
 			if not data then
@@ -542,12 +543,14 @@ function client_i:manage_socket_()
 						reason = "recv_failed",
 						eof = true,
 					})
+					try_to_recv = false
 				else
 					self.log_inf_("recv failed with code $", err)
 					self:stop_({
 						reason = "recv_failed",
 						code = err,
 					})
+					try_to_recv = false
 				end
 				break
 			end
@@ -561,6 +564,7 @@ function client_i:manage_socket_()
 				self:stop_({
 					reason = "recvq_exceeded",
 				})
+				try_to_recv = false
 				break
 			end
 			self.read_wake_:signal()
