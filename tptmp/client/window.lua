@@ -870,11 +870,16 @@ function window_i:insert_wrapped_line_(tbl, msg, line)
 	})
 end
 
+local function set_size_clamp(new_width, new_height, new_pos_x, new_pos_y)
+	local width = math.min(math.max(new_width, config.min_width), sim.XRES - 1)
+	local height = math.min(math.max(new_height, config.min_height), sim.YRES - 1)
+	local pos_x = math.min(math.max(1, new_pos_x), sim.XRES - width)
+	local pos_y = math.min(math.max(1, new_pos_y), sim.YRES - height)
+	return width, height, pos_x, pos_y
+end
+
 function window_i:set_size(new_width, new_height)
-	self.width_ = math.min(math.max(new_width, config.min_width), sim.XRES - 1)
-	self.height_ = math.min(math.max(new_height, config.min_height), sim.YRES - 1)
-	self.pos_x_ = math.min(math.max(1, self.pos_x_), sim.XRES - self.width_)
-	self.pos_y_ = math.min(math.max(1, self.pos_y_), sim.YRES - self.height_)
+	self.width_, self.height_, self.pos_x_, self.pos_y_ = set_size_clamp(new_width, new_height, self.pos_x_, self.pos_y_)
 	self:input_update_()
 	self:backlog_update_()
 	self:subtitle_update_()
@@ -882,7 +887,7 @@ function window_i:set_size(new_width, new_height)
 end
 
 function window_i:subtitle_update_()
-	self.subtitle_text_ = self.subtitle_secondary_ or self.subtitle_
+	self.subtitle_text_ = self.subtitle_secondary_ or self.subtitle_ or ""
 	local max_width = self.width_ - self.title_width_ - 43
 	if gfx.textSize(self.subtitle_text_) > max_width then
 		self.subtitle_text_ = self.subtitle_text_:sub(1, util.binary_search_implicit(1, #self.subtitle_text_, function(idx)
@@ -1057,10 +1062,12 @@ function window_i:set_subtitle_secondary(formatted_text)
 end
 
 local function new(params)
-	local pos_x = tonumber(manager.get("windowLeft", "")) or config.default_x
-	local pos_y = tonumber(manager.get("windowTop", "")) or config.default_y
-	local width = tonumber(manager.get("windowWidth", "")) or config.default_width
-	local height = tonumber(manager.get("windowHeight", "")) or config.default_height
+	local width, height, pos_x, pos_y = set_size_clamp(
+		tonumber(manager.get("windowWidth", "")) or config.default_width,
+		tonumber(manager.get("windowHeight", "")) or config.default_height,
+		tonumber(manager.get("windowLeft", "")) or config.default_x,
+		tonumber(manager.get("windowTop", "")) or config.default_y
+	)
 	local alpha = tonumber(manager.get("windowAlpha", "")) or config.default_alpha
 	local title = "TPT Multiplayer " .. config.versionstr
 	local title_width = gfx.textSize(title)

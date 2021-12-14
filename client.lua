@@ -114,7 +114,7 @@ local env__ = setmetatable({}, { __index = function(_, key)
 	return rawget(_G, key) or error("__index on env: " .. tostring(key), 2)
 end, __newindex = function(_, key)
 	error("__newindex on env: " .. tostring(key), 2)
-end})
+end })
 local _ENV = env__
 if rawget(_G, "setfenv") then
 	setfenv(1, env__)
