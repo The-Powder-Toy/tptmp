@@ -73,7 +73,7 @@ local function run()
 		if key == "chatHidden" then
 			return window_status ~= "shown"
 		end
-		return rawset(tbl, key)
+		return rawget(tbl, key)
 	end })
 	rawset(_G, "TPTMP", TPTMP)
 
