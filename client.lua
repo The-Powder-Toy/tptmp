@@ -20,7 +20,7 @@ local ENV_DEFAULTS = {
 		DEFAULT_UI_WIND     = 0,
 		TPTMP_PT_UNKNOWN    = 0,
 	},
-	tpt = { version = { major = 96, minor = 1 } },
+	tpt = { version = { major = 96, minor = 2 } },
 	http = {},
 	socket = {},
 }
