@@ -32,10 +32,10 @@ dependencies, namely:
 If you have [LuaRocks](https://luarocks.org/), you can install these with:
 
 ```sh
-sudo luarocks install --lua-version=5.3 lunajson
-sudo luarocks install --lua-version=5.3 jnet
-sudo luarocks install --lua-version=5.3 http
-sudo luarocks install --lua-version=5.3 luafilesystem
+sudo luarocks install --lua-version=5.3 --tree=system lunajson
+sudo luarocks install --lua-version=5.3 --tree=system jnet
+sudo luarocks install --lua-version=5.3 --tree=system http
+sudo luarocks install --lua-version=5.3 --tree=system luafilesystem
 ```
 
 ### Static configuration

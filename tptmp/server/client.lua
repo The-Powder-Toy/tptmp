@@ -523,7 +523,7 @@ function client_i:manage_socket_()
 	local write_pollable = { pollfd = self.socket_:pollfd(), events = "w" }
 	local try_to_recv = true
 	while self.status_ == "running" or (self.tx_:next() and self.stopping_since_ + config.sendq_flush_timeout > cqueues.monotime()) do
-		if self.ungotten_ == 0 then
+		if self.socket_:pending() == 0 then
 			if self.tx_:next() then
 				util.cqueues_poll(read_pollable, self.write_wake_, write_pollable, self.wake_)
 			else
@@ -554,10 +554,6 @@ function client_i:manage_socket_()
 				end
 				break
 			end
-			if not data then
-				break
-			end
-			self.ungotten_ = math.max(0, self.ungotten_ - #data)
 			local pushed, count = self.rx_:push(data)
 			if pushed < count then
 				self.log_inf_("recv queue limit exceeded")
@@ -619,8 +615,7 @@ function client_i:proto_()
 		local first_byte_ok = type(first_byte) == "string" and #first_byte == 1
 		local secure_level_matches
 		if first_byte_ok then
-			self.socket_:unget(first_byte)
-			self.ungotten_ = self.ungotten_ + 1
+			assert(self.socket_:unget(first_byte))
 			secure_level_matches = (first_byte:byte() == TLS_CLIENT_HELLO) == config.secure
 		end
 		-- * Defer handling starttls problems until after manage_socket_ starts,
@@ -865,7 +860,6 @@ local function new(params)
 		log_inf_ = log.derive(log.inf, "[" .. params.name .. "] "),
 		rx_ = buffer_list.new({ limit = config.recvq_limit }),
 		tx_ = buffer_list.new({ limit = config.sendq_limit }),
-		ungotten_ = 0,
 	}, client_m)
 end
 
