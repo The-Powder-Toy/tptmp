@@ -136,9 +136,9 @@ return {
 	--   only works if auth = true.
 	max_clients_per_peer = 4,
 
-	-- * Specifies the number of times a client may violate the message rate
-	--   limit before being dropped for spam.
-	max_message_interval_violations = 10,
+	-- * Specifies the number of times a client may violate anit-spam policies
+	--   being dropped for spam.
+	max_spam_violations = 10,
 
 	-- * Maximum number of characters in the name of a room.
 	max_room_name_length = 32,

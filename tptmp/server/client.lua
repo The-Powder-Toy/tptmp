@@ -165,13 +165,17 @@ function client_i:handle_ping_3_()
 end
 
 function client_i:check_message_(message)
-	local server = self:server()
-	local ok, err = server:phost():call_check_all("message_ok", self, message)
-	if not ok then
-		self:send_server("\ae* Cannot send message: " .. err)
-		return false
+	if not message or message == "" then
+		return
 	end
-	return true
+	local server = self:server()
+	local ok
+	ok, message = server:phost():call_check_all("message_ok", self, message)
+	if not ok then
+		self:send_server("\ae* Cannot send message: " .. message)
+		return
+	end
+	return message
 end
 
 function client_i:forward_message_(format, event, packet, message)
@@ -214,8 +218,8 @@ local function clean_message(str)
 end
 
 function client_i:handle_say_19_()
-	local message = clean_message(self:read_str8_():sub(1, config.message_size))
-	if not message or message == "" or not self:check_message_(message) then
+	local message = self:check_message_(clean_message(self:read_str8_():sub(1, config.message_size)))
+	if not message then
 		return
 	end
 	if message:find("^//") then
@@ -235,8 +239,8 @@ function client_i:handle_say_19_()
 end
 
 function client_i:handle_say3rd_20_()
-	local message = clean_message(self:read_str8_():sub(1, config.message_size))
-	if not message or message == "" or not self:check_message_(message) then
+	local message = self:check_message_(clean_message(self:read_str8_():sub(1, config.message_size)))
+	if not message then
 		return
 	end
 	self:forward_message_("* $ $", "say3rd", "\20", message)

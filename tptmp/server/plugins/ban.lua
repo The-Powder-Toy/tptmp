@@ -159,7 +159,7 @@ return {
 			func = function(client)
 				local banned_subnet = client:server():peer_banned_(client:peer())
 				if banned_subnet then
-					return nil, "you are banned from this server", ("host %s is banned (subnet %s)"):format(client:peer(), tostring(banned_subnet)), {
+					return false, "you are banned from this server", ("host %s is banned (subnet %s)"):format(client:peer(), tostring(banned_subnet)), {
 						reason = "host_banned",
 						subnet = tostring(banned_subnet),
 					}
@@ -171,13 +171,13 @@ return {
 			func = function(client)
 				if client:guest() then
 					if not config.guests_allowed then
-						return nil, "authentication failed and guests are not allowed on this server", nil, {
+						return false, "authentication failed and guests are not allowed on this server", nil, {
 							reason = "guests_banned",
 						}
 					end
 				else
 					if client:server():uid_banned_(client:uid()) then
-						return nil, "you are banned from this server", ("%s, uid %i is banned"):format(client:nick(), client:uid()), {
+						return false, "you are banned from this server", ("%s, uid %i is banned"):format(client:nick(), client:uid()), {
 							reason = "uid_banned",
 						}
 					end

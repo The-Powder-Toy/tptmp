@@ -19,16 +19,20 @@ function plugin_host_i:call_check_any(name, ...)
 end
 
 function plugin_host_i:call_check_all(name, ...)
+	local args = util.argpack(...)
 	local funcs = self.checks_[name]
 	if funcs then
 		for i = 1, #funcs do
-			local pack = util.argpack(funcs[i](...))
+			local pack = util.argpack(funcs[i](util.argunpack(args)))
 			if not pack[1] then
 				return nil, util.argunpack(pack, 2)
 			end
+			if pack[1] == "rewrite" then
+				args = table.move(pack, 2, #pack, 1, {})
+			end
 		end
 	end
-	return true
+	return true, util.argunpack(args)
 end
 
 function plugin_host_i:call_hook(name, ...)
