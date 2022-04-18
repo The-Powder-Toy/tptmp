@@ -115,42 +115,6 @@ for key, value in pairs(sim) do
 	end
 end
 
-local function stash_part()
-	local id = sim.parts()()
-	local info
-	if id then
-		local x, y = sim.partPosition(id)
-		id = sim.partID(math.floor(x + 0.5), math.floor(y + 0.5))
-		local ty = sim.partProperty(id, "type")
-		if ty then
-			info = { [ sim.FIELD_TYPE ] = ty }
-			for _, v in ipairs(props) do
-				info[v] = sim.partProperty(id, v)
-			end
-		else
-			info = false
-		end
-		sim.partProperty(id, "type", elem.DEFAULT_PT_ELEC)
-	else
-		id = sim.partCreate(-3, 0, 0, elem.DEFAULT_PT_ELEC)
-	end
-	return id, info
-end
-
-local function unstash_part(id, info)
-	if info == nil then
-		return
-	end
-	if not info then
-		sim.partKill(id)
-		return
-	end
-	sim.partProperty(id, "type", info[sim.FIELD_TYPE])
-	for _, v in ipairs(props) do
-		sim.partProperty(id, v, info[v])
-	end
-end
-
 local function in_zoom_window(x, y)
 	local ax, ay = sim.adjustCoords(x, y)
 	return ren.zoomEnabled() and (ax ~= x or ay ~= y)

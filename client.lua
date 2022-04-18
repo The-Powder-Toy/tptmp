@@ -7,7 +7,6 @@ local ENV_DEFAULTS = {
 	-- * Defaults for amalgamation mode.
 	sim = { XRES = 0, YRES = 0, CELL = 4, PMAPBITS = 0, signs = {} },
 	elem = {
-		allocate = function() end,
 		DEFAULT_PT_FIGH     = 0,
 		DEFAULT_PT_LIGH     = 0,
 		DEFAULT_PT_SPRK     = 0,
