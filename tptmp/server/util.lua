@@ -73,6 +73,45 @@ local function table_augment(tbl, thing)
 	return tbl
 end
 
+local function format_difftime(t2, t1, overshoot)
+	local diff = os.difftime(t2, t1)
+	if overshoot then
+		diff = math.ceil(diff)
+	else
+		diff = math.floor(diff)
+	end
+	local units = {
+		{ one =   "a year", more =   "%i years", seconds = 31556736 },
+		{ one =   "a week", more =   "%i weeks", seconds =   604800 },
+		{ one =    "a day", more =    "%i days", seconds =    86400 },
+		{ one =  "an hour", more =   "%i hours", seconds =     3600 },
+		{ one = "a minute", more = "%i minutes", seconds =       60 },
+		{ one = "a second", more = "%i seconds", seconds =        1 },
+	}
+	local unit, count
+	for i = 1, #units do
+		local count_frac = diff / units[i].seconds
+		local use_unit = diff > units[i].seconds
+		if overshoot and units[i + 1] then
+			if diff + units[i + 1].seconds > units[i].seconds then
+				use_unit = true
+			end
+		end
+		if use_unit then
+			if overshoot then
+				count = math.ceil(count_frac)
+			else
+				count = math.floor(count_frac)
+			end
+			unit = units[i]
+			break
+		end
+	end
+	if unit then
+		return count == 1 and unit.one or unit.more:format(count)
+	end
+end
+
 return {
 	cqueues_poll = cqueues_poll,
 	cqueues_wrap = cqueues_wrap,
@@ -86,4 +125,5 @@ return {
 	info_merge = table_augment,
 	periodic_tracebacks = periodic_tracebacks,
 	table_augment = table_augment,
+	format_difftime = format_difftime,
 }

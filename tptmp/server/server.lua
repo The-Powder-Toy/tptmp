@@ -272,7 +272,17 @@ function server_i:client_by_uid(uid)
 end
 
 function server_i:authenticate(client, token)
-	return self.auth_:authenticate(client, token)
+	local nick, uid = self.auth_:authenticate(client, token)
+	if uid then
+		if self.register_time_cache_[uid] then
+			return nick, uid, self.register_time_cache_[uid]
+		end
+		local user = self:offline_user_by_nick(nick)
+		if user then
+			self.register_time_cache_[uid] = user.register_time
+			return nick, uid, user.register_time
+		end
+	end
 end
 
 function server_i:can_authenticate()
@@ -338,7 +348,7 @@ function server_i:fetch_user_(nick)
 		return nil, err
 	end
 	if body == "Error: 404" then
-		return false, false
+		return false
 	end
 	local ok, json = pcall(lunajson.decode, body)
 	if not ok then
@@ -356,22 +366,28 @@ function server_i:fetch_user_(nick)
 	        type(json.User.Username) == "string") then
 		return nil, "invalid response from backend"
 	end
+	local register_time = tonumber(json.User.RegisterTime or "0")
 	self:rconlog({
 		event = "fetch_user",
 		input = nick,
 		uid = json.User.ID,
 		nick = json.User.Username,
+		register_time = register_time,
 	})
-	return json.User.ID, json.User.Username
+	return {
+		uid = json.User.ID,
+		nick = json.User.Username,
+		register_time = register_time,
+	}
 end
 
 function server_i:offline_user_by_nick(nick)
 	nick = nick:lower()
 	if nick:find("[^0-9a-z-_]") then
-		return false, false
+		return
 	end
 	if not config.auth then
-		return false, false
+		return
 	end
 	local now = cqueues.monotime()
 	local cached = self.offline_user_cache_[nick]
@@ -379,29 +395,38 @@ function server_i:offline_user_by_nick(nick)
 		if cached.iat + config.offline_user_cache_max_age < now then
 			self.offline_user_cache_[nick] = nil
 		else
-			return cached.uid, cached.nick
+			return cached
 		end
 	end
 	local fuid, fnick
+	local to_cache
 	local client = self:client_by_nick(nick)
 	if client then
-		fuid, fnick = client:uid(), client:nick()
+		to_cache = {
+			iat = now,
+			uid = client:uid(),
+			nick = client:nick(),
+			register_time = client:register_time(),
+		}
 	else
-		fuid, fnick = self:fetch_user_(nick)
-		if fuid == nil then
-			self.log_inf_("failed to fetch user $: $", nick, fnick)
+		local user, err = self:fetch_user_(nick)
+		if user == nil then
+			self.log_inf_("failed to fetch user $: $", nick, err)
+		end
+		if user then
+			to_cache = {
+				iat = now,
+				uid = user.uid,
+				nick = user.nick,
+				register_time = user.register_time,
+			}
 		end
 	end
-	if fuid ~= nil then
-		self:cache_uid_to_nick_(fuid, fnick)
-		self.offline_user_cache_[nick] = {
-			iat = now,
-			uid = fuid,
-			nick = fnick,
-		}
-		return fuid, fnick
+	if to_cache then
+		self:cache_uid_to_nick_(to_cache.uid, to_cache.nick)
+		self.offline_user_cache_[nick] = to_cache
+		return to_cache
 	end
-	return false, false
 end
 
 function server_i:offline_user_by_uid(uid)
@@ -556,6 +581,7 @@ local function new(params)
 		cmdp_ = cmdp,
 		phost_ = params.phost,
 		offline_user_cache_ = {},
+		register_time_cache_ = {},
 		name_ = params.name,
 	}, server_m)
 	server:init()

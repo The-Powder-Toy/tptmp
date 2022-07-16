@@ -424,8 +424,17 @@ function client_i:handshake_()
 	local quickauth_token = self:read_str8_()
 	local initial_room = self:read_str8_()
 	if self.server_:can_authenticate() then
-		self.nick_, self.uid_ = self.server_:authenticate(self, quickauth_token)
-		if not self.nick_ then
+		self.nick_, self.uid_, self.register_time_ = self.server_:authenticate(self, quickauth_token)
+		if self.nick_ then
+			local now = os.time()
+			local account_age = now - self.register_time_
+			if config.min_account_age > account_age then
+				self:proto_close_(("account too new, try again in %s"):format(util.format_difftime(self.register_time_ + config.min_account_age, now, true)), "account too new", {
+					reason = "account_too_new",
+					account_age = account_age,
+				})
+			end
+		else
 			self.guest_ = true
 		end
 		local ok, err, err2, rconinfo = self.server_:phost():call_check_all("can_join", self)
@@ -800,6 +809,10 @@ end
 
 function client_i:nick()
 	return self.nick_
+end
+
+function client_i:register_time()
+	return self.register_time_
 end
 
 function client_i:inick()

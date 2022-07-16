@@ -178,7 +178,10 @@ return {
 				if words[3]:lower() == OWNER_WILDCARD then
 					other_uid = OWNER_WILDCARD
 				else
-					other_uid, other_nick = server:offline_user_by_nick(words[3])
+					local other_user = server:offline_user_by_nick(words[3])
+					if other_user then
+						other_uid, other_nick = other_user.uid, other_user.nick
+					end
 					other = server:client_by_nick(words[3])
 				end
 				if words[2] == "check" then
@@ -434,24 +437,24 @@ return {
 					owners[0] = #owners
 					return { status = "ok", owners = owners }
 				end
-				local uid = server:offline_user_by_nick(data.nick)
-				if not uid then
+				local user = server:offline_user_by_nick(data.nick)
+				if not user then
 					return { status = "nouser", human = "no such user" }
 				end
 				if data.action == "insert" then
-					local ok, err, human = server:room_insert_owner_(data.room_name, uid)
+					local ok, err, human = server:room_insert_owner_(data.room_name, user.uid)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "remove" then
-					local ok, err, human = server:room_remove_owner_(data.room_name, uid)
+					local ok, err, human = server:room_remove_owner_(data.room_name, user.uid)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					return { status = "ok", owns = server:room_owned_by_uid(data.room_name, uid) or false }
+					return { status = "ok", owns = server:room_owned_by_uid(data.room_name, user.uid) or false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
 			end,

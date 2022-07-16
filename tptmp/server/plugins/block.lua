@@ -84,7 +84,10 @@ return {
 						other_uid = GUEST_WILDCARD
 						other_nick = GUEST_WILDCARD
 					else
-						other_uid, other_nick = server:offline_user_by_nick(words[3])
+						local other_user = server:offline_user_by_nick(words[3])
+						if other_user then
+							other_uid, other_nick = other_user.uid, other_user.nick
+						end
 					end
 					if not other_uid then
 						client:send_server(("\ae* No user named \au%s"):format(words[3]))
@@ -212,19 +215,19 @@ return {
 					return { status = "nousertarget", human = "no such dest user" }
 				end
 				if data.action == "insert" then
-					local ok, err, human = server:uid_insert_block_(dest, src)
+					local ok, err, human = server:uid_insert_block_(dest.uid, src)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "remove" then
-					local ok, err, human = server:uid_remove_block_(dest, src)
+					local ok, err, human = server:uid_remove_block_(dest.uid, src)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					return { status = "ok", blocked = server:uid_blocks_(dest, src) and true or false }
+					return { status = "ok", blocked = server:uid_blocks_(dest.uid, src) and true or false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
 			end,

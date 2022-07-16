@@ -147,6 +147,13 @@ return {
 	--   should align with the limit imposed by the authentication backend.
 	max_nick_length = 32,
 
+	-- * Minimum account age in seconds, for a client that is trying to
+	--   register a UID. If the account's age is below this limit, the peer
+	--   is dropped with a message explaining the policy, including how long
+	--   the user should wait until they attempt to connect again. This only
+	--   works if auth = true. Use 0 for no limit.
+	min_account_age = 86400,
+
 
 	-- ***********************************************************************
 	-- *** The following options should be changed in                      ***

@@ -158,7 +158,11 @@ return {
 				end
 				local room = client:room()
 				local server = client:server()
-				local other_uid, other_nick = server:offline_user_by_nick(words[3])
+				local other_uid, other_nick
+				local other_user = server:offline_user_by_nick(words[3])
+				if other_user then
+					other_uid, other_nick = other_user.uid, other_user.nick
+				end
 				local other = server:client_by_nick(words[3])
 				if words[2] == "check" then
 					local invited = false
@@ -421,24 +425,24 @@ return {
 					invites[0] = #invites
 					return { status = "ok", invites = invites }
 				end
-				local uid = server:offline_user_by_nick(data.nick)
-				if not uid then
+				local user = server:offline_user_by_nick(data.nick)
+				if not user then
 					return { status = "nouser", human = "no such user" }
 				end
 				if data.action == "insert" then
-					local ok, err, human = server:room_insert_invite_(data.room_name, uid)
+					local ok, err, human = server:room_insert_invite_(data.room_name, user.uid)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "remove" then
-					local ok, err, human = server:room_remove_invite_(data.room_name, uid)
+					local ok, err, human = server:room_remove_invite_(data.room_name, user.uid)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					return { status = "ok", invited = server:room_uid_invited(data.room_name, uid) or false }
+					return { status = "ok", invited = server:room_uid_invited(data.room_name, user.uid) or false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
 			end,

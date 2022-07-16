@@ -92,24 +92,24 @@ return {
 				if type(data.nick) ~= "string" then
 					return { status = "badnick", human = "invalid nick" }
 				end
-				local uid = server:offline_user_by_nick(data.nick)
-				if not uid then
+				local user = server:offline_user_by_nick(data.nick)
+				if not user then
 					return { status = "nouser", human = "no such user" }
 				end
 				if data.action == "insert" then
-					local ok, err, human = server:insert_uid_ban_(uid)
+					local ok, err, human = server:insert_uid_ban_(user.uid)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "remove" then
-					local ok, err, human = server:remove_uid_ban_(uid)
+					local ok, err, human = server:remove_uid_ban_(user.uid)
 					if not ok then
 						return { status = err, human = human }
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					return { status = "ok", banned = server:uid_banned_(uid) or false }
+					return { status = "ok", banned = server:uid_banned_(user.uid) or false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
 			end,
