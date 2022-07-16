@@ -3,7 +3,7 @@ return {
 		room = {
 			func = function(client, message, words, offsets)
 				local room = client:room()
-				client:send_server(("\an* Name: \ar%s"):format(room:name()))
+				client:send_server(("\an* Name: %s"):format(room:name()))
 				client:server():phost():call_hook("room_info", room, client)
 				return true
 			end,

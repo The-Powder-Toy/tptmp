@@ -6,9 +6,9 @@ local function nick(unformatted, seed)
 end
 
 local names = {
-	[   "null" ] = "main lobby",
+	[   "null" ] = "lobby",
 	[  "guest" ] = "guest lobby",
-	[ "kicked" ] = "kicked lobby",
+	[ "kicked" ] = "a dark alley",
 }
 
 local function room(unformatted)
