@@ -732,6 +732,11 @@ function client_i:handshake_()
 			self.set_qa_func_((conn_status == 1) and (self.host_ .. ":" .. self.port_ .. ":" .. uid .. ":" .. token) or "")
 		end
 	end
+	local downgrade_reason
+	if conn_status == 5 then -- * Downgraded to guest.
+		downgrade_reason = self:read_str8_()
+		conn_status = self:read_bytes_(1)
+	end
 	if conn_status == 1 then
 		self.should_reconnect_func_()
 		self.registered_ = true
@@ -743,6 +748,9 @@ function client_i:handshake_()
 		self.connecting_since_ = nil
 		if tpt.get_name() and auth_err then
 			self.window_:backlog_push_error("Warning: " .. auth_err)
+		end
+		if downgrade_reason then
+			self.window_:backlog_push_error("Warning: " .. downgrade_reason)
 		end
 		self.window_:backlog_push_registered(self.formatted_nick_)
 		self.profile_:set_client(self)

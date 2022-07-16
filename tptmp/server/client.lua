@@ -109,6 +109,12 @@ function client_i:send_quickauth_failure()
 	self:write_flush_("\4")
 end
 
+function client_i:send_downgrade_reason_(message)
+	self:write_("\5")
+	self:write_str8_(message)
+	self:write_flush_()
+end
+
 function client_i:send_room(id, name, items)
 	self:write_("\16")
 	self:write_str8_(name)
@@ -424,16 +430,17 @@ function client_i:handshake_()
 	local quickauth_token = self:read_str8_()
 	local initial_room = self:read_str8_()
 	if self.server_:can_authenticate() then
-		self.nick_, self.uid_, self.register_time_ = self.server_:authenticate(self, quickauth_token)
-		if self.nick_ then
+		local nick, uid, register_time = self.server_:authenticate(self, quickauth_token)
+		if nick then
 			local now = os.time()
-			local account_age = now - self.register_time_
+			local account_age = now - register_time
 			if config.min_account_age > account_age then
-				self:proto_close_(("account too new, try again in %s"):format(util.format_difftime(self.register_time_ + config.min_account_age, now, true)), "account too new", {
-					reason = "account_too_new",
-					account_age = account_age,
-				})
+				nick = nil
+				self:send_downgrade_reason_(("your account is too new, you will be playing as a guest for now; try again in %s to be able to use your real name"):format(util.format_difftime(register_time + config.min_account_age, now, true)))
 			end
+		end
+		if nick then
+			self.nick_, self.uid_, self.register_time_ = nick, uid, register_time
 		else
 			self.guest_ = true
 		end
