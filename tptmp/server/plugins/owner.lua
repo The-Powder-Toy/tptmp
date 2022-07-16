@@ -442,7 +442,7 @@ return {
 				local user
 				do
 					local err, human
-					uid, err, human = server:offline_user_by_nick(data.nick)
+					user, err, human = server:offline_user_by_nick(data.nick)
 					if not user then
 						if err == "backendfail" then
 							return { status = "backendfail", human = "failed to query user: " .. human }
