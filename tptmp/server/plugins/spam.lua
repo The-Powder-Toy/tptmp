@@ -11,6 +11,7 @@ local function enforce_message_interval(client, message)
 	return message
 end
 
+-- not production quality
 local function enforce_limited_capitals(client, message)
 	local capital = 0
 	local uncapitalized = message:gsub("[A-Z]", function(ch)
@@ -29,7 +30,7 @@ end
 
 local enforce = {
 	enforce_message_interval,
-	enforce_limited_capitals,
+	-- enforce_limited_capitals,
 }
 
 return {

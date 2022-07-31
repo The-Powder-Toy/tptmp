@@ -32,6 +32,9 @@ end
 function side_button_i:update_notif_count_()
 	local notif_count = self.notif_count_func_()
 	local notif_important = self.notif_important_func_()
+	if self.window_status_func_() == "floating" and not notif_important then
+		notif_count = 0
+	end
 	if self.notif_count_ ~= notif_count or self.notif_important_ ~= notif_important then
 		self.notif_count_ = notif_count
 		self.notif_important_ = notif_important

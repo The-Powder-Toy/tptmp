@@ -35,7 +35,7 @@ function window_i:get_important_(str)
 	local cli = self.client_func_()
 	if cli then
 		if (" " .. str .. " "):lower():find("[^a-z0-9-_]" .. cli:nick():lower() .. "[^a-z0-9-_]") then
-			return true
+			return "highlight"
 		end
 	end
 end
@@ -277,6 +277,7 @@ function window_i:backlog_update_()
 		table.insert(self.backlog_text_, {
 			padding = padding,
 			pushed_at = lines[i].msg.pushed_at,
+			highlight = lines[i].msg.important == "highlight",
 			text = lines[i].wrapped,
 			box_width = box_width,
 		})
@@ -386,7 +387,10 @@ function window_i:tick_close_()
 end
 
 function window_i:handle_tick()
-	if self.backlog_auto_scroll_ then
+	local floating = self.window_status_func_() == "floating"
+	local now = socket.gettime()
+
+	if self.backlog_auto_scroll_ and not floating then
 		self.backlog_last_seen_ = self.backlog_last_wrapped_
 	else
 		if self.backlog_last_seen_ < self.backlog_unique_ and not self.backlog_enable_marker_ then
@@ -419,9 +423,6 @@ function window_i:handle_tick()
 		self.dragger_last_y_ = self.dragger_last_y_ + diff_y
 		self:save_window_rect_()
 	end
-
-	local floating = self.window_status_func_() == "floating"
-	local now = socket.gettime()
 
 	local border_colour = colours.appearance[self.in_focus and "active" or "inactive"].border
 	local background_colour = colours.appearance.inactive.background
@@ -461,6 +462,9 @@ function window_i:handle_tick()
 			local alpha = 1
 			if floating then
 				alpha = math.min(1, (fades_at - now) / config.floating_fade_time)
+			end
+			if self.backlog_text_[i].highlight then
+				gfx.fillRect(self.pos_x_ + 1, self.pos_y_ + self.backlog_text_y_ + i * 12 - 14, self.width_ - 2, 12, 255, 50, 50, alpha * 64)
 			end
 			gfx.drawText(self.pos_x_ + 4 + self.backlog_text_[i].padding, self.pos_y_ + self.backlog_text_y_ + i * 12 - 12, self.backlog_text_[i].text, 255, 255, 255, alpha * 255)
 		end
@@ -644,7 +648,7 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 					table.sort(nicks)
 					local index = 1
 					for i = 1, #nicks do
-						if nicks[i] == left_word and nicks[i + 1] then
+						if nicks[i]:lower() == left_word and nicks[i + 1] then
 							index = i + 1
 						end
 					end
