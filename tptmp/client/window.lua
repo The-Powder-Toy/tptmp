@@ -6,6 +6,11 @@ local util    = require("tptmp.client.util")
 local manager = require("tptmp.client.manager")
 local sdl     = require("tptmp.client.sdl")
 
+local notif_important = colours.common.notif_important
+local text_bg_high = { notif_important[1] / 2, notif_important[2] / 2, notif_important[3] / 2 }
+local text_bg_high_floating = { notif_important[1] / 3, notif_important[2] / 3, notif_important[3] / 3 }
+local text_bg = { 0, 0, 0 }
+
 local window_i = {}
 local window_m = { __index = window_i }
 
@@ -446,33 +451,69 @@ function window_i:handle_tick()
 		gfx.drawLine(self.pos_x_ + 14, self.pos_y_ + 1, self.pos_x_ + 14, self.pos_y_ + 13, unpack(border_colour))
 	end
 
-	for i = 1, #self.backlog_text_ do
-		local fades_at = self.backlog_text_[i].pushed_at + config.floating_linger_time + config.floating_fade_time
-		if floating and fades_at > now then
-			local alpha = math.min(1, (fades_at - now) / config.floating_fade_time)
-			gfx.fillRect(self.pos_x_ - 1, self.pos_y_ + self.backlog_text_y_ + i * 12 - 15, self.backlog_text_[i].box_width, self.backlog_text_[i + 1] and 12 or 14, 0, 0, 0, alpha * self.alpha_)
-			if self.backlog_text_[i + 1] and self.backlog_text_[i + 1].box_width < self.backlog_text_[i].box_width then
-				gfx.fillRect(self.pos_x_ - 1 + self.backlog_text_[i + 1].box_width, self.pos_y_ + self.backlog_text_y_ + i * 12 - 3, self.backlog_text_[i].box_width - self.backlog_text_[i + 1].box_width, 2, 0, 0, 0, alpha * self.alpha_)
-			end
+	local prev_text, prev_fades_at, prev_alpha, prev_box_width, prev_highlight
+	for i = 1, #self.backlog_text_ + 1 do
+		local fades_at, alpha, box_width, highlight
+		if self.backlog_text_[i] then
+			fades_at = self.backlog_text_[i].pushed_at + config.floating_linger_time + config.floating_fade_time
+			alpha = math.max(0, math.min(1, (fades_at - now) / config.floating_fade_time))
+			box_width = self.backlog_text_[i].box_width
+			highlight = self.backlog_text_[i].highlight
 		end
-	end
-	for i = 1, #self.backlog_text_ do
-		local fades_at = self.backlog_text_[i].pushed_at + config.floating_linger_time + config.floating_fade_time
-		if not floating or fades_at > now then
+		if not prev_fades_at then
+			prev_fades_at, prev_alpha, prev_box_width, prev_highlight = fades_at, alpha, box_width, highlight
+		elseif not fades_at then
+			fades_at, alpha, box_width, highlight = prev_fades_at, prev_alpha, prev_box_width, prev_highlight
+		end
+
+		local comm_box_width = math.max(box_width, prev_box_width)
+		local min_box_width = math.min(box_width, prev_box_width)
+		local comm_fades_at = math.max(fades_at, prev_fades_at)
+		local comm_alpha = math.max(alpha, prev_alpha)
+		local comm_highlight = highlight or prev_highlight
+		local diff_fades_at = prev_fades_at
+		local diff_alpha = prev_alpha
+		local diff_highlight = prev_highlight
+		if box_width > prev_box_width then
+			diff_fades_at = fades_at
+			diff_alpha = alpha
+			diff_highlight = highlight
+		end
+		if floating and diff_fades_at > now then
+			local rgb = diff_highlight and text_bg_high_floating or text_bg
+			gfx.fillRect(self.pos_x_ - 1 + min_box_width, self.pos_y_ + self.backlog_text_y_ + i * 12 - 15, comm_box_width - min_box_width, 2, rgb[1], rgb[2], rgb[3], diff_alpha * self.alpha_)
+		end
+		if floating and comm_fades_at > now then
+			local rgb = comm_highlight and text_bg_high_floating or text_bg
+			local alpha = 1
+			if not highlight and prev_alpha < comm_alpha then
+				alpha = prev_alpha
+			end
+			gfx.fillRect(self.pos_x_ - 1, self.pos_y_ + self.backlog_text_y_ + i * 12 - 15, min_box_width, 2, alpha * rgb[1], alpha * rgb[2], alpha * rgb[3], comm_alpha * self.alpha_)
+		end
+
+		if prev_text then
 			local alpha = 1
 			if floating then
-				alpha = math.min(1, (fades_at - now) / config.floating_fade_time)
+				alpha = math.min(1, (prev_fades_at - now) / config.floating_fade_time)
 			end
-			if self.backlog_text_[i].highlight then
-				gfx.fillRect(self.pos_x_ + 1, self.pos_y_ + self.backlog_text_y_ + i * 12 - 14, self.width_ - 2, 12, 255, 50, 50, alpha * 64)
+			if floating and prev_fades_at > now then
+				local rgb = prev_highlight and text_bg_high_floating or text_bg
+				gfx.fillRect(self.pos_x_ - 1, self.pos_y_ + self.backlog_text_y_ + i * 12 - 25, prev_box_width, 10, rgb[1], rgb[2], rgb[3], alpha * self.alpha_)
 			end
-			gfx.drawText(self.pos_x_ + 4 + self.backlog_text_[i].padding, self.pos_y_ + self.backlog_text_y_ + i * 12 - 12, self.backlog_text_[i].text, 255, 255, 255, alpha * 255)
+			if not floating and prev_highlight then
+				gfx.fillRect(self.pos_x_ + 1, self.pos_y_ + self.backlog_text_y_ + i * 12 - 26, self.width_ - 2, 12, text_bg_high[1], text_bg_high[2], text_bg_high[3], alpha * self.alpha_)
+			end
+			if not floating or prev_fades_at > now then
+				gfx.drawText(self.pos_x_ + 4 + prev_text.padding, self.pos_y_ + self.backlog_text_y_ + i * 12 - 24, prev_text.text, 255, 255, 255, alpha * 255)
+			end
 		end
+		prev_text, prev_alpha, prev_fades_at, prev_box_width, prev_highlight = self.backlog_text_[i], alpha, fades_at, box_width, highlight
 	end
 
 	if not floating then
 		if self.backlog_marker_y_ then
-			gfx.drawLine(self.pos_x_ + 1, self.pos_y_ + self.backlog_marker_y_, self.pos_x_ + self.width_ - 2, self.pos_y_ + self.backlog_marker_y_, 255, 50, 50)
+			gfx.drawLine(self.pos_x_ + 1, self.pos_y_ + self.backlog_marker_y_, self.pos_x_ + self.width_ - 2, self.pos_y_ + self.backlog_marker_y_, unpack(notif_important))
 		end
 
 		gfx.drawLine(self.pos_x_ + 1, self.pos_y_ + self.height_ - 15, self.pos_x_ + self.width_ - 2, self.pos_y_ + self.height_ - 15, unpack(border_colour))

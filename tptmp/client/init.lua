@@ -46,7 +46,7 @@ local function run()
 	end
 
 	-- * Prevent c1k's mod from deleting us.
-	if tpt.version.modid == 6 then
+	if elem.DEFAULT_PT_LITH2 then
 		local protect_from_malware = {
 			[ "scripts/downloaded/2 LBPHacker-TPTMulti.lua" ] = true,
 			[ "scripts/downloaded/219 Maticzpl-Notifications.lua" ] = true,
