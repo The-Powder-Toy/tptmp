@@ -190,6 +190,9 @@ return {
 					return true
 				end
 				local temporary_invite = room:is_temporary() or (other and other:guest())
+				if temporary_invite then
+					other_nick = other:nick()
+				end
 				if words[2] == "insert" then
 					local to_invite
 					if temporary_invite then

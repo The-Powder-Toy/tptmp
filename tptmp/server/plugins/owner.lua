@@ -8,8 +8,8 @@ local room_owner_i = {}
 
 -- * Includes the temporary owner.
 function server_owner_i:room_owned_by_client(room_name, client)
-	if not client:guest() then
-		return self:room_owned_by_uid(room_name, client:uid())
+	if not client:guest() and self:room_owned_by_uid(room_name, client:uid()) then
+		return true
 	end
 	local room = self:rooms()[room_name]
 	if room then
@@ -62,7 +62,11 @@ function room_owner_i:set_temp_owner_(client)
 		client_name = client and client:name(),
 	})
 	if self.temp_owner_ then
-		self.temp_owner_:send_server("\aj* You are now the owner of this temporary room, use /register to make it permanent")
+		if self.temp_owner_:guest() then
+			self.temp_owner_:send_server("\aj* You are now the owner of this temporary room")
+		else
+			self.temp_owner_:send_server("\aj* You are now the owner of this temporary room, use /register to make it permanent")
+		end
 	end
 end
 
