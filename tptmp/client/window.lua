@@ -595,7 +595,7 @@ end
 function window_i:handle_mousewheel(px, py, dir)
 	if util.inside_rect(self.pos_x_, self.pos_y_ + 15, self.width_, self.height_ - 30, util.mouse_pos()) then
 		self:backlog_wrap_(self.backlog_last_visible_msg_)
-		if dir > 0 then
+		while dir > 0 do
 			if self.backlog_last_visible_line_ > 1 then
 				self.backlog_last_visible_line_ = self.backlog_last_visible_line_ - 1
 				self.backlog_auto_scroll_ = false
@@ -605,7 +605,9 @@ function window_i:handle_mousewheel(px, py, dir)
 				self.backlog_last_visible_line_ = #self.backlog_last_visible_msg_.wrapped
 				self.backlog_auto_scroll_ = false
 			end
-		else
+			dir = dir - 1
+		end
+		while dir < 0 do
 			if self.backlog_last_visible_line_ < #self.backlog_last_visible_msg_.wrapped then
 				self.backlog_last_visible_line_ = self.backlog_last_visible_line_ + 1
 			elseif self.backlog_last_visible_msg_.next ~= self.backlog_last_ then
@@ -616,6 +618,7 @@ function window_i:handle_mousewheel(px, py, dir)
 			if self.backlog_last_visible_msg_.next == self.backlog_last_ and self.backlog_last_visible_line_ == #self.backlog_last_visible_msg_.wrapped then
 				self.backlog_auto_scroll_ = true
 			end
+			dir = dir + 1
 		end
 		self:backlog_update_()
 		return true
