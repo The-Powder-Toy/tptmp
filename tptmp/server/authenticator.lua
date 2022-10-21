@@ -38,7 +38,7 @@ local function token_payload(token)
 			substage = "subject",
 		}
 	end
-	if json.aud ~= config.host .. ":" .. config.port then
+	if json.aud ~= config.audience then
 		return nil, "bad payload", {
 			substage = "audience",
 		}

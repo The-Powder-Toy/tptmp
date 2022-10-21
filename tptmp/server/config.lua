@@ -9,7 +9,7 @@ local function prefer_secret_config(key, default)
 	return default
 end
 
-return {
+local config = {
 	-- ***********************************************************************
 	-- *** The following options should be customized in accordance with   ***
 	-- *** your environment.                                               ***
@@ -65,6 +65,8 @@ return {
 	--   connections earlier than via the protocol handshake if secure = true,
 	--   which would otherwise have to time out in the worst case. Should match
 	--   the common host setting, but it is fine to change for a custom server.
+	--   If your server is externally reachable on a port different from the one
+	--   specified by config.port, combine it with this setting like so: "example.com:1337".
 	host = prefer_secret_config("host", common_config.host),
 
 	-- * Path to the public server certificate. Only relevant if secure = true.
@@ -262,3 +264,12 @@ return {
 	-- * Maximum accepted TPT version.
 	tpt_version_max = { 96, 2 },
 }
+local hhost, hport = config.host:match("^([^:]+):([0-9]+)$")
+if hhost then
+	config.audience = config.host
+	config.host = hhost
+else
+	config.audience = config.host .. ":" .. config.port
+end
+
+return config
