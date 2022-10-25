@@ -1,0 +1,4 @@
+*
+!tptmp/common
+!tptmp/server
+!server.lua

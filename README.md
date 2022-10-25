@@ -45,7 +45,8 @@ the server administrator changes them. This includes things such as which
 interface to listen on, how many clients are allowed to connect at once, the
 path to the dynamic configuration file, etc. All static configuration happens
 in [tptmp/server/config.lua](tptmp/server/config.lua), see that file for further
-details on configuration options.
+details on configuration options. That file is under version control, but most
+options in it can be offloaded to tptmp/server/secret_config.lua, which is not.
 
 ### Dynamic configuration
 
@@ -92,6 +93,26 @@ done. The server may also send log objects. See
 [tptmp/server/remote_console.lua](tptmp/server/remote_console.lua) and the
 plugins in [tptmp/server/plugins](tptmp/server/plugins) for further details on
 these objects.
+
+## Server usage with Docker
+
+```sh
+docker build -t tptmp .
+docker run -p 1337:34403 -v /path/to/secret_config.lua:/tptmp/tptmp/server/secret_config.lua -it tptmp
+```
+
+With `/path/to/secret_config.lua` looking something like this for testing purposes:
+
+```lua
+return {
+      secure = false,
+      host = "localhost:1337",
+}
+```
+
+To enable TLS, inject the relevant files and point secret_config.lua at them.
+To enable authentication, make sure the `host` option reflects the host:port pair
+under which your server is exposed to the world. See Dynamic configuration above.
 
 ## Things to do
 
