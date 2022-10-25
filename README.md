@@ -98,15 +98,21 @@ these objects.
 
 ```sh
 docker build -t tptmp .
-docker run -p 1337:34403 -v /path/to/secret_config.lua:/tptmp/tptmp/server/secret_config.lua -it tptmp
+docker run \
+	-p 1337:34403 \
+	-v /path/to/secret_config.lua:/tptmp/tptmp/server/secret_config.lua:ro \
+	-v /path/to/config/dir:/tptmp/config \
+	-it tptmp
 ```
 
 With `/path/to/secret_config.lua` looking something like this for testing purposes:
 
 ```lua
 return {
-      secure = false,
-      host = "localhost:1337",
+	secure = false,
+	host = "localhost:36779",
+	dynamic_config_main = "/tptmp/config/config.json",
+	dynamic_config_xchg = "/tptmp/config/config.json~",
 }
 ```
 
