@@ -32,7 +32,7 @@ local function get_auth_token(uid, sess, audience)
 	local started_at = socket.gettime()
 	while req:status() == "running" do
 		if socket.gettime() > started_at + config.auth_backend_timeout then
-			return nil, "timeout", "authentication backend down"
+			return nil, "timeout", "failed to contact authentication backend"
 		end
 		coroutine.yield()
 	end

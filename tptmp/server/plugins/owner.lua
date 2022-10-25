@@ -186,7 +186,7 @@ return {
 					if other_user then
 						other_uid, other_nick = other_user.uid, other_user.nick
 					elseif oerr == "backendfail" then
-						client:send_server("\ae* Warning: authentication backend down, you may have to try again later")
+						client:send_server("\ae* Warning: failed to contact authentication backend, you may have to try again later")
 					end
 					other = server:client_by_nick(words[3])
 				end
