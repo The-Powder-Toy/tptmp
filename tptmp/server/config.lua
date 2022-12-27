@@ -262,7 +262,7 @@ local config = {
 	tpt_version_min = { 96, 2 },
 
 	-- * Maximum accepted TPT version.
-	tpt_version_max = { 96, 2 },
+	tpt_version_max = { 97, 0 },
 }
 local hhost, hport = config.host:match("^([^:]+):([0-9]+)$")
 if hhost then
