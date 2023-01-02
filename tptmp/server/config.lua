@@ -259,7 +259,7 @@ local config = {
 	-- ***********************************************************************
 
 	-- * Minimum accepted TPT version.
-	tpt_version_min = { 96, 2 },
+	tpt_version_min = { 97, 0 },
 
 	-- * Maximum accepted TPT version.
 	tpt_version_max = { 97, 0 },

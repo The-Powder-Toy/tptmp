@@ -24,11 +24,8 @@ local index_to_lrax = {
 	[ 3 ] = "tool_x",
 }
 
-local function get_auth_token(uid, sess, audience)
-	local req = http.get(config.auth_backend .. "?Action=Get&Audience=" .. util.urlencode(audience), {
-		[ "X-Auth-User-Id" ] = uid,
-		[ "X-Auth-Session-Key" ] = sess,
-	})
+local function get_auth_token(audience)
+	local req = http.getAuthToken(audience)
 	local started_at = socket.gettime()
 	while req:status() == "running" do
 		if socket.gettime() > started_at + config.auth_backend_timeout then
@@ -37,14 +34,13 @@ local function get_auth_token(uid, sess, audience)
 		coroutine.yield()
 	end
 	local body, code = req:finish()
+	if code == 403 then
+		return nil, "refused", body
+	end
 	if code ~= 200 then
 		return nil, "non200", code
 	end
-	local status = body:match([["Status":"([^"]+)"]])
-	if status ~= "OK" then
-		return nil, "refused", status
-	end
-	return body:match([["Token":"([^"]+)"]])
+	return body
 end
 
 function client_i:proto_error_(...)
@@ -343,7 +339,7 @@ local simstates = {
 	},
 	{
 		format = "Gravity mode set to %s by %s",
-		states = { "vertical", "off", "radial" },
+		states = { "vertical", "off", "radial", "custom" },
 		func = sim.gravityMode,
 		shift = 8,
 		size = 2,
@@ -367,6 +363,8 @@ function client_i:handle_simstate_38_()
 	local member = self:member_prefix_()
 	local lo, hi = self:read_bytes_(2)
 	local temp = self:read_24be_()
+	local gravx = self:read_24be_()
+	local gravy = self:read_24be_()
 	local bits = bit.bor(lo, bit.lshift(hi, 8))
 	for i = 1, #simstates do
 		local desc = simstates[i]
@@ -382,6 +380,15 @@ function client_i:handle_simstate_38_()
 	if util.ambient_air_temp() ~= temp then
 		local set = util.ambient_air_temp(temp)
 		self.log_event_func_(colours.commonstr.event .. ("Ambient air temperature set to %.2f by %s"):format(set, member.formatted_nick))
+	end
+	do
+		local cgx, cgy = util.custom_gravity()
+		if cgx ~= gravx or cgy ~= gravy then
+			local setx, sety = util.custom_gravity(gravx, gravy)
+			if sim.gravityMode() == 3 then
+				self.log_event_func_(colours.commonstr.event .. ("Custom gravity set to (%+.2f, %+.2f) by %s"):format(setx, sety, member.formatted_nick))
+			end
+		end
 	end
 	self.profile_:sample_simstate()
 end
@@ -702,12 +709,12 @@ end
 
 function client_i:handshake_()
 	self.window_:set_subtitle("status", "Registering")
-	local uid, sess, name = util.get_user()
+	local name = util.get_name()
 	self:write_bytes_(tpt.version.major, tpt.version.minor, config.version)
 	self:write_nullstr_((name or tpt.get_name() or ""):sub(1, 255))
 	self:write_bytes_(0) -- * Flags, currently unused.
-	local qa_host, qa_port, qa_uid, qa_token = self.get_qa_func_():match("^([^:]+):([^:]+):([^:]+):([^:]+)$")
-	self:write_str8_(qa_token and qa_uid == uid and qa_host == self.host_ and tonumber(qa_port) == self.port_ and qa_token or "")
+	local qa_host, qa_port, qa_name, qa_token = self.get_qa_func_():match("^([^:]+):([^:]+):([^:]+):([^:]+)$")
+	self:write_str8_(qa_token and qa_name == name and qa_host == self.host_ and tonumber(qa_port) == self.port_ and qa_token or "")
 	self:write_str8_(self.initial_room_ or "")
 	self:write_flush_()
 	local conn_status = self:read_bytes_(1)
@@ -715,8 +722,8 @@ function client_i:handshake_()
 	if conn_status == 4 then -- * Quickauth failed.
 		self.window_:set_subtitle("status", "Authenticating")
 		local token = ""
-		if uid then
-			local fresh_token, err, info = get_auth_token(uid, sess, self.host_ .. ":" .. self.port_)
+		if name then
+			local fresh_token, err, info = get_auth_token(self.host_ .. ":" .. self.port_)
 			if fresh_token then
 				token = fresh_token
 			else
@@ -732,8 +739,8 @@ function client_i:handshake_()
 		self:write_str8_(token)
 		self:write_flush_()
 		conn_status = self:read_bytes_(1)
-		if uid then
-			self.set_qa_func_((conn_status == 1) and (self.host_ .. ":" .. self.port_ .. ":" .. uid .. ":" .. token) or "")
+		if name then
+			self.set_qa_func_((conn_status == 1) and (self.host_ .. ":" .. self.port_ .. ":" .. name .. ":" .. token) or "")
 		end
 	end
 	local downgrade_reason
@@ -821,7 +828,7 @@ function client_i:send_selecttool(idx, xtype)
 	self:write_flush_()
 end
 
-function client_i:send_simstate(ss_p, ss_h, ss_u, ss_n, ss_w, ss_g, ss_a, ss_e, ss_y, ss_t)
+function client_i:send_simstate(ss_p, ss_h, ss_u, ss_n, ss_w, ss_g, ss_a, ss_e, ss_y, ss_t, ss_r, ss_s)
 	self:write_("\38")
 	local toggles = bit.bor(
 		           ss_p    ,
@@ -838,6 +845,8 @@ function client_i:send_simstate(ss_p, ss_h, ss_u, ss_n, ss_w, ss_g, ss_a, ss_e, 
 	)
 	self:write_bytes_(toggles, multis)
 	self:write_24be_(ss_t)
+	self:write_24be_(ss_r)
+	self:write_24be_(ss_s)
 	self:write_flush_()
 end
 

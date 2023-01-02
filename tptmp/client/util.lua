@@ -454,29 +454,6 @@ local function stamp_save(x, y, w, h)
 	return data
 end
 
-local function get_user()
-	local pref = io.open("powder.pref")
-	if not pref then
-		return
-	end
-	local pref_data = pref:read("*a")
-	pref:close()
-	local user = pref_data:match([["User"%s*:%s*(%b{})]])
-	if not user then
-		return
-	end
-	local uid = user:match([["ID"%s*:%s*(%d+)]])
-	local sess = user:match([["SessionID"%s*:%s*"([^"]+)"]])
-	local name = user:match([["Username"%s*:%s*"([^"]+)"]])
-	if not uid or not sess or not name then
-		return
-	end
-	if name ~= tpt.get_name() then
-		return
-	end
-	return uid, sess, name
-end
-
 -- * Finds bynd, the smallest idx in [first, last] for which beyond(idx)
 --   is true. Assumes that for all idx in [first, bynd-1] beyond(idx) is
 --   false and for all idx in [bynd, last] beyond(idx) is true. beyond(first-1)
@@ -788,7 +765,24 @@ local function ambient_air_temp(temp)
 		sim.ambientAirTemp(set)
 		return set
 	else
-		return math.floor(sim.ambientAirTemp() * 0x400)
+		return math.max(0x000000, math.min(0xFFFFFF, math.floor(sim.ambientAirTemp() * 0x400)))
+	end
+end
+
+local function custom_gravity(x, y)
+	if x then
+		if x >= 0x800000 then x = x - 0x1000000 end
+		if y >= 0x800000 then y = y - 0x1000000 end
+		local setx, sety = x / 0x400, y / 0x400
+		sim.customGravity(setx, sety)
+		return setx, sety
+	else
+		local getx, gety = sim.customGravity()
+		getx = math.max(-0x800000, math.min(0x7FFFFF, math.floor(getx * 0x400)))
+		gety = math.max(-0x800000, math.min(0x7FFFFF, math.floor(gety * 0x400)))
+		if getx < 0 then getx = getx + 0x1000000 end
+		if gety < 0 then gety = gety + 0x1000000 end
+		return getx, gety
 	end
 end
 
@@ -806,8 +800,13 @@ local function urlencode(str)
 	end))
 end
 
+local function get_name()
+	local name = tpt.get_name()
+	return name ~= "" and name or nil
+end
+
 return {
-	get_user = get_user,
+	get_name = get_name,
 	stamp_load = stamp_load,
 	stamp_save = stamp_save,
 	binary_search_implicit = binary_search_implicit,
@@ -832,6 +831,7 @@ return {
 	escape_regex = escape_regex,
 	fnv1a32 = fnv1a32,
 	ambient_air_temp = ambient_air_temp,
+	custom_gravity = custom_gravity,
 	get_save_id = get_save_id,
 	version_less = common_util.version_less,
 	version_equal = common_util.version_equal,

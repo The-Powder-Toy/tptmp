@@ -265,12 +265,17 @@ local function header_24be(d24)
 	return string.char(hi, mi, lo)
 end
 
-function client_i:handle_sync_30_()
-	-- * Update handle_sync_done_128_ if you change this.
-	local location = self:read_(3)
-	local data = self:read_str24_()
-	self.room_:broadcast(self, "\30" .. self.room_id_str_ .. location .. header_24be(#data))
-	self.room_:broadcast(self, data)
+local sync_30_size = 3
+do
+	local location_size = 3
+	assert(location_size == sync_30_size)
+	function client_i:handle_sync_30_()
+		-- * Update handle_sync_done_128_ if you change this.
+		local location = self:read_(location_size)
+		local data = self:read_str24_()
+		self.room_:broadcast(self, "\30" .. self.room_id_str_ .. location .. header_24be(#data))
+		self.room_:broadcast(self, data)
+	end
 end
 
 function client_i:handle_pastestamp_31_()
@@ -280,13 +285,16 @@ function client_i:handle_pastestamp_31_()
 	self.room_:broadcast(self, data)
 end
 
+local simstate_38_size = 11
+local loadonline_69_size = 9
+
 forward_to_room(    "mousepos", 32, 3)
 forward_to_room(   "brushmode", 33, 1)
 forward_to_room(   "brushsize", 34, 2)
 forward_to_room(  "brushshape", 35, 1)
 forward_to_room(    "keybdmod", 36, 1)
 forward_to_room(  "selecttool", 37, 2)
-forward_to_room(    "simstate", 38, 5) -- * Update handle_sync_done_128_ if you change this.
+forward_to_room(    "simstate", 38, simstate_38_size)
 forward_to_room(       "flood", 39, 4)
 forward_to_room(     "lineend", 40, 3)
 forward_to_room(     "rectend", 41, 3)
@@ -304,7 +312,7 @@ forward_to_room(   "heatclear", 64, 0)
 forward_to_room(   "brushdeco", 65, 4)
 forward_to_room(   "clearrect", 67, 6)
 forward_to_room(  "canceldraw", 68, 0)
-forward_to_room(  "loadonline", 69, 9) -- * Update handle_sync_done_128_ if you change this.
+forward_to_room(  "loadonline", 69, loadonline_69_size)
 forward_to_room(   "reloadsim", 70, 0)
 forward_to_room( "placestatus", 71, 4)
 forward_to_room("selectstatus", 72, 4)
@@ -326,16 +334,16 @@ end
 
 function client_i:handle_sync_done_128_()
 	local data = {
-		self:proto_assert_(self:read_bytes_(1), 69), -- * loadonline_69
+		self:proto_assert_(self:read_bytes_(1), 69),
 		self.room_id_str_,
-		self:read_(9),
-		self:proto_assert_(self:read_bytes_(1), 30), -- * sync_30
+		self:read_(loadonline_69_size),
+		self:proto_assert_(self:read_bytes_(1), 30),
 		self.room_id_str_,
-		self:read_(3),
+		self:read_(sync_30_size),
 		self:read_str24_(),
-		self:proto_assert_(self:read_bytes_(1), 38), -- * simstate_38
+		self:proto_assert_(self:read_bytes_(1), 38),
 		self.room_id_str_,
-		self:read_(5),
+		self:read_(simstate_38_size),
 	}
 	for target in pairs(self.syncing_for_) do
 		target:write_bytes_(data[ 1])

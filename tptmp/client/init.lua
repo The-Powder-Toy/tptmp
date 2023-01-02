@@ -7,7 +7,7 @@ if sim.CELL ~= 4 then -- * Required by cursor snapping functions.
 	loadtime_error = "CELL size is not 4"
 elseif sim.PMAPBITS >= 13 then -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
 	loadtime_error = "PMAPBITS is too large"
-elseif not tpt.version or common_util.version_less({ tpt.version.major, tpt.version.minor }, { 96, 2 }) then
+elseif not tpt.version or common_util.version_less({ tpt.version.major, tpt.version.minor }, { 97, 0 }) then
 	loadtime_error = "version not supported"
 elseif not rawget(_G, "bit") then
 	loadtime_error = "no bit API"
