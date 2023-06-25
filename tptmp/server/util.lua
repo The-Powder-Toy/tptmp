@@ -6,7 +6,7 @@ local CQUEUES_WRAP_RETHROW = {}
 
 local function cqueues_poll(...)
 	local ret = { cqueues.poll(...) }
-	if #ret > 0 then
+	if ... then
 		assert(ret[1], ret[2])
 	end
 	local ret_assoc = {}
@@ -22,12 +22,19 @@ local function periodic_tracebacks(instructions)
 	periodic_traceback_instructions = instructions
 end
 
+local coro_names = setmetatable({}, { __mode = "k" })
+
+local function named_traceback(reason)
+	return reason .. " for [" .. (coro_names[coroutine.running()] or "???") .. "]: " .. debug.traceback()
+end
+
 local function cqueues_wrap(queue, func, name)
 	name = name or ("coroutine created at:\n" .. debug.traceback())
 	queue:wrap(function()
+		coro_names[coroutine.running()] = name
 		if periodic_traceback_instructions then
 			debug.sethook(function()
-				print("traceback of [" .. name .. "]: " .. debug.traceback())
+				print(util.named_traceback("periodic traceback"))
 			end, "", periodic_traceback_instructions)
 		end
 		if not xpcall(func, function(err)
@@ -126,4 +133,5 @@ return {
 	periodic_tracebacks = periodic_tracebacks,
 	table_augment = table_augment,
 	format_difftime = format_difftime,
+	named_traceback = named_traceback,
 }

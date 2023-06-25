@@ -1,3 +1,4 @@
+local cqueues      = require("cqueues")
 local log          = require("tptmp.server.log")
 local util         = require("tptmp.server.util")
 local config       = require("tptmp.server.config")
@@ -54,7 +55,9 @@ local function check_external_auth(client, token)
 			reason = err,
 		}
 	end
-	local headers, stream = req:go(config.auth_backend_timeout)
+	req.version = 1.1 -- there is some bug in lua-http that breaks h2 + tls
+	local deadline = cqueues.monotime() + config.auth_backend_timeout
+	local headers, stream = req:go(deadline - cqueues.monotime())
 	if not headers then
 		return nil, stream, {
 			substage = "go",
@@ -68,7 +71,7 @@ local function check_external_auth(client, token)
 			code = tonumber(code),
 		}
 	end
-	local body, err = stream:get_body_as_string()
+	local body, err = stream:get_body_as_string(deadline - cqueues.monotime())
 	if not body then
 		return nil, err, {
 			substage = "get_body_as_string",

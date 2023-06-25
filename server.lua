@@ -11,6 +11,36 @@ xpcall(function()
 		error("__newindex on env", 2)
 	end })
 
+	local dump_stack_cond
+	if true then
+		-- Load cqueues early.
+		local cqueues = require("cqueues")
+		local real_poll = cqueues.poll
+		local util_named_traceback
+		cqueues.poll = function(...)
+			if not ... then
+				return
+			end
+			local ready
+			while true do
+				ready = { assert(real_poll(dump_stack_cond, ...)) }
+				for i = 1, #ready do
+					if ready[i] == dump_stack_cond then
+						print(util_named_traceback("dump stack requested"))
+						table.remove(ready, i)
+						break
+					end
+				end
+				if #ready > 0 then
+					break
+				end
+			end
+			return table.unpack(ready)
+		end
+		dump_stack_cond = require("cqueues.condition").new()
+		util_named_traceback = require("tptmp.server.util").named_traceback
+	end
+
 	local lfs            = require("lfs")
 	local cqueues        = require("cqueues")
 	local config         = require("tptmp.server.config")
@@ -80,6 +110,21 @@ xpcall(function()
 		})
 		rcon:start()
 	end, "rcon")
+
+	if dump_stack_cond then
+		local signal = require("cqueues.signal")
+		signal.discard(signal.SIGUSR1)
+		local listener = signal.listen(signal.SIGUSR1)
+		util.cqueues_wrap(queue, function()
+			while true do
+				local ready = util.cqueues_poll(listener)
+				if ready[listener] then
+					print("SIGUSR1, requesting stacks to be dumped")
+					dump_stack_cond:signal()
+				end
+			end
+		end)
+	end
 
 	-- * util.cqueues_wrap shouldn't throw errors.
 	local ok, err = pcall(function()

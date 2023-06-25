@@ -316,8 +316,10 @@ function server_i:fetch_user_(nick)
 		})
 		return nil, err
 	end
+	req.version = 1.1 -- there is some bug in lua-http that breaks h2 + tls
 	req.cookie_store = http_cookie.new_store()
-	local headers, stream = req:go(config.uid_backend_timeout)
+	local deadline = cqueues.monotime() + config.uid_backend_timeout
+	local headers, stream = req:go(deadline - cqueues.monotime())
 	if not headers then
 		self:rconlog({
 			event = "fetch_user_fail",
@@ -337,7 +339,7 @@ function server_i:fetch_user_(nick)
 		})
 		return nil, "status code " .. code
 	end
-	local body, err = stream:get_body_as_string()
+	local body, err = stream:get_body_as_string(deadline - cqueues.monotime())
 	if not body then
 		self:rconlog({
 			event = "fetch_user_fail",
