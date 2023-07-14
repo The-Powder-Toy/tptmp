@@ -645,23 +645,53 @@ function client_i:proto_()
 	end)
 	local real_error
 	xpcall(function()
-		local first_byte = self.socket_:xread(-1, "bn", config.first_byte_timeout)
-		local first_byte_ok = type(first_byte) == "string" and #first_byte == 1
+		local deadline = cqueues.monotime() + config.first_byte_timeout
+		local first_byte_problem
+		local function get_first_byte(fail_with)
+			first_byte_problem = fail_with
+			local first_byte = self.socket_:xread(-1, "bn", deadline - cqueues.monotime())
+			if type(first_byte) == "string" and #first_byte == 1 then
+				first_byte_problem = nil
+			end
+			if not first_byte_problem then
+				assert(self.socket_:unget(first_byte))
+				return first_byte
+			end
+		end
 		local secure_level_matches
-		if first_byte_ok then
-			assert(self.socket_:unget(first_byte))
-			secure_level_matches = (first_byte:byte() == TLS_CLIENT_HELLO) == config.secure
+		do
+			local first_byte = get_first_byte({
+				message = "no client handshake",
+				kind = "first_byte_timeout",
+			})
+			if not first_byte_problem then
+				-- * This works because TLS_CLIENT_HELLO is not a valid first byte of any
+				--   stream that conforms to any TPTMP protocol.
+				secure_level_matches = (first_byte:byte() == TLS_CLIENT_HELLO) == config.secure
+			end
 		end
 		-- * Defer handling starttls problems until after manage_socket_ starts,
 		--   because that's when we can conveniently exit with proto_error_.
 		local starttls_ok, starttls_err
-		if first_byte_ok then
+		if not first_byte_problem then
 			if config.secure and secure_level_matches then
 				local tls_context = self.server_:tls_context()
+				first_byte_problem = {
+					message = "TLS handshake timed out",
+					kind = "starttls_timeout",
+				}
 				starttls_ok, starttls_err = pcall(function()
 					-- * :starttls may itself throw errors, hence the pcall+assert trickery.
-					assert(self.socket_:starttls(tls_context))
+					assert(self.socket_:starttls(tls_context, deadline - cqueues.monotime()))
 				end)
+				if not (not starttls_ok and starttls_err == errno.ETIMEDOUT) then
+					first_byte_problem = nil
+					-- * Get (i.e. enforce sending of) first byte again, now in TLS mode.
+					get_first_byte({
+						message = "no client handshake in TLS mode",
+						kind = "first_tls_byte_timeout",
+					})
+				end
 			end
 		end
 		util.cqueues_wrap(cqueues.running(), function()
@@ -670,9 +700,9 @@ function client_i:proto_()
 		util.cqueues_wrap(cqueues.running(), function()
 			self:expect_ping_()
 		end, self:name() .. "/expect_ping_")
-		if not first_byte_ok then
-			self:proto_error_("no client handshake", {
-				kind = "first_byte_timeout",
+		if first_byte_problem then
+			self:proto_error_(first_byte_problem.message, {
+				kind = first_byte_problem.kind,
 			})
 		end
 		if config.secure then

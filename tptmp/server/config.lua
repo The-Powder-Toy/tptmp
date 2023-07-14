@@ -217,8 +217,11 @@ local config = {
 	--   this limit.
 	sendq_limit = 0x2000000,
 
-	-- * Maximum amount of time in seconds after which the connection attempt
-	--   should be deemed a failure, unless at least a byte is received.
+	-- * Amount of time in seconds after which the connection attempt should be
+	--   deemed a failure, unless at least a byte is received. If secure = true
+	--   and the first byte suggests that a TLS connection is being made, this
+	--   timeout also covers the TLS handshake that follows and receiving the
+	--   first useful byte in TLS mode.
 	first_byte_timeout = 3,
 
 	-- * Send queue flush timeout. Specifies the maximum amount of time in
@@ -258,7 +261,7 @@ local config = {
 	-- *** are tightly coupled with the server implementation.             ***
 	-- ***********************************************************************
 
-	-- * Minimum accepted TPT version.
+	-- * Minimum required TPT version.
 	tpt_version_min = { 97, 0 },
 
 	-- * Maximum accepted TPT version.
