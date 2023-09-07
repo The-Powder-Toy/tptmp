@@ -38,7 +38,7 @@ local function cqueues_wrap(queue, func, name)
 		coro_names[coroutine.running()] = name
 		if periodic_traceback_instructions then
 			debug.sethook(function()
-				print(util.named_traceback("periodic traceback"))
+				print(named_traceback("periodic traceback"))
 			end, "", periodic_traceback_instructions)
 		end
 		if not xpcall(func, function(err)

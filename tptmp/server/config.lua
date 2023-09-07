@@ -222,7 +222,7 @@ local config = {
 	--   and the first byte suggests that a TLS connection is being made, this
 	--   timeout also covers the TLS handshake that follows and receiving the
 	--   first useful byte in TLS mode.
-	first_byte_timeout = 3,
+	first_byte_timeout = 10,
 
 	-- * Send queue flush timeout. Specifies the maximum amount of time in
 	--   seconds the server waits for the send queue of a client that is being
@@ -230,7 +230,7 @@ local config = {
 	--   its send queue (most importantly, the reason for the client being
 	--   dropped), but it drops the client earlier if this fails in the
 	--   amount of time specified.
-	sendq_flush_timeout = 3,
+	sendq_flush_timeout = 10,
 
 	-- * Send queue flush timeout for the remote console. Similar to
 	--   sendq_flush_timeout, except applies to the remote console.

@@ -21,13 +21,13 @@ return {
 	auth_backend = "https://powdertoy.co.uk/ExternalAuth.api",
 
 	-- * Authentication backend timeout in seconds.
-	auth_backend_timeout = 3,
+	auth_backend_timeout = 15,
 
 	-- * Username to UID backend URL.
 	uid_backend = "https://powdertoy.co.uk/User.json",
 
 	-- * Username to UID backend timeout in seconds.
-	uid_backend_timeout = 3,
+	uid_backend_timeout = 15,
 
 	-- * Host to connect to by default.
 	host = "tptmp.starcatcher.us",
