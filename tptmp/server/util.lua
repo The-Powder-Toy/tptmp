@@ -4,9 +4,13 @@ local common_util = require("tptmp.common.util")
 
 local CQUEUES_WRAP_RETHROW = {}
 
+local function pack(...)
+	return select("#", ...), { ... }
+end
+
 local function cqueues_poll(...)
-	local ret = { cqueues.poll(...) }
-	if ... then
+	local nret, ret = pack(cqueues.poll(...))
+	if nret >= 2 and not ret[1] then
 		assert(ret[1], ret[2])
 	end
 	local ret_assoc = {}

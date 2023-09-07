@@ -17,13 +17,20 @@ xpcall(function()
 		local cqueues = require("cqueues")
 		local real_poll = cqueues.poll
 		local util_named_traceback
+		local function pack(...)
+			return select("#", ...), { ... }
+		end
 		cqueues.poll = function(...)
 			if not ... then
 				return
 			end
 			local ready
 			while true do
-				ready = { assert(real_poll(dump_stack_cond, ...)) }
+				local nready
+				nready, ready = pack(real_poll(dump_stack_cond, ...))
+				if nready >= 2 and not ready[1] then
+					assert(ready[1], ready[2])
+				end
 				for i = 1, #ready do
 					if ready[i] == dump_stack_cond then
 						print(util_named_traceback("dump stack requested"))
