@@ -60,6 +60,32 @@ do
 	end
 end
 
+local unpack = rawget(_G, "unpack") or table.unpack
+local function packn(...)
+	return { [ 0 ] = select("#", ...), ... }
+end
+local function unpackn(tbl, from, to)
+	return unpack(tbl, from or 1, to or tbl[0])
+end
+local function xpcall_wrap(func, handler)
+	return function(...)
+		local iargs = packn(...)
+		local oargs
+		xpcall(function()
+			oargs = packn(func(unpackn(iargs)))
+		end, function(err)
+			if handler then
+				handler(err)
+			end
+			print(err)
+			print(debug.traceback())
+		end)
+		if oargs then
+			return unpackn(oargs)
+		end
+	end
+end
+
 local chunks = {}
 local loaded = {}
 local function require(modname)
@@ -87,11 +113,17 @@ local function require(modname)
 				if rawget(_G, "setfenv") then
 					setfenv(func, env)
 				end
-				local ok, err = pcall(func)
+				local ok = true
+				local err_outer
+				xpcall_wrap(function()
+					mod = func()
+				end, function(err)
+					ok = false
+					err_outer = err
+				end)()
 				if not ok then
-					error(err, 0)
+					error(err_outer, 0)
 				end
-				mod = err
 				chunks[modname] = content
 				break
 			end
@@ -104,6 +136,7 @@ local function require(modname)
 	return loaded[modname]
 end
 rawset(env, "require", require)
+rawset(env, "xpcall_wrap", xpcall_wrap)
 
 local main_module = require(MAIN_MODULE)
 if OUTPUT then
@@ -133,6 +166,33 @@ local function require(modname)
 end
 rawset(env__, "require", require)
 
+local unpack = rawget(_G, "unpack") or table.unpack
+local function packn(...)
+	return { [ 0 ] = select("#", ...), ... }
+end
+local function unpackn(tbl, from, to)
+	return unpack(tbl, from or 1, to or tbl[0])
+end
+local function xpcall_wrap(func, handler)
+	return function(...)
+		local iargs = packn(...)
+		local oargs
+		xpcall(function()
+			oargs = packn(func(unpackn(iargs)))
+		end, function(err)
+			if handler then
+				handler(err)
+			end
+			print(err)
+			print(debug.traceback())
+		end)
+		if oargs then
+			return unpackn(oargs)
+		end
+	end
+end
+rawset(env__, "xpcall_wrap", xpcall_wrap)
+
 ]])
 	local chunk_keys = {}
 	for key in pairs(chunks) do
@@ -153,9 +213,13 @@ end
 ]]):format(chunk_keys[i], chunk))
 	end
 	handle:write(([[
-require("%s").run()
+xpcall_wrap(function()
+	require("%s").run()
+end)()
 ]]):format(MAIN_MODULE))
 	handle:close()
 else
-	main_module.run()
+	xpcall_wrap(function()
+		main_module.run()
+	end)()
 end
