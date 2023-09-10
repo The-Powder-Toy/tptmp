@@ -866,9 +866,9 @@ function profile_i:handle_tick()
 	local complete_select_mode = self.select_x_ and self.select_mode_
 	if self.prev_select_mode_ ~= complete_select_mode then
 		self.prev_select_mode_ = complete_select_mode
-		if self.select_mode_ == "copy"
-		or self.select_mode_ == "cut"
-		or self.select_mode_ == "stamp" then
+		if self.select_x_ and (self.select_mode_ == "copy" or
+		                       self.select_mode_ == "cut" or
+		                       self.select_mode_ == "stamp") then
 			if self.select_mode_ == "copy" then
 				self:report_selectstatus_(1, self.select_x_, self.select_y_)
 			elseif self.select_mode_ == "cut" then
@@ -884,7 +884,7 @@ function profile_i:handle_tick()
 	local complete_place_mode = self.place_x_ and self.select_mode_
 	if self.prev_place_mode_ ~= complete_place_mode then
 		self.prev_place_mode_ = complete_place_mode
-		if self.select_mode_ == "place" then
+		if self.place_x_ and self.select_mode_ == "place" then
 			self:report_placestatus_(1, self.place_x_, self.place_y_)
 		else
 			self.place_x_, self.place_y_ = nil, nil
