@@ -215,6 +215,11 @@ local function run()
 		end
 	end
 
+	local function handle_error()
+		should_reconnect = false
+		kill_client()
+	end
+
 	local pcur_r, pcur_g, pcur_b, pcur_a = unpack(colours.common.player_cursor)
 	local bmode_to_repr = {
 		[ 0 ] = "",
@@ -366,13 +371,13 @@ local function run()
 			return false
 		end
 		prof:handle_tick()
-	end)
+	end, handle_error)
 
 	local handle_mousemove = xpcall_wrap(function(px, py, dx, dy)
 		if prof:handle_mousemove(px, py, dx, dy) then
 			return false
 		end
-	end)
+	end, handle_error)
 
 	local handle_mousedown = xpcall_wrap(function(px, py, button)
 		if window_status == "shown" and win:handle_mousedown(px, py, button) then
@@ -384,7 +389,7 @@ local function run()
 		if prof:handle_mousedown(px, py, button) then
 			return false
 		end
-	end)
+	end, handle_error)
 
 	local handle_mouseup = xpcall_wrap(function(px, py, button, reason)
 		if window_status == "shown" and win:handle_mouseup(px, py, button, reason) then
@@ -396,7 +401,7 @@ local function run()
 		if prof:handle_mouseup(px, py, button, reason) then
 			return false
 		end
-	end)
+	end, handle_error)
 
 	local handle_mousewheel = xpcall_wrap(function(px, py, dir)
 		if window_status == "shown" and win:handle_mousewheel(px, py, dir) then
@@ -408,7 +413,7 @@ local function run()
 		if prof:handle_mousewheel(px, py, dir) then
 			return false
 		end
-	end)
+	end, handle_error)
 
 	local handle_keypress = xpcall_wrap(function(key, scan, rep, shift, ctrl, alt)
 		if window_status == "shown" and win:handle_keypress(key, scan, rep, shift, ctrl, alt) then
@@ -420,7 +425,7 @@ local function run()
 		if prof:handle_keypress(key, scan, rep, shift, ctrl, alt) then
 			return false
 		end
-	end)
+	end, handle_error)
 
 	local handle_keyrelease = xpcall_wrap(function(key, scan, rep, shift, ctrl, alt)
 		if window_status == "shown" and win:handle_keyrelease(key, scan, rep, shift, ctrl, alt) then
@@ -432,7 +437,7 @@ local function run()
 		if prof:handle_keyrelease(key, scan, rep, shift, ctrl, alt) then
 			return false
 		end
-	end)
+	end, handle_error)
 
 	local handle_textinput = xpcall_wrap(function(text)
 		if window_status == "shown" and win:handle_textinput(text) then
@@ -444,7 +449,7 @@ local function run()
 		if prof:handle_textinput(text) then
 			return false
 		end
-	end)
+	end, handle_error)
 
 	local handle_textediting = xpcall_wrap(function(text)
 		if window_status == "shown" and win:handle_textediting(text) then
@@ -456,7 +461,7 @@ local function run()
 		if prof:handle_textediting(text) then
 			return false
 		end
-	end)
+	end, handle_error)
 
 	local handle_blur = xpcall_wrap(function()
 		if window_status == "shown" and win:handle_blur() then
@@ -468,7 +473,7 @@ local function run()
 		if prof:handle_blur() then
 			return false
 		end
-	end)
+	end, handle_error)
 
 	evt.register(evt.tick      , handle_tick      )
 	evt.register(evt.mousemove , handle_mousemove )
