@@ -100,6 +100,8 @@ local function run()
 		print(text)
 	end
 
+	local last_trace_str
+
 	local should_reconnect_at
 	local cli
 	local prof = profile.new({
@@ -174,6 +176,7 @@ local function run()
 			params.should_not_reconnect_func = function()
 				should_reconnect = false
 			end
+			last_trace_str = nil
 			cli = client.new(params)
 			return cli
 		end,
@@ -215,9 +218,26 @@ local function run()
 		end
 	end
 
-	local function handle_error()
+	local function handle_error(err)
+		if not last_trace_str then
+			local handle = io.open(config.trace_path, "wb")
+			handle:write(("TPTMP %s %s\n"):format(config.versionstr, os.date("%FT%TZ")))
+			handle:close()
+			win:backlog_push_error("An error occurred and its trace has been saved to " .. config.trace_path .. "; please find this file in your data folder and attach it when reporting this to developers")
+			win:backlog_push_error("Top-level error: " .. tostring(err))
+		end
+		local str = tostring(err) .. "\n" .. debug.traceback() .. "\n"
+		if last_trace_str ~= str then
+			last_trace_str = str
+			local handle = io.open(config.trace_path, "ab")
+			handle:write(str)
+			handle:close()
+		end
 		should_reconnect = false
-		kill_client()
+		if cli then
+			cli:stop("error handled")
+			kill_client()
+		end
 	end
 
 	local pcur_r, pcur_g, pcur_b, pcur_a = unpack(colours.common.player_cursor)

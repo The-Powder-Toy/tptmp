@@ -55,6 +55,9 @@ local config = {
 	--   current directory. Only relevant if the null manager is active.
 	null_manager_path = "tptmpsettings.txt",
 
+	-- * Path to error trace file relative to current directory.
+	trace_path = "tptmptrace.log",
+
 
 	-- ***********************************************************************
 	-- *** The following options should only be changed if you know what   ***
