@@ -221,7 +221,7 @@ local function run()
 	local function handle_error(err)
 		if not last_trace_str then
 			local handle = io.open(config.trace_path, "wb")
-			handle:write(("TPTMP %s %s\n"):format(config.versionstr, os.date("%FT%TZ")))
+			handle:write(("TPTMP %s %s\n"):format(config.versionstr, os.date("!%Y-%m-%dT%H:%M:%SZ")))
 			handle:close()
 			win:backlog_push_error("An error occurred and its trace has been saved to " .. config.trace_path .. "; please find this file in your data folder and attach it when reporting this to developers")
 			win:backlog_push_error("Top-level error: " .. tostring(err))
