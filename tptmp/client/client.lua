@@ -1059,7 +1059,10 @@ function client_i:start()
 				handler(self)
 			end
 		end, function(err)
-			print(debug.traceback(err, 2))
+			if self.handle_error_func_ then
+				self.handle_error_func_(err)
+			end
+			return err
 		end)
 		if not ok then
 			error(err)
@@ -1105,7 +1108,7 @@ function client_i:tick_resume_()
 		local ok, err = coroutine.resume(self.proto_coro_)
 		if not ok then
 			self.proto_coro_ = nil
-			error(err)
+			error("proto coroutine: " .. err, 0)
 		end
 		if self.proto_coro_ and coroutine.status(self.proto_coro_) == "dead" then
 			error("proto coroutine terminated")
@@ -1414,31 +1417,32 @@ end
 local function new(params)
 	local now = socket.gettime()
 	return setmetatable({
-		host_ = params.host,
-		port_ = params.port,
-		secure_ = params.secure,
-		event_log_ = params.event_log,
-		backlog_ = params.backlog,
-		rx_ = buffer_list.new({ limit = config.recvq_limit }),
-		tx_ = buffer_list.new({ limit = config.sendq_limit }),
-		connecting_since_ = now,
-		last_ping_sent_at_ = now,
-		last_ping_received_at_ = now,
-		status_ = "ready",
-		window_ = params.window,
-		profile_ = params.profile,
-		localcmd_ = params.localcmd,
-		initial_room_ = params.initial_room,
-		set_id_func_ = params.set_id_func,
-		get_id_func_ = params.get_id_func,
-		set_qa_func_ = params.set_qa_func,
-		get_qa_func_ = params.get_qa_func,
-		log_event_func_ = params.log_event_func,
-		should_reconnect_func_ = params.should_reconnect_func,
+		host_                      = params.host,
+		port_                      = params.port,
+		secure_                    = params.secure,
+		event_log_                 = params.event_log,
+		backlog_                   = params.backlog,
+		rx_                        = buffer_list.new({ limit = config.recvq_limit }),
+		tx_                        = buffer_list.new({ limit = config.sendq_limit }),
+		connecting_since_          = now,
+		last_ping_sent_at_         = now,
+		last_ping_received_at_     = now,
+		status_                    = "ready",
+		window_                    = params.window,
+		profile_                   = params.profile,
+		localcmd_                  = params.localcmd,
+		initial_room_              = params.initial_room,
+		set_id_func_               = params.set_id_func,
+		get_id_func_               = params.get_id_func,
+		set_qa_func_               = params.set_qa_func,
+		get_qa_func_               = params.get_qa_func,
+		log_event_func_            = params.log_event_func,
+		handle_error_func_         = params.handle_error_func,
+		should_reconnect_func_     = params.should_reconnect_func,
 		should_not_reconnect_func_ = params.should_not_reconnect_func,
-		id_to_member = {},
-		nick_colour_seed_ = 0,
-		fps_sync_ = false,
+		id_to_member               = {},
+		nick_colour_seed_          = 0,
+		fps_sync_                  = false,
 	}, client_m)
 end
 

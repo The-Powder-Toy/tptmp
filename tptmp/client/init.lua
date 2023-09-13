@@ -101,6 +101,7 @@ local function run()
 	end
 
 	local last_trace_str
+	local handle_error
 
 	local should_reconnect_at
 	local cli
@@ -163,13 +164,14 @@ local function run()
 		end,
 		new_client_func = function(params)
 			should_reconnect_at = nil
-			params.window = win
-			params.profile = prof
-			params.set_id_func = set_id
-			params.get_id_func = get_id
-			params.set_qa_func = set_qa
-			params.get_qa_func = get_qa
-			params.log_event_func = log_event
+			params.window            = win
+			params.profile           = prof
+			params.set_id_func       = set_id
+			params.get_id_func       = get_id
+			params.set_qa_func       = set_qa
+			params.get_qa_func       = get_qa
+			params.log_event_func    = log_event
+			params.handle_error_func = handle_error
 			params.should_reconnect_func = function()
 				should_reconnect = true
 			end
@@ -218,7 +220,7 @@ local function run()
 		end
 	end
 
-	local function handle_error(err)
+	function handle_error(err)
 		if not last_trace_str then
 			local handle = io.open(config.trace_path, "wb")
 			handle:write(("TPTMP %s %s\n"):format(config.versionstr, os.date("!%Y-%m-%dT%H:%M:%SZ")))
@@ -226,7 +228,7 @@ local function run()
 			win:backlog_push_error("An error occurred and its trace has been saved to " .. config.trace_path .. "; please find this file in your data folder and attach it when reporting this to developers")
 			win:backlog_push_error("Top-level error: " .. tostring(err))
 		end
-		local str = tostring(err) .. "\n" .. debug.traceback() .. "\n"
+		local str = debug.traceback(err, 2) .. "\n"
 		if last_trace_str ~= str then
 			last_trace_str = str
 			local handle = io.open(config.trace_path, "ab")

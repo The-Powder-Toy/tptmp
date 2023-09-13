@@ -30,14 +30,17 @@ if OUTPUT then
 	end
 end
 
-local env = setmetatable({}, { __index = function(_, key)
-	return rawget(_G, key) or error("__index on env: " .. tostring(key), 2)
+local env__ = setmetatable({}, { __index = function(_, key)
+	error("__index on env: " .. tostring(key), 2)
 end, __newindex = function(_, key)
 	error("__newindex on env: " .. tostring(key), 2)
 end })
-local _ENV = env
+for key, value in pairs(_G) do
+	rawset(env__, key, value)
+end
+local _ENV = env__
 if rawget(_G, "setfenv") then
-	setfenv(1, env)
+	setfenv(1, env__)
 end
 
 math.randomseed(os.time())
@@ -77,8 +80,8 @@ local function xpcall_wrap(func, handler)
 			if handler then
 				handler(err)
 			end
-			print(err)
-			print(debug.traceback())
+			print(debug.traceback(err, 2))
+			return err
 		end)
 		if oargs then
 			return unpackn(oargs)
@@ -105,13 +108,13 @@ local function require(modname)
 				if rawget(_G, "setfenv") then
 					func, err = loadstring(content, "=" .. relative)
 				else
-					func, err = load(content, "=" .. relative, "bt", env)
+					func, err = load(content, "=" .. relative, "bt", env__)
 				end
 				if not func then
 					error(err, 0)
 				end
 				if rawget(_G, "setfenv") then
-					setfenv(func, env)
+					setfenv(func, env__)
 				end
 				local ok = true
 				local err_outer
@@ -135,18 +138,21 @@ local function require(modname)
 	end
 	return loaded[modname]
 end
-rawset(env, "require", require)
-rawset(env, "xpcall_wrap", xpcall_wrap)
+rawset(env__, "require", require)
+rawset(env__, "xpcall_wrap", xpcall_wrap)
 
 local main_module = require(MAIN_MODULE)
 if OUTPUT then
 	local handle = assert(io.open(OUTPUT, "w"))
 	handle:write([[
 local env__ = setmetatable({}, { __index = function(_, key)
-	return rawget(_G, key) or error("__index on env: " .. tostring(key), 2)
+	error("__index on env: " .. tostring(key), 2)
 end, __newindex = function(_, key)
 	error("__newindex on env: " .. tostring(key), 2)
 end })
+for key, value in pairs(_G) do
+	rawset(env__, key, value)
+end
 local _ENV = env__
 if rawget(_G, "setfenv") then
 	setfenv(1, env__)
@@ -183,8 +189,8 @@ local function xpcall_wrap(func, handler)
 			if handler then
 				handler(err)
 			end
-			print(err)
-			print(debug.traceback())
+			print(debug.traceback(err, 2))
+			return err
 		end)
 		if oargs then
 			return unpackn(oargs)
