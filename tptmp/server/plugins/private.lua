@@ -190,14 +190,14 @@ return {
 					return true
 				end
 				local temporary_invite = room:is_temporary() or (other and other:guest())
-				if temporary_invite then
+				if temporary_invite and other then
 					other_nick = other:nick()
 				end
 				if words[2] == "insert" then
 					local to_invite
 					if temporary_invite then
 						if not other then
-							client:send_server(("\ae* \au%s\ae not online"):format(other_nick))
+							client:send_server(("\ae* \au%s\ae not online"):format(words[3]))
 						else
 							room.invites_clients_[other] = true
 							to_invite = other
