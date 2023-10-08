@@ -132,7 +132,7 @@ local function new(params)
 	local text = "<<"
 	local tw, th = gfx.textSize(text)
 	local tx = pos_x + math.ceil((width - tw) / 2)
-	local ty = pos_y + math.floor((height - th) / 2)
+	local ty = pos_y + math.ceil((height - th) / 2)
 	return setmetatable({
 		text_ = text,
 		tx_ = tx,
