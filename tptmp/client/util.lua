@@ -527,6 +527,9 @@ local function rect_snap_coords(x1, y1, x2, y2)
 end
 
 local function create_parts_any(x, y, rx, ry, xtype, brush, member)
+	if not inside_rect(0, 0, sim.XRES, sim.YRES, x, y) then
+		return
+	end
 	if line_only[xtype] or no_create[xtype] then
 		return
 	end
@@ -571,6 +574,10 @@ local function create_parts_any(x, y, rx, ry, xtype, brush, member)
 end
 
 local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, cont)
+	if not inside_rect(0, 0, sim.XRES, sim.YRES, x1, y1) or
+	   not inside_rect(0, 0, sim.XRES, sim.YRES, x2, y2) then
+		return
+	end
 	if no_create[xtype] or no_shape[xtype] or (jacobsmod and xtype == tpt.element("ball") and not member.kmod_s) then
 		return
 	end
@@ -670,6 +677,10 @@ local function create_line_any(x1, y1, x2, y2, rx, ry, xtype, brush, member, con
 end
 
 local function create_box_any(x1, y1, x2, y2, xtype, member)
+	if not inside_rect(0, 0, sim.XRES, sim.YRES, x1, y1) or
+	   not inside_rect(0, 0, sim.XRES, sim.YRES, x2, y2) then
+		return
+	end
 	if line_only[xtype] or no_create[xtype] or no_shape[xtype] then
 		return
 	end
@@ -706,6 +717,9 @@ local function create_box_any(x1, y1, x2, y2, xtype, member)
 end
 
 local function flood_any(x, y, xtype, part_flood_hint, wall_flood_hint, member)
+	if not inside_rect(0, 0, sim.XRES, sim.YRES, x, y) then
+		return
+	end
 	if line_only[xtype] or no_create[xtype] or no_flood[xtype] then
 		return
 	end
@@ -735,6 +749,13 @@ local function flood_any(x, y, xtype, part_flood_hint, wall_flood_hint, member)
 	if member.bmode ~= 0 then
 		tpt.selectedreplace = selectedreplace
 	end
+end
+
+local function clear_rect(x, y, w, h)
+	if not inside_rect(0, 0, sim.XRES, sim.YRES, x + w, y + h) then
+		return
+	end
+	sim.clearRect(x, y, w, h)
 end
 
 local function corners_to_rect(x1, y1, x2, y2)
@@ -821,6 +842,7 @@ return {
 	create_line_any = create_line_any,
 	create_box_any = create_box_any,
 	flood_any = flood_any,
+	clear_rect = clear_rect,
 	from_tool = from_tool,
 	to_tool = to_tool,
 	create_override = create_override,

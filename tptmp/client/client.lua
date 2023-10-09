@@ -558,7 +558,7 @@ function client_i:handle_clearrect_67_()
 	self:member_prefix_()
 	local x, y = self:read_xy_12_()
 	local w, h = self:read_xy_12_()
-	sim.clearRect(x, y, w, h)
+	util.clear_rect(x, y, w, h)
 end
 
 function client_i:handle_canceldraw_68_()
