@@ -442,7 +442,9 @@ end
 function client_i:handle_pointscont_43_()
 	local member = self:member_prefix_()
 	local x, y = self:read_xy_12_()
-	util.create_line_any(member.last_x, member.last_y, x, y, member.size_x, member.size_y, member.last_tool, member.shape, member, true)
+	if member.last_x then
+		util.create_line_any(member.last_x, member.last_y, x, y, member.size_x, member.size_y, member.last_tool, member.shape, member, true)
+	end
 	member.last_x = x
 	member.last_y = y
 end
