@@ -401,17 +401,21 @@ function client_i:handle_flood_39_()
 	end
 	member.last_tool = member[index_to_lrax[index]]
 	local x, y = self:read_xy_12_()
-	util.flood_any(x, y, member.last_tool, -1, -1, member)
+	if member.last_tool then
+		util.flood_any(x, y, member.last_tool, -1, -1, member)
+	end
 end
 
 function client_i:handle_lineend_40_()
 	local member = self:member_prefix_()
 	local x1, y1 = member.line_x, member.line_y
 	local x2, y2 = self:read_xy_12_()
-	if member.kmod_a then
-		x2, y2 = util.line_snap_coords(x1, y1, x2, y2)
+	if member:can_render() and x1 and member.last_tool then
+		if member.kmod_a then
+			x2, y2 = util.line_snap_coords(x1, y1, x2, y2)
+		end
+		util.create_line_any(x1, y1, x2, y2, member.size_x, member.size_y, member.last_tool, member.shape, member, false)
 	end
-	util.create_line_any(x1, y1, x2, y2, member.size_x, member.size_y, member.last_tool, member.shape, member, false)
 	member.line_x, member.line_y = nil, nil
 end
 
@@ -419,10 +423,12 @@ function client_i:handle_rectend_41_()
 	local member = self:member_prefix_()
 	local x1, y1 = member.rect_x, member.rect_y
 	local x2, y2 = self:read_xy_12_()
-	if member.kmod_a then
-		x2, y2 = util.rect_snap_coords(x1, y1, x2, y2)
+	if member:can_render() and x1 and member.last_tool then
+		if member.kmod_a then
+			x2, y2 = util.rect_snap_coords(x1, y1, x2, y2)
+		end
+		util.create_box_any(x1, y1, x2, y2, member.last_tool, member)
 	end
-	util.create_box_any(x1, y1, x2, y2, member.last_tool, member)
 	member.rect_x, member.rect_y = nil, nil
 end
 
@@ -434,7 +440,9 @@ function client_i:handle_pointsstart_42_()
 	end
 	member.last_tool = member[index_to_lrax[index]]
 	local x, y = self:read_xy_12_()
-	util.create_parts_any(x, y, member.size_x, member.size_y, member.last_tool, member.shape, member)
+	if member:can_render() and member.last_tool then
+		util.create_parts_any(x, y, member.size_x, member.size_y, member.last_tool, member.shape, member)
+	end
 	member.last_x = x
 	member.last_y = y
 end
@@ -442,7 +450,7 @@ end
 function client_i:handle_pointscont_43_()
 	local member = self:member_prefix_()
 	local x, y = self:read_xy_12_()
-	if member.last_x then
+	if member:can_render() and member.last_tool and member.last_x then
 		util.create_line_any(member.last_x, member.last_y, x, y, member.size_x, member.size_y, member.last_tool, member.shape, member, true)
 	end
 	member.last_x = x
@@ -1181,7 +1189,7 @@ function client_i:tick_sim_()
 	for _, member in pairs(self.id_to_member) do
 		if member:can_render() then
 			local lx, ly = member.line_x, member.line_y
-			if member.last_tool == util.from_tool.DEFAULT_UI_WIND and not (member.select or member.place) and lx then
+			if lx and member.last_tool == util.from_tool.DEFAULT_UI_WIND and not (member.select or member.place) and lx then
 				local px, py = member.pos_x, member.pos_y
 				if member.kmod_a then
 					px, py = util.line_snap_coords(lx, ly, px, py)
