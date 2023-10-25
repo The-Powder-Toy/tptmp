@@ -1,13 +1,17 @@
 local common_util = require("tptmp.common.util")
 
 local loadtime_error
+local tptVersion = { tpt.version.major, tpt.version.minor }
+if tpt.version.upstreamMajor then
+	tptVersion = { tpt.version.upstreamMajor, tpt.version.upstreamMinor }
+end
 local http = rawget(_G, "http")
 local socket = rawget(_G, "socket")
 if sim.CELL ~= 4 then -- * Required by cursor snapping functions.
 	loadtime_error = "CELL size is not 4"
 elseif sim.PMAPBITS >= 13 then -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
 	loadtime_error = "PMAPBITS is too large"
-elseif not tpt.version or common_util.version_less({ tpt.version.major, tpt.version.minor }, { 97, 0 }) then
+elseif not tpt.version or common_util.version_less(tptVersion, { 97, 0 }) then
 	loadtime_error = "version not supported"
 elseif not rawget(_G, "bit") then
 	loadtime_error = "no bit API"
