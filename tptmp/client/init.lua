@@ -547,6 +547,11 @@ local function run()
 	end
 
 	win:set_subtitle("status", "Not connected")
+	if tpt.version.snapshot then
+		win:backlog_push_neutral(colours.commonstr.error .. "* This is a snapshot version of TPT, expect breakage")
+	elseif tpt.version.beta then
+		win:backlog_push_neutral(colours.commonstr.error .. "* This is a beta version of TPT, expect breakage")
+	end
 	win:backlog_push_neutral("* Type " .. colours.commonstr.error .. "/connect" .. colours.commonstr.neutral .. " to join a server, " .. colours.commonstr.error .. "/list" .. colours.commonstr.neutral .. " for a list of commands, or " .. colours.commonstr.error .. "/help" .. colours.commonstr.neutral .. " for command help")
 	win:backlog_notif_reset()
 end
