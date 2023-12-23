@@ -368,13 +368,8 @@ function profile_i:report_canceldraw_()
 end
 
 function profile_i:get_stamp_size_()
-	local stampsdef = io.open("stamps/stamps.def", "rb")
-	if not stampsdef then
-		return
-	end
-	local name = stampsdef:read(10)
-	stampsdef:close()
-	if type(name) ~= "string" or #name ~= 10 then
+	local name = sim.listStamps()[1]
+	if not name then
 		return
 	end
 	local stamp = io.open("stamps/" .. name .. ".stm", "rb")

@@ -15,7 +15,7 @@ elseif sim.YRES ~= 384 then -- * Required by lots of code dealing with positions
 	loadtime_error = "XRES is not 384, try using the official version of the game"
 elseif sim.PMAPBITS >= 13 then -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
 	loadtime_error = "PMAPBITS is too large, try using the official version of the game"
-elseif not (tpt.version and tpt.version.upstreamBuild and tpt.version.upstreamBuild >= 354) then
+elseif not (tpt.version and tpt.version.upstreamBuild and tpt.version.upstreamBuild >= 356) then
 	loadtime_error = "game version not supported, try updating the game"
 elseif not rawget(_G, "bit") then
 	loadtime_error = "no bit API, try updating the game"
