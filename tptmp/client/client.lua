@@ -720,8 +720,9 @@ end
 function client_i:handshake_()
 	self.window_:set_subtitle("status", "Registering")
 	local name = util.get_name()
-	self:write_bytes_(tpt.version.major, tpt.version.minor, config.version)
+	self:write_bytes_(255, 255, config.version)
 	self:write_nullstr_((name or tpt.get_name() or ""):sub(1, 255))
+	self:write_24be_(tpt.version.upstreamBuild)
 	self:write_bytes_(0) -- * Flags, currently unused.
 	local qa_host, qa_port, qa_name, qa_token = self.get_qa_func_():match("^([^:]+):([^:]+):([^:]+):([^:]+)$")
 	self:write_str8_(qa_token and qa_name == name and qa_host == self.host_ and tonumber(qa_port) == self.port_ and qa_token or "")

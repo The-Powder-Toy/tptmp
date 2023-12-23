@@ -5,7 +5,7 @@ local REFNAME_VERSION = REFNAME and REFNAME:match("^refs/tags/(.*)$")
 local MAIN_MODULE = "tptmp.client"
 local ENV_DEFAULTS = {
 	-- * Defaults for amalgamation mode.
-	sim = { XRES = 0, YRES = 0, CELL = 4, PMAPBITS = 0, signs = {} },
+	sim = { XRES = 612, YRES = 384, CELL = 4, PMAPBITS = 0, signs = {} },
 	elem = {
 		DEFAULT_PT_FIGH     = 0,
 		DEFAULT_PT_LIGH     = 0,
@@ -19,7 +19,7 @@ local ENV_DEFAULTS = {
 		DEFAULT_UI_WIND     = 0,
 		TPTMP_PT_UNKNOWN    = 0,
 	},
-	tpt = { version = { upstreamMajor = 97, upstreamMinor = 0 } },
+	tpt = { version = { upstreamBuild = 354 } },
 	http = {},
 	socket = {},
 }
@@ -142,6 +142,9 @@ rawset(env__, "require", require)
 rawset(env__, "xpcall_wrap", xpcall_wrap)
 
 local main_module = require(MAIN_MODULE)
+if main_module.loadtime_error then
+	error(main_module.loadtime_error)
+end
 if OUTPUT then
 	local handle = assert(io.open(OUTPUT, "w"))
 	handle:write([[

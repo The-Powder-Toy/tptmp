@@ -8,23 +8,27 @@ end
 local http = rawget(_G, "http")
 local socket = rawget(_G, "socket")
 if sim.CELL ~= 4 then -- * Required by cursor snapping functions.
-	loadtime_error = "CELL size is not 4"
+	loadtime_error = "CELL is not 4, try using the official version of the game"
+elseif sim.XRES ~= 612 then -- * Required by lots of code dealing with positions.
+	loadtime_error = "XRES is not 612, try using the official version of the game"
+elseif sim.YRES ~= 384 then -- * Required by lots of code dealing with positions.
+	loadtime_error = "XRES is not 384, try using the official version of the game"
 elseif sim.PMAPBITS >= 13 then -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
-	loadtime_error = "PMAPBITS is too large"
-elseif not tpt.version or common_util.version_less(tptVersion, { 97, 0 }) then
-	loadtime_error = "version not supported"
+	loadtime_error = "PMAPBITS is too large, try using the official version of the game"
+elseif not (tpt.version and tpt.version.upstreamBuild and tpt.version.upstreamBuild >= 354) then
+	loadtime_error = "game version not supported, try updating the game"
 elseif not rawget(_G, "bit") then
-	loadtime_error = "no bit API"
+	loadtime_error = "no bit API, try updating the game"
 elseif not http then
-	loadtime_error = "no http API"
+	loadtime_error = "no http API, try updating the game"
 elseif not socket then
-	loadtime_error = "no socket API"
+	loadtime_error = "no socket API, try updating the game"
 elseif socket.bind then
-	loadtime_error = "outdated socket API"
+	loadtime_error = "outdated socket API, try updating the game"
 elseif tpt.version.jacob1s_mod and not tpt.tab_menu then
-	loadtime_error = "mod version not supported"
+	loadtime_error = "mod version not supported, try updating the game"
 elseif tpt.version.mobilemajor then
-	loadtime_error = "platform not supported"
+	loadtime_error = "platform not supported" -- no good advice, can't quite tell the user to buy a computer
 end
 
 local config      =                        require("tptmp.client.config")
@@ -544,5 +548,6 @@ local function run()
 end
 
 return {
-	run = run,
+	run            = run,
+	loadtime_error = loadtime_error,
 }

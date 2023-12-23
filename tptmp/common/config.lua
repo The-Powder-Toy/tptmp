@@ -6,7 +6,7 @@ return {
 	-- ***********************************************************************
 
 	-- * Protocol version, between 0 and 254. 255 is reserved for future use.
-	version = 31,
+	version = 32,
 
 	-- * Client-to-server message size limit, between 0 and 255, the latter
 	--   limit being imposted by the protocol.

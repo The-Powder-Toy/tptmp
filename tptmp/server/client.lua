@@ -56,9 +56,13 @@ function client_i:read_bytes_(count)
 	return self.rx_:get(count):byte(1, count)
 end
 
-function client_i:read_str24_()
+function client_i:read_24be_()
 	local length1, length2, length3 = self:read_bytes_(3)
-	return self:read_(length3 | (length2 << 8) | (length1 << 16))
+	return length3 | (length2 << 8) | (length1 << 16)
+end
+
+function client_i:read_str24_()
+	return self:read_(self:read_24be_())
 end
 
 function client_i:read_str8_()
@@ -408,6 +412,11 @@ function client_i:handshake_()
 		client_name = self.name_,
 		client_nick = self.initial_nick_,
 	})
+	if tpt_major == 255 and tpt_minor == 255 then
+		tpt_major = self:read_24be_()
+		tpt_minor = 0
+		self.log_inf_("build number is $", tpt_major)
+	end
 	local tpt_version = { tpt_major, tpt_minor }
 	local version_ok = self.server_:version()
 	if version ~= version_ok then
@@ -416,15 +425,15 @@ function client_i:handshake_()
 			got = version,
 		})
 	end
-	if util.version_less(tpt_version, config.tpt_version_min) then
-		self:proto_close_("TPT version older than first compatible; try updating TPT", ("TPT version older than first compatible (%i.%i < %i.%i)"):format(tpt_version[1], tpt_version[2], config.tpt_version_min[1], config.tpt_version_min[2]), {
+	if util.version_less(tpt_version, { config.tpt_version_min, 0 }) then
+		self:proto_close_("TPT version older than first compatible; try updating TPT", ("TPT version older than first compatible (%i.%i < %i.%i)"):format(tpt_version[1], tpt_version[2], config.tpt_version_min, 0), {
 			reason = "tpt_min_violation",
 			got_major = tpt_version[1],
 			got_minor = tpt_version[2],
 		})
 	end
-	if util.version_less(config.tpt_version_max, tpt_version) then
-		self:proto_close_("TPT version newer than last compatible; contact the server owner", ("TPT version newer than last compatible (%i.%i > %i.%i)"):format(tpt_version[1], tpt_version[2], config.tpt_version_max[1], config.tpt_version_max[2]), {
+	if util.version_less({ config.tpt_version_max, 0 }, tpt_version) then
+		self:proto_close_("TPT version newer than last compatible; contact the server owner", ("TPT version newer than last compatible (%i.%i > %i.%i)"):format(tpt_version[1], tpt_version[2], config.tpt_version_max, 0), {
 			reason = "tpt_max_violation",
 			got_major = tpt_version[1],
 			got_minor = tpt_version[2],
