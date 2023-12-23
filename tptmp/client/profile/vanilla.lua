@@ -1181,6 +1181,8 @@ function profile_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 		self.simstate_invalid_ = true
 	elseif scan == sdl.SDL_SCANCODE_B and not ctrl then
 		self.simstate_invalid_ = true
+	elseif scan == sdl.SDL_SCANCODE_E and ctrl then
+		self.simstate_invalid_ = true
 	elseif scan == sdl.SDL_SCANCODE_Y then
 		if ctrl then
 			if self.registered_func_() and not alt then
