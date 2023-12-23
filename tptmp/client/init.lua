@@ -338,10 +338,14 @@ local function run()
 							yhi = math.max(py, member.select_y)
 							action = member.select
 						else
-							xlo = math.min(sim.XRES - member.place_w, math.max(0, px - math.floor(member.place_w / 2)))
-							ylo = math.min(sim.YRES - member.place_h, math.max(0, py - math.floor(member.place_h / 2)))
+							xlo = px - math.floor(member.place_w / 2)
+							ylo = py - math.floor(member.place_h / 2)
 							xhi = xlo + member.place_w
 							yhi = ylo + member.place_h
+							xlo = math.min(sim.XRES, math.max(0, xlo))
+							ylo = math.min(sim.YRES, math.max(0, ylo))
+							xhi = math.min(sim.XRES, math.max(0, xhi))
+							yhi = math.min(sim.YRES, math.max(0, yhi))
 							action = member.place
 						end
 						gfx.drawRect(xlo, ylo, xhi - xlo + 1, yhi - ylo + 1, pcur_r, pcur_g, pcur_b, pcur_a)
