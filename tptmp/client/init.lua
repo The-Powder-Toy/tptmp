@@ -21,7 +21,7 @@ elseif not rawget(_G, "bit") then
 	loadtime_error = "no bit API, try updating the game"
 elseif not http then
 	loadtime_error = "no http API, try updating the game"
-elseif not socket then
+elseif not socket or not socket.tcp then
 	loadtime_error = "no socket API, try updating the game"
 elseif socket.bind then
 	loadtime_error = "outdated socket API, try updating the game"

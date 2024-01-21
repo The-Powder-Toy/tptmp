@@ -21,7 +21,7 @@ local ENV_DEFAULTS = {
 	},
 	tpt = { version = { upstreamBuild = 356 } },
 	http = {},
-	socket = {},
+	socket = { tcp = function() end },
 }
 
 if OUTPUT then
