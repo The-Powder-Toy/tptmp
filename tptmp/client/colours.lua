@@ -25,8 +25,7 @@ local function hsv_to_rgb(hue, saturation, value) -- * [0, 1), [0, 1), [0, 1)
 end
 
 local function escape(rgb)
-	-- * TODO[api]: Fix this TPT bug: most strings are still passed to/from Lua as zero-terminated, hence the math.max.
-	return utf8.encode_multiple(15, math.max(rgb[1], 1), math.max(rgb[2], 1), math.max(rgb[3], 1))
+	return utf8.encode_multiple(15, rgb[1], rgb[2], rgb[3])
 end
 
 local common = {}

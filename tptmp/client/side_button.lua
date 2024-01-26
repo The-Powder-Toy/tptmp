@@ -3,7 +3,6 @@ local util    = require("tptmp.client.util")
 local utf8    = require("tptmp.client.utf8")
 local config  = require("tptmp.client.config")
 local manager = require("tptmp.client.manager")
-local sdl     = require("tptmp.client.sdl")
 
 local side_button_i = {}
 local side_button_m = { __index = side_button_i }
@@ -66,7 +65,7 @@ function side_button_i:handle_tick()
 end
 
 function side_button_i:handle_mousedown(mx, my, button)
-	if button == sdl.SDL_BUTTON_LEFT then
+	if button == ui.SDL_BUTTON_LEFT then
 		if util.inside_rect(self.pos_x_, self.pos_y_, self.width_, self.height_, util.mouse_pos()) then
 			self.active_ = true
 		end
@@ -74,7 +73,7 @@ function side_button_i:handle_mousedown(mx, my, button)
 end
 
 function side_button_i:handle_mouseup(mx, my, button)
-	if button == sdl.SDL_BUTTON_LEFT then
+	if button == ui.SDL_BUTTON_LEFT then
 		if self.active_ then
 			if manager.minimize_conflict and not manager.hidden() then
 				manager.print("minimize the manager before opening TPTMP")
@@ -94,13 +93,13 @@ function side_button_i:handle_mousewheel(pos_x, pos_y, dir)
 end
 
 function side_button_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
-	if shift and not ctrl and not alt and scan == sdl.SDL_SCANCODE_ESCAPE then
+	if shift and not ctrl and not alt and scan == ui.SDL_SCANCODE_ESCAPE then
 		self.show_window_func_()
 		return true
-	elseif alt and not ctrl and not shift and scan == sdl.SDL_SCANCODE_S then
+	elseif alt and not ctrl and not shift and scan == ui.SDL_SCANCODE_S then
 		self.sync_func_()
 		return true
-	elseif not alt and not ctrl and not shift and scan == sdl.SDL_SCANCODE_T and self.window_status_func_() == "floating" then
+	elseif not alt and not ctrl and not shift and scan == ui.SDL_SCANCODE_T and self.window_status_func_() == "floating" then
 		self.begin_chat_func_()
 		return true
 	end
