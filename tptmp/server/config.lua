@@ -264,8 +264,8 @@ local config = {
 	-- * Minimum required TPT version.
 	tpt_version_min = 356,
 
-	-- * Maximum accepted TPT version.
-	tpt_version_max = 356,
+	-- * Maximum accepted TPT version. TODO[opt]: something better
+	tpt_version_max = math.huge,
 }
 local hhost, hport = config.host:match("^([^:]+):([0-9]+)$")
 if hhost then
