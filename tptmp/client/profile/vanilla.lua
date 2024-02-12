@@ -456,9 +456,7 @@ function profile_i:post_event_check_()
 	end
 	self:update_size_()
 	self:update_shape_()
-	if self.registered_func_() then
-		self:update_tools_()
-	end
+	self:update_tools_()
 	self:update_deco_()
 end
 
@@ -671,34 +669,45 @@ function profile_i:update_tools_()
 	local taid = tpt.selecteda
 	local txid = tpt.selectedreplace
 	if self.tool_lid_ ~= tlid then
-		self.tool_l_ = self.xidr_.from_tool[tlid] or self.xidr_.unknown_xid
+		if self.registered_func_() then
+			self.tool_l_ = self.xidr_.from_tool[tlid] or self.xidr_.unknown_xid
+		end
 		self.tool_lid_ = tlid
 		self:report_tool_(0)
 	end
 	if self.tool_rid_ ~= trid then
-		self.tool_r_ = self.xidr_.from_tool[trid] or self.xidr_.unknown_xid
+		if self.registered_func_() then
+			self.tool_r_ = self.xidr_.from_tool[trid] or self.xidr_.unknown_xid
+		end
 		self.tool_rid_ = trid
 		self:report_tool_(1)
 	end
 	if self.tool_aid_ ~= taid then
-		self.tool_a_ = self.xidr_.from_tool[taid] or self.xidr_.unknown_xid
+		if self.registered_func_() then
+			self.tool_a_ = self.xidr_.from_tool[taid] or self.xidr_.unknown_xid
+		end
 		self.tool_aid_ = taid
 		self:report_tool_(2)
 	end
 	if self.tool_xid_ ~= txid then
-		self.tool_x_ = self.xidr_.from_tool[txid] or self.xidr_.unknown_xid
+		if self.registered_func_() then
+			self.tool_x_ = self.xidr_.from_tool[txid] or self.xidr_.unknown_xid
+		end
 		self.tool_xid_ = txid
 		self:report_tool_(3)
 	end
-	local new_tool = self.xidr_.to_tool[self[index_to_lrax[self.last_toolslot_]]]
-	local new_tool_id = self[index_to_lraxid[self.last_toolslot_]]
-	if self.last_toolid_ ~= new_tool_id then
-		if not new_tool_id:find("^DEFAULT_PT_LIFECUST_") then
-			if toolwarn_tools[new_tool] then
-				self.display_toolwarn_[toolwarn_tools[new_tool]] = true
+	if self.registered_func_() then
+		local new_tool = self.xidr_.to_tool[self[index_to_lrax[self.last_toolslot_]]]
+		local new_tool_id = self[index_to_lraxid[self.last_toolslot_]]
+		if self.last_toolid_ ~= new_tool_id then
+			if not new_tool_id:find("^DEFAULT_PT_LIFECUST_") then
+				if toolwarn_tools[new_tool] then
+					self.display_toolwarn_[toolwarn_tools[new_tool]] = true
+					self.display_toolwarn_identifier_ = new_tool_id
+				end
 			end
+			self.last_toolid_ = new_tool_id
 		end
-		self.last_toolid_ = new_tool_id
 	end
 end
 
@@ -908,14 +917,12 @@ function profile_i:handle_mousedown(px, py, button)
 			else
 				return
 			end
-			if self.registered_func_() then
-				self:update_tools_()
-			end
+			self:update_tools_()
 			if next(self.display_toolwarn_) then
 				if self.registered_func_() then
 					for key in pairs(self.display_toolwarn_) do
 						if key == "unknown" then
-							local identifier = self[index_to_lraxid[self.last_toolslot_]]
+							local identifier = self.display_toolwarn_identifier_
 							local ids = self.xidr_unsupported_[identifier]
 							local display_as = identifier
 							if elem[identifier] then
@@ -1356,6 +1363,7 @@ end
 function profile_i:xidr_sync()
 	if self.registered_func_() then
 		self.display_toolwarn_ = {}
+		self.display_toolwarn_identifier_ = nil
 		self.xidr_ = self.client_.xidr
 		self.xidr_unsupported_ = self.client_.xidr_unsupported
 		self.tool_l_ = self.xidr_.unknown_xid
@@ -1407,6 +1415,7 @@ local function new(params)
 	prof:update_bmode_()
 	prof:update_shape_()
 	prof:update_zoom_()
+	prof:update_tools_()
 	prof:check_signs({})
 	return prof
 end

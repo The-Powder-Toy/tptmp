@@ -21,6 +21,14 @@ local ENV_DEFAULTS = {
 	},
 	tpt = { version = { upstreamBuild = 356 } },
 	http = {},
+	ui = setmetatable({}, { __index = function(tbl, key)
+		if key:find("^SDL_") then
+			return 0
+		end
+		if key:find("^SDLK_") then
+			return 0
+		end
+	end }),
 	socket = { tcp = function() end },
 }
 
