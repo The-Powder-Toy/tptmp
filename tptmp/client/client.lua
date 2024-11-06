@@ -106,6 +106,15 @@ function client_i:read_xy_12_()
 	return bit.rshift(d24, 12), bit.band(d24, 0xFFF)
 end
 
+function client_i:read_elemlist_()
+	local length = self:read_24be_()
+	local cstr = self:read_str24_()
+	return {
+		length = length,
+		cstr = cstr,
+	}
+end
+
 function client_i:handle_disconnect_reason_2_()
 	local reason = self:read_str8_()
 	self.should_not_reconnect_func_()
@@ -170,11 +179,14 @@ function client_i:handle_room_16_()
 		local id = self:read_bytes_(1)
 		local nick = self:read_str8_()
 		self:add_member_(id, nick)
+		local member = self.id_to_member[id]
+		self:parse_elemlist_(member)
 	end
+	self:rehash_supported_elements_()
 	self:reformat_nicks_()
 	self:push_names("Joined ")
 	self.window_:set_subtitle("room", self.room_name_)
-	self.localcmd_:reconnect_commit({
+	self.should_reconnect_func_({
 		room = self.room_name_,
 		host = self.host_,
 		port = self.port_,
@@ -184,8 +196,21 @@ function client_i:handle_room_16_()
 end
 
 function client_i:user_sync_()
-	self:send_elemlist(util.element_identifiers())
 	self.profile_:user_sync()
+end
+
+function client_i:parse_elemlist_(member)
+	local elemlist = self:read_elemlist_()
+	local str, _, err = bz2.decompress(elemlist.cstr, elemlist.length)
+	local identifiers = {}
+	if str then
+		for name in str:gmatch("[^ ]+") do
+			identifiers[name] = true
+		end
+	else
+		self.log_event_func_(colours.commonstr.error .. "Failed to parse supported element list from " .. member.formatted_nick .. colours.commonstr.error .. ": " .. err)
+	end
+	member.identifiers = identifiers
 end
 
 function client_i:handle_join_17_()
@@ -193,8 +218,10 @@ function client_i:handle_join_17_()
 	local nick = self:read_str8_()
 	self:add_member_(id, nick)
 	self:reformat_nicks_()
-	self.window_:backlog_push_join(self.id_to_member[id].formatted_nick)
+	local member = self.id_to_member[id]
+	self:parse_elemlist_(member)
 	self:rehash_supported_elements_()
+	self.window_:backlog_push_join(member.formatted_nick)
 	self:user_sync_()
 end
 
@@ -230,23 +257,6 @@ end
 function client_i:handle_server_22_()
 	local msg = self:read_str8_()
 	self.window_:backlog_push_server(msg)
-end
-
-function client_i:handle_elemlist_23_()
-	local member = self:member_prefix_()
-	local length = self:read_24be_()
-	local cstr = self:read_str24_()
-	local str, _, err = bz2.decompress(cstr, length)
-	local identifiers = {}
-	if str then
-		for name in str:gmatch("[^ ]+") do
-			identifiers[name] = true
-		end
-	else
-		self.log_event_func_(colours.commonstr.error .. "Failed to parse supported element list from " .. member.formatted_nick .. colours.commonstr.error .. ": " .. err)
-	end
-	member.identifiers = identifiers
-	self:rehash_supported_elements_()
 end
 
 function client_i:rehash_supported_elements_()
@@ -808,7 +818,19 @@ function client_i:handshake_()
 		conn_status = self:read_bytes_(1)
 	end
 	if conn_status == 1 then
-		self.should_reconnect_func_()
+		do
+			local arr = {}
+			for name in pairs(util.element_identifiers()) do
+				table.insert(arr, name)
+			end
+			local str = table.concat(arr, " ")
+			local cstr = bz2.compress(str)
+			self:write_elemlist_({
+				length = #str,
+				cstr = cstr,
+			})
+			self:write_flush_()
+		end
 		self.registered_ = true
 		self.nick_ = self:read_str8_()
 		self:reformat_nicks_()
@@ -845,19 +867,6 @@ end
 function client_i:send_say3rd(str)
 	self:write_("\20")
 	self:write_str8_(str)
-	self:write_flush_()
-end
-
-function client_i:send_elemlist(identifiers)
-	self:write_("\23")
-	local arr = {}
-	for name in pairs(identifiers) do
-		table.insert(arr, name)
-	end
-	local str = table.concat(arr, " ")
-	local cstr = bz2.compress(str)
-	self:write_24be_(#str)
-	self:write_str24_(cstr)
 	self:write_flush_()
 end
 
@@ -1432,6 +1441,11 @@ function client_i:write_xy_12_(x, y)
 	self:write_24be_(bit.bor(bit.lshift(x, 12), y))
 end
 
+function client_i:write_elemlist_(elemlist)
+	self:write_24be_(elemlist.length)
+	self:write_str24_(elemlist.cstr)
+end
+
 function client_i:nick()
 	return self.nick_
 end
@@ -1506,7 +1520,6 @@ local function new(params)
 		status_                    = "ready",
 		window_                    = params.window,
 		profile_                   = params.profile,
-		localcmd_                  = params.localcmd,
 		initial_room_              = params.initial_room,
 		set_id_func_               = params.set_id_func,
 		get_id_func_               = params.get_id_func,

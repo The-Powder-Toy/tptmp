@@ -170,7 +170,6 @@ local cmdp = command_parser.new({
 						port = port and tonumber(port:gsub("[^0-9]", ""):sub(1, 5)) or config.default_port,
 						secure = secure,
 						initial_room = words[2],
-						localcmd = localcmd,
 					})
 					new_cli:nick_colour_seed(localcmd.nick_colour_seed_)
 					new_cli:fps_sync(localcmd.fps_sync_)
@@ -188,6 +187,8 @@ local cmdp = command_parser.new({
 				local cli = localcmd.client_func_()
 				if cli then
 					localcmd.kill_client_func_()
+				elseif localcmd.cancel_reconnect_func_() then
+					localcmd.window_:backlog_push_error("Reconnection attempt cancelled")
 				else
 					localcmd.window_:backlog_push_error("Not connected, cannot disconnect")
 				end
@@ -355,6 +356,7 @@ local function new(params)
 		window_status_func_ = params.window_status_func,
 		window_set_floating_func_ = params.window_set_floating_func,
 		client_func_ = params.client_func,
+		cancel_reconnect_func_ = params.cancel_reconnect_func,
 		new_client_func_ = params.new_client_func,
 		kill_client_func_ = params.kill_client_func,
 		nick_colour_seed_ = manager.get("nickColourSeed", "0"),

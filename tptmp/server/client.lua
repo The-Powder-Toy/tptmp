@@ -86,6 +86,15 @@ function client_i:read_nullstr_(max)
 	return table.concat(collect)
 end
 
+function client_i:read_elemlist_()
+	local length = self:read_(3)
+	local cstr = self:read_str24_()
+	return {
+		length = length,
+		cstr = cstr,
+	}
+end
+
 function client_i:send_handshake_failure_(message)
 	self:write_("\0")
 	self:write_nullstr_(message)
@@ -126,6 +135,7 @@ function client_i:send_room(id, name, items)
 	for i = 1, #items do
 		self:write_bytes_(items[i].id)
 		self:write_str8_(items[i].nick)
+		self:write_elemlist_(items[i].elemlist)
 	end
 	self:write_flush_()
 end
@@ -134,10 +144,11 @@ function client_i:send_room_chunk(chunk)
 	self:write_flush_(chunk)
 end
 
-function client_i:send_join(id, nick)
+function client_i:send_join(id, nick, elemlist)
 	self:write_("\17")
 	self:write_bytes_(id)
 	self:write_str8_(nick)
+	self:write_elemlist_(elemlist)
 	self:write_flush_()
 end
 
@@ -267,13 +278,6 @@ local function header_24be(d24)
 	local mi = (d24 >>  8) & 0xFF
 	local lo =  d24        & 0xFF
 	return string.char(hi, mi, lo)
-end
-
-function client_i:handle_elemlist_23_()
-	local length = self:read_(3)
-	local cstr = self:read_str24_()
-	self.room_:broadcast(self, "\23" .. self.room_id_str_ .. length .. header_24be(#cstr))
-	self.room_:broadcast(self, cstr)
 end
 
 local sync_30_size = 3
@@ -512,6 +516,7 @@ function client_i:handshake_()
 	self.inick_ = self.nick_:lower()
 	self.server_:register_client(self)
 	self:send_handshake_success_()
+	self.elemlist_ = self:read_elemlist_()
 	self.handshake_done_ = true
 	util.cqueues_wrap(cqueues.running(), function()
 		self:ping_()
@@ -852,6 +857,11 @@ function client_i:write_24be_(d24)
 	self:write_bytes_(hi, mi, lo)
 end
 
+function client_i:write_elemlist_(elemlist)
+	self:write_(elemlist.length)
+	self:write_str24_(elemlist.cstr)
+end
+
 function client_i:start()
 	assert(self.status_ == "ready", "not ready")
 	self.status_ = "running"
@@ -876,6 +886,10 @@ end
 
 function client_i:nick()
 	return self.nick_
+end
+
+function client_i:elemlist()
+	return self.elemlist_
 end
 
 function client_i:register_time()

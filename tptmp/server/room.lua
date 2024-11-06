@@ -83,13 +83,14 @@ function room_i:join(client)
 			table.insert(others, {
 				id = other_id,
 				nick = other_client:nick(),
+				elemlist = other_client:elemlist(),
 			})
 		end
 	end
 	client:send_room(id, self.name_, others)
 	for other_client in self:clients() do
 		if other_client ~= client then
-			other_client:send_join(id, client:nick())
+			other_client:send_join(id, client:nick(), client:elemlist())
 		end
 	end
 	self:cleanup_dead_ids_()

@@ -164,11 +164,18 @@ local function run()
 			return prof:should_ignore_mouse()
 		end,
 	})
-	local cmd = localcmd.new({
+	local cmd
+	cmd = localcmd.new({
 		window_status_func = get_window_status,
 		window_set_floating_func = set_floating,
 		client_func = function()
 			return cli and cli:registered() and cli
+		end,
+		cancel_reconnect_func = function(params)
+			if should_reconnect_at then
+				should_reconnect_at = nil
+				return true
+			end
 		end,
 		new_client_func = function(params)
 			should_reconnect_at = nil
@@ -180,8 +187,9 @@ local function run()
 			params.get_qa_func       = get_qa
 			params.log_event_func    = log_event
 			params.handle_error_func = handle_error
-			params.should_reconnect_func = function()
+			params.should_reconnect_func = function(reconnect_info)
 				should_reconnect = true
+				cmd:reconnect_commit(reconnect_info)
 			end
 			params.should_not_reconnect_func = function()
 				should_reconnect = false
