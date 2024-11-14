@@ -295,6 +295,9 @@ function window_i:backlog_update_()
 end
 
 function window_i:backlog_push_(collect, important)
+	if self.silent_ then
+		important = false
+	end
 	self.backlog_unique_ = self.backlog_unique_ + 1
 	local msg = {
 		unique = self.backlog_unique_,
@@ -321,6 +324,10 @@ function window_i:backlog_push_str(str, important)
 		end
 		self:backlog_push_(collect, important)
 	end
+end
+
+function window_i:backlog_mark_seen()
+	self.backlog_last_seen_ = self.backlog_last_wrapped_
 end
 
 function window_i:backlog_bump_marker()
@@ -395,7 +402,7 @@ function window_i:handle_tick()
 	local now = socket.gettime()
 
 	if self.backlog_auto_scroll_ and not floating then
-		self.backlog_last_seen_ = self.backlog_last_wrapped_
+		self:backlog_mark_seen()
 	else
 		if self.backlog_last_seen_ < self.backlog_unique_ and not self.backlog_enable_marker_ then
 			self:backlog_bump_marker()
@@ -580,10 +587,15 @@ function window_i:handle_mousedown(px, py, button)
 	end
 end
 
+function window_i:hide_window()
+	self:backlog_mark_seen()
+	self.hide_window_func_()
+end
+
 function window_i:handle_mouseup(px, py, button)
 	if button == ui.SDL_BUTTON_LEFT then
 		if self.close_active_ then
-			self.hide_window_func_()
+			self:hide_window()
 		end
 		self.resizer_active_ = false
 		self.dragger_active_ = false
@@ -652,7 +664,7 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 					self:input_reset_()
 				end
 				if shift or force_hide then
-					self.hide_window_func_()
+					self:hide_window()
 				end
 			else
 				self.in_focus = true
@@ -783,7 +795,7 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 					if self.hide_when_chat_done then
 						self.hide_when_chat_done = false
 						self.in_focus = false
-						self.hide_window_func_()
+						self:hide_window()
 					end
 				end
 			else
@@ -870,7 +882,7 @@ function window_i:handle_keypress(key, scan, rep, shift, ctrl, alt)
 		return not modkey_scan[scan]
 	else
 		if not ctrl and not alt and scan == ui.SDL_SCANCODE_ESCAPE then
-			self.hide_window_func_()
+			self:hide_window()
 			return true
 		end
 	end
@@ -923,6 +935,10 @@ local function set_size_clamp(new_width, new_height, new_pos_x, new_pos_y)
 	local pos_x = math.min(math.max(1, new_pos_x), sim.XRES - width)
 	local pos_y = math.min(math.max(1, new_pos_y), sim.YRES - height)
 	return width, height, pos_x, pos_y
+end
+
+function window_i:set_silent(silent)
+	self.silent_ = silent
 end
 
 function window_i:set_size(new_width, new_height)
@@ -1127,6 +1143,7 @@ local function new(params)
 	local title_width = gfx.textSize(title)
 	local win = setmetatable({
 		in_focus = false,
+		silent_ = false,
 		pos_x_ = pos_x,
 		pos_y_ = pos_y,
 		width_ = width,

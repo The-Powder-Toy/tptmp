@@ -924,26 +924,28 @@ function profile_i:handle_mousedown(px, py, button)
 						if key == "unknown" then
 							local identifier = self.display_toolwarn_identifier_
 							local ids = self.xidr_unsupported_[identifier]
-							local display_as = identifier
-							if elem[identifier] then
-								display_as = elem.property(elem[identifier], "Name")
-							end
-							self.log_event_func_(("The following users in the room cannot use %s, please avoid using it while connected"):format(display_as))
-							local str = ""
-							local function commit()
-								self.log_event_func_(" - " .. str)
-								str = ""
-							end
-							for i = 1, #ids do
-								str = str .. self.client_.id_to_member[ids[i]].formatted_nick
-								if i < #ids then
-									str = str .. "\bw, "
+							if ids then -- TODO: remove; this should always be a table but there's some sequencing problem that I can't figure out
+								local display_as = identifier
+								if elem[identifier] then
+									display_as = elem.property(elem[identifier], "Name")
 								end
-								if gfx.textSize(str) > gfx.WIDTH / 2 then
-									commit()
+								self.log_event_func_(("The following users in the room cannot use %s, please avoid using it while connected"):format(display_as))
+								local str = ""
+								local function commit()
+									self.log_event_func_(" - " .. str)
+									str = ""
 								end
+								for i = 1, #ids do
+									str = str .. self.client_.id_to_member[ids[i]].formatted_nick
+									if i < #ids then
+										str = str .. "\bw, "
+									end
+									if gfx.textSize(str) > gfx.WIDTH / 2 then
+										commit()
+									end
+								end
+								commit()
 							end
-							commit()
 						else
 							self.log_event_func_(toolwarn_messages[key])
 						end

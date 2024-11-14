@@ -217,7 +217,9 @@ local function run()
 		begin_chat_func = begin_chat,
 		window_status_func = get_window_status,
 		sync_func = function()
+			win:set_silent(true)
 			cmd:parse("/sync")
+			win:set_silent(false)
 		end,
 	})
 
