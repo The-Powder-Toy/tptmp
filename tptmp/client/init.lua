@@ -302,7 +302,7 @@ local function run()
 					end
 					tool_name = tool_name:match("[^_]+$") or tool_name
 					if add_argb then
-						tool_name = ("%s %02X%02X%02X%02X"):format(tool_name, member.deco_a, member.deco_r, member.deco_g, member.deco_b)
+						tool_name = ("%s %02X%02X%02X%02X"):format(tool_name, util.deco_unpack(member.deco))
 					end
 					local repl_tool_name
 					if member.bmode ~= 0 then

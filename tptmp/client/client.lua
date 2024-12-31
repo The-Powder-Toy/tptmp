@@ -134,7 +134,7 @@ end
 
 function member_i:update_can_render()
 	if not self.can_render_ then
-		if self.deco_a ~= nil and
+		if self.deco ~= nil and
 		   self.kmod_c ~= nil and
 		   self.shape  ~= nil and
 		   self.size_x ~= nil and
@@ -280,6 +280,20 @@ function client_i:rehash_supported_elements_()
 	self.xidr = util.xid_registry(supported)
 	self.xidr_unsupported = unsupported
 	self.profile_:xidr_sync()
+end
+
+function client_i:handle_loadlocal_29_()
+	local member = self:member_prefix_()
+	local flags, _ = self:read_xy_12_()
+	local data = self:read_str24_()
+	local ok, err = util.stamp_load(0, 0, data, true)
+	if ok then
+		if bit.band(flags, 1) == 0 then
+			self.log_event_func_(colours.commonstr.event .. "Local save from " .. member.formatted_nick)
+		end
+	else
+		self.log_event_func_(colours.commonstr.error .. "Failed to load local save from " .. member.formatted_nick .. colours.commonstr.error .. ": " .. err)
+	end
 end
 
 function client_i:handle_sync_30_()
@@ -618,7 +632,7 @@ end
 
 function client_i:handle_brushdeco_65_()
 	local member = self:member_prefix_()
-	member.deco_a, member.deco_r, member.deco_g, member.deco_b = self:read_bytes_(4)
+	member.deco = util.deco_pack(self:read_bytes_(4))
 	member:update_can_render()
 end
 
@@ -820,7 +834,7 @@ function client_i:handshake_()
 	if conn_status == 1 then
 		do
 			local arr = {}
-			for name in pairs(util.element_identifiers()) do
+			for name in pairs(util.tool_identifiers()) do
 				table.insert(arr, name)
 			end
 			local str = table.concat(arr, " ")
@@ -1011,12 +1025,7 @@ end
 
 function client_i:send_brushdeco(deco)
 	self:write_("\65")
-	self:write_bytes_(
-		bit.band(bit.rshift(deco, 24), 0xFF),
-		bit.band(bit.rshift(deco, 16), 0xFF),
-		bit.band(bit.rshift(deco,  8), 0xFF),
-		bit.band(           deco     , 0xFF)
-	)
+	self:write_bytes_(util.deco_unpack(deco))
 	self:write_flush_()
 end
 
@@ -1062,6 +1071,13 @@ function client_i:send_sync()
 	local ok, err = self:send_pastestamp_data_("\30", 0, 0, sim.XRES, sim.YRES)
 	if not ok then
 		self.log_event_func_(colours.commonstr.error .. "Failed to send screen: " .. err)
+	end
+end
+
+function client_i:send_loadlocal(reloading)
+	local ok, err = self:send_pastestamp_data_("\29", reloading and 1 or 0, 0, sim.XRES, sim.YRES)
+	if not ok then
+		self.log_event_func_(colours.commonstr.error .. "Failed to local save: " .. err)
 	end
 end
 
@@ -1531,7 +1547,7 @@ local function new(params)
 		should_not_reconnect_func_ = params.should_not_reconnect_func,
 		id_to_member               = {},
 		nick_colour_seed_          = 0,
-		identifiers_               = util.element_identifiers(),
+		identifiers_               = util.tool_identifiers(),
 		fps_sync_                  = false,
 	}, client_m)
 	cli:rehash_supported_elements_()

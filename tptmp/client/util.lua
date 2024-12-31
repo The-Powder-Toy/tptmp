@@ -1,19 +1,9 @@
 local config      = require("tptmp.client.config")
 local common_util = require("tptmp.common.util")
 
-local jacobsmod = rawget(_G, "jacobsmod")
 local PMAPBITS = sim.PMAPBITS
 
 local tpt_version = { tpt.version.major, tpt.version.minor }
-local has_ambient_heat_tools
-do
-	local old_selectedl = tpt.selectedl
-	if old_selectedl == "DEFAULT_UI_PROPERTY" or old_selectedl == "DEFAULT_UI_ADDLIFE" then
-		old_selectedl = "DEFAULT_PT_DUST"
-	end
-	has_ambient_heat_tools = pcall(function() tpt.selectedl = "DEFAULT_TOOL_AMBM" end)
-	tpt.selectedl = old_selectedl
-end
 
 local function array_concat(...)
 	local tbl = {}
@@ -25,78 +15,6 @@ local function array_concat(...)
 	end
 	return tbl
 end
-
-local tools = array_concat({
-	"DEFAULT_PT_LIFE_GOL",
-	"DEFAULT_PT_LIFE_HLIF",
-	"DEFAULT_PT_LIFE_ASIM",
-	"DEFAULT_PT_LIFE_2X2",
-	"DEFAULT_PT_LIFE_DANI",
-	"DEFAULT_PT_LIFE_AMOE",
-	"DEFAULT_PT_LIFE_MOVE",
-	"DEFAULT_PT_LIFE_PGOL",
-	"DEFAULT_PT_LIFE_DMOE",
-	"DEFAULT_PT_LIFE_3-4",
-	"DEFAULT_PT_LIFE_LLIF",
-	"DEFAULT_PT_LIFE_STAN",
-	"DEFAULT_PT_LIFE_SEED",
-	"DEFAULT_PT_LIFE_MAZE",
-	"DEFAULT_PT_LIFE_COAG",
-	"DEFAULT_PT_LIFE_WALL",
-	"DEFAULT_PT_LIFE_GNAR",
-	"DEFAULT_PT_LIFE_REPL",
-	"DEFAULT_PT_LIFE_MYST",
-	"DEFAULT_PT_LIFE_LOTE",
-	"DEFAULT_PT_LIFE_FRG2",
-	"DEFAULT_PT_LIFE_STAR",
-	"DEFAULT_PT_LIFE_FROG",
-	"DEFAULT_PT_LIFE_BRAN",
-}, {
-	"DEFAULT_WL_ERASE",
-	"DEFAULT_WL_CNDTW",
-	"DEFAULT_WL_EWALL",
-	"DEFAULT_WL_DTECT",
-	"DEFAULT_WL_STRM",
-	"DEFAULT_WL_FAN",
-	"DEFAULT_WL_LIQD",
-	"DEFAULT_WL_ABSRB",
-	"DEFAULT_WL_WALL",
-	"DEFAULT_WL_AIR",
-	"DEFAULT_WL_POWDR",
-	"DEFAULT_WL_CNDTR",
-	"DEFAULT_WL_EHOLE",
-	"DEFAULT_WL_GAS",
-	"DEFAULT_WL_GRVTY",
-	"DEFAULT_WL_ENRGY",
-	"DEFAULT_WL_NOAIR",
-	"DEFAULT_WL_ERASEA",
-	"DEFAULT_WL_STASIS",
-}, {
-	"DEFAULT_UI_SAMPLE",
-	"DEFAULT_UI_SIGN",
-	"DEFAULT_UI_PROPERTY",
-	"DEFAULT_UI_WIND",
-	"DEFAULT_UI_ADDLIFE",
-}, {
-	"DEFAULT_TOOL_HEAT",
-	"DEFAULT_TOOL_COOL",
-	"DEFAULT_TOOL_AIR",
-	"DEFAULT_TOOL_VAC",
-	"DEFAULT_TOOL_PGRV",
-	"DEFAULT_TOOL_NGRV",
-	"DEFAULT_TOOL_MIX",
-	"DEFAULT_TOOL_CYCL",
-	has_ambient_heat_tools and "DEFAULT_TOOL_AMBM" or nil,
-	has_ambient_heat_tools and "DEFAULT_TOOL_AMBP" or nil,
-}, {
-	"DEFAULT_DECOR_SET",
-	"DEFAULT_DECOR_CLR",
-	"DEFAULT_DECOR_ADD",
-	"DEFAULT_DECOR_SUB",
-	"DEFAULT_DECOR_MUL",
-	"DEFAULT_DECOR_DIV",
-	"DEFAULT_DECOR_SMDG",
-})
 
 local function xid_registry(supported)
 	table.sort(supported, function(lhs, rhs)
@@ -111,29 +29,24 @@ local function xid_registry(supported)
 		end
 		return false
 	end)
-	local xid_first = {}
 	local xid_class = {}
 	local from_tool = {}
 	local to_tool = {}
-	for i = 1, #tools do
-		local xtype = 0x2000 + i
-		local tool = tools[i]
-		from_tool[tool] = xtype
-		to_tool[xtype] = tool
+	local to_tool_index = {}
+	for xtype, tool in ipairs(supported) do
+		assert(not to_tool[xtype])
+		assert(not from_tool[tool])
 		local class = tool:match("^[^_]+_(.-)_[^_]+$")
 		xid_class[xtype] = class
-		xid_first[class] = math.min(xid_first[class] or math.huge, xtype)
-	end
-	for key, value in pairs(supported) do
-		assert(not to_tool[key])
-		assert(not from_tool[value])
-		to_tool[key] = value
-		from_tool[value] = key
+		to_tool[xtype] = tool
+		to_tool_index[xtype] = tools.index[tool]
+		from_tool[tool] = xtype
 	end
 	local unknown_xid = 0x3FFF
 	assert(not to_tool[unknown_xid])
 	from_tool["UNKNOWN"] = unknown_xid
 	to_tool[unknown_xid] = "UNKNOWN"
+	to_tool_index[unknown_xid] = 0
 	local function assign_if_supported(tbl)
 		local res = {}
 		for key, value in pairs(tbl) do
@@ -144,28 +57,28 @@ local function xid_registry(supported)
 		return res
 	end
 	local create_override = assign_if_supported({
-		[ "DEFAULT_PT_STKM" ] = function(rx, ry, c)
-			return 0, 0, c
-		end,
 		[ "DEFAULT_PT_LIGH" ] = function(rx, ry, c)
 			local tmp = rx + ry
 			if tmp > 55 then
 				tmp = 55
 			end
-			return 0, 0, c + bit.lshift(tmp, PMAPBITS)
+			return 0, 0, elem.DEFAULT_PT_LIGH + bit.lshift(tmp, PMAPBITS)
 		end,
 		[ "DEFAULT_PT_TESC" ] = function(rx, ry, c)
 			local tmp = rx * 4 + ry * 4 + 7
 			if tmp > 300 then
 				tmp = 300
 			end
-			return rx, ry, c + bit.lshift(tmp, PMAPBITS)
+			return rx, ry, elem.DEFAULT_PT_TESC + bit.lshift(tmp, PMAPBITS)
+		end,
+		[ "DEFAULT_PT_STKM" ] = function(rx, ry, c)
+			return 0, 0, elem.DEFAULT_PT_STKM
 		end,
 		[ "DEFAULT_PT_STKM2" ] = function(rx, ry, c)
-			return 0, 0, c
+			return 0, 0, elem.DEFAULT_PT_STKM2
 		end,
 		[ "DEFAULT_PT_FIGH" ] = function(rx, ry, c)
-			return 0, 0, c
+			return 0, 0, elem.DEFAULT_PT_FIGH
 		end,
 	})
 	local no_flood = assign_if_supported({
@@ -191,16 +104,16 @@ local function xid_registry(supported)
 		[ "DEFAULT_UI_WIND" ] = true,
 	})
 	return {
-		xid_first = xid_first,
-		xid_class = xid_class,
-		from_tool = from_tool,
-		to_tool = to_tool,
+		xid_class       = xid_class,
+		from_tool       = from_tool,
+		to_tool         = to_tool,
+		to_tool_index   = to_tool_index,
 		create_override = create_override,
-		no_flood = no_flood,
-		no_shape = no_shape,
-		no_create = no_create,
-		line_only = line_only,
-		unknown_xid = unknown_xid,
+		no_flood        = no_flood,
+		no_shape        = no_shape,
+		no_create       = no_create,
+		line_only       = line_only,
+		unknown_xid     = unknown_xid,
 	}
 end
 
@@ -338,47 +251,46 @@ local function create_parts_any(xidr, x, y, rx, ry, xtype, brush, member)
 	if xidr.line_only[xtype] or xidr.no_create[xtype] then
 		return
 	end
-	local translate = true
 	local class = xidr.xid_class[xtype]
-	if class == "WL" then
-		if xtype == xidr.from_tool.DEFAULT_WL_STRM then
-			rx, ry = 0, 0
-		end
-		sim.createWalls(x, y, rx, ry, xtype - xidr.xid_first.WL, brush)
-		return
-	elseif class == "TOOL" then
-		local str = 1
-		if member.kmod_s then
-			str = 10
-		elseif member.kmod_c then
-			str = 0.1
-		end
-		sim.toolBrush(x, y, rx, ry, xtype - xidr.xid_first.TOOL, brush, str)
-		return
-	elseif class == "DECOR" then
-		sim.decoBrush(x, y, rx, ry, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xidr.xid_first.DECOR, brush)
-		return
-	elseif class == "PT_LIFE" then
-		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xidr.xid_first.PT_LIFE, PMAPBITS))
-		translate = false
-	elseif type(xtype) == "table" and xtype.type == "cgol" then
+	local old_create = false
+	if type(xtype) == "table" and xtype.type == "cgol" then
 		-- * TODO[api]: add an api for setting gol colour
 		xtype = xtype.elem
-		translate = false
+		old_create = true
+	else
+		local ov = xidr.create_override[xtype]
+		if ov then
+			rx, ry, xtype = ov(rx, ry, xtype)
+			old_create = true
+		end
 	end
-	local ov = xidr.create_override[xtype]
-	if ov then
-		rx, ry, xtype = ov(rx, ry, xtype)
+	local str = 1
+	if member.kmod_s then
+		str = 10
+	elseif member.kmod_c then
+		str = 0.1
 	end
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
 		tpt.selectedreplace = xidr.to_tool[member.tool_x] or "DEFAULT_PT_NONE"
 	end
-	if translate then
-		xtype = elem[xidr.to_tool[xtype]]
+	local bmode = sim.replaceModeFlags()
+	sim.replaceModeFlags(member.bmode)
+	if old_create then
+		sim.createParts(x, y, rx, ry, xtype, brush, member.bmode)
+	else
+		local deco
+		if class == "DECOR" then
+			deco = sim.decoColour()
+			sim.decoColour(member.deco)
+		end
+		sim.toolBrush(x, y, rx, ry, xidr.to_tool_index[xtype], brush, str)
+		if class == "DECOR" then
+			sim.decoColour(deco)
+		end
 	end
-	sim.createParts(x, y, rx, ry, xtype, brush, member.bmode)
+	sim.replaceModeFlags(bmode)
 	if member.bmode ~= 0 then
 		tpt.selectedreplace = selectedreplace
 	end
@@ -393,103 +305,51 @@ local function create_line_any(xidr, x1, y1, x2, y2, rx, ry, xtype, brush, membe
 	if xidr.no_create[xtype] or xidr.no_shape[xtype] then
 		return
 	end
-	local translate = true
 	local class = xidr.xid_class[xtype]
-	if class == "WL" then
-		local str = 1
-		if cont then
-			if member.kmod_s then
-				str = 10
-			elseif member.kmod_c then
-				str = 0.1
-			end
-			str = str * 5
-		end
-		local wl_fan = xidr.from_tool.DEFAULT_WL_FAN - xidr.xid_first.WL
-		if not cont and xtype == xidr.from_tool.DEFAULT_WL_FAN and tpt.get_wallmap(math.floor(x1 / 4), math.floor(y1 / 4)) == wl_fan then
-			local fvx = (x2 - x1) * 0.005
-			local fvy = (y2 - y1) * 0.005
-			local bw = sim.XRES / 4
-			local bh = sim.YRES / 4
-			local visit = {}
-			local mark = {}
-			local last = 0
-			local function enqueue(x, y)
-				if x >= 0 and y >= 0 and x < bw and y < bh and tpt.get_wallmap(x, y) == wl_fan then
-					local k = x + y * bw
-					if not mark[k] then
-						last = last + 1
-						visit[last] = k
-						mark[k] = true
-					end
-				end
-			end
-			enqueue(math.floor(x1 / 4), math.floor(y1 / 4))
-			local curr = 1
-			while visit[curr] do
-				local k = visit[curr]
-				local x, y = k % bw, math.floor(k / bw)
-				tpt.set_wallmap(x, y, 1, 1, fvx, fvy, wl_fan)
-				enqueue(x - 1, y)
-				enqueue(x, y - 1)
-				enqueue(x + 1, y)
-				enqueue(x, y + 1)
-				curr = curr + 1
-			end
-			return
-		end
-		if xtype == xidr.from_tool.DEFAULT_WL_STRM then
-			rx, ry = 0, 0
-		end
-		sim.createWallLine(x1, y1, x2, y2, rx, ry, xtype - xidr.xid_first.WL, brush)
-		return
-	elseif xtype == xidr.from_tool.DEFAULT_UI_WIND then
-		local str = 1
-		if cont then
-			if member.kmod_s then
-				str = 10
-			elseif member.kmod_c then
-				str = 0.1
-			end
-			str = str * 5
-		end
-		sim.toolLine(x1, y1, x2, y2, rx, ry, sim.TOOL_WIND, brush, str)
-		return
-	elseif class == "TOOL" then
-		local str = 1
-		if cont then
-			if member.kmod_s then
-				str = 10
-			elseif member.kmod_c then
-				str = 0.1
-			end
-		end
-		sim.toolLine(x1, y1, x2, y2, rx, ry, xtype - xidr.xid_first.TOOL, brush, str)
-		return
-	elseif class == "DECOR" then
-		sim.decoLine(x1, y1, x2, y2, rx, ry, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xidr.xid_first.DECOR, brush)
-		return
-	elseif class == "PT_LIFE" then
-		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xidr.xid_first.PT_LIFE, PMAPBITS))
-		translate = false
-	elseif type(xtype) == "table" and xtype.type == "cgol" then
+	local old_create = false
+	if type(xtype) == "table" and xtype.type == "cgol" then
 		-- * TODO[api]: add an api for setting gol colour
 		xtype = xtype.elem
-		translate = false
+		old_create = true
+	else
+		local ov = xidr.create_override[xtype]
+		if ov then
+			rx, ry, xtype = ov(rx, ry, xtype)
+			old_create = true
+		end
 	end
-	local ov = xidr.create_override[xtype]
-	if ov then
-		rx, ry, xtype = ov(rx, ry, xtype)
+	local str = 1
+	if cont then
+		if member.kmod_s then
+			str = 10
+		elseif member.kmod_c then
+			str = 0.1
+		end
+		if xidr.to_tool[xtype] == "DEFAULT_TOOL_WIND" then
+			str = str * 5
+		end
 	end
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
 		tpt.selectedreplace = xidr.to_tool[member.tool_x] or "DEFAULT_PT_NONE"
 	end
-	if translate then
-		xtype = elem[xidr.to_tool[xtype]]
+	local bmode = sim.replaceModeFlags()
+	sim.replaceModeFlags(member.bmode)
+	if old_create then
+		sim.createLine(x1, y1, x2, y2, rx, ry, xtype, brush, member.bmode)
+	else
+		local deco
+		if class == "DECOR" then
+			deco = sim.decoColour()
+			sim.decoColour(member.deco)
+		end
+		sim.toolLine(x1, y1, x2, y2, rx, ry, xidr.to_tool_index[xtype], brush, str)
+		if class == "DECOR" then
+			sim.decoColour(deco)
+		end
 	end
-	sim.createLine(x1, y1, x2, y2, rx, ry, xtype, brush, member.bmode)
+	sim.replaceModeFlags(bmode)
 	if member.bmode ~= 0 then
 		tpt.selectedreplace = selectedreplace
 	end
@@ -503,39 +363,41 @@ local function create_box_any(xidr, x1, y1, x2, y2, xtype, member)
 	if xidr.line_only[xtype] or xidr.no_create[xtype] or xidr.no_shape[xtype] then
 		return
 	end
-	local translate = true
 	local class = xidr.xid_class[xtype]
-	if class == "WL" then
-		sim.createWallBox(x1, y1, x2, y2, xtype - xidr.xid_first.WL)
-		return
-	elseif class == "TOOL" then
-		sim.toolBox(x1, y1, x2, y2, xtype - xidr.xid_first.TOOL)
-		return
-	elseif class == "DECOR" then
-		sim.decoBox(x1, y1, x2, y2, member.deco_r, member.deco_g, member.deco_b, member.deco_a, xtype - xidr.xid_first.DECOR)
-		return
-	elseif class == "PT_LIFE" then
-		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xidr.xid_first.PT_LIFE, PMAPBITS))
-		translate = false
-	elseif type(xtype) == "table" and xtype.type == "cgol" then
+	local old_create = false
+	if type(xtype) == "table" and xtype.type == "cgol" then
 		-- * TODO[api]: add an api for setting gol colour
 		xtype = xtype.elem
-		translate = false
+		old_create = true
+	else
+		local ov = xidr.create_override[xtype]
+		if ov then
+			rx, ry, xtype = ov(rx, ry, xtype)
+			old_create = true
+		end
 	end
-	local _
-	local ov = xidr.create_override[xtype]
-	if ov then
-		_, _, xtype = ov(member.size_x, member.size_y, xtype)
-	end
+	local str = 1
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
 		tpt.selectedreplace = xidr.to_tool[member.tool_x] or "DEFAULT_PT_NONE"
 	end
-	if translate then
-		xtype = elem[xidr.to_tool[xtype]]
+	local bmode = sim.replaceModeFlags()
+	sim.replaceModeFlags(member.bmode)
+	if old_create then
+		sim.createBox(x1, y1, x2, y2, xtype, member.bmode)
+	else
+		local deco
+		if class == "DECOR" then
+			deco = sim.decoColour()
+			sim.decoColour(member.deco)
+		end
+		sim.toolBox(x1, y1, x2, y2, xidr.to_tool_index[xtype], str)
+		if class == "DECOR" then
+			sim.decoColour(deco)
+		end
 	end
-	sim.createBox(x1, y1, x2, y2, xtype, member and member.bmode)
+	sim.replaceModeFlags(bmode)
 	if member.bmode ~= 0 then
 		tpt.selectedreplace = selectedreplace
 	end
@@ -548,35 +410,37 @@ local function flood_any(xidr, x, y, xtype, part_flood_hint, wall_flood_hint, me
 	if xidr.line_only[xtype] or xidr.no_create[xtype] or xidr.no_flood[xtype] then
 		return
 	end
-	local translate = true
 	local class = xidr.xid_class[xtype]
-	if class == "WL" then
-		sim.floodWalls(x, y, xtype - xidr.xid_first.WL, wall_flood_hint)
+	if class == "DECOR" or class == "TOOL" then
 		return
-	elseif class == "DECOR" or class == "TOOL" then
-		return
-	elseif class == "PT_LIFE" then
-		xtype = bit.bor(elem.DEFAULT_PT_LIFE, bit.lshift(xtype - xidr.xid_first.PT_LIFE, PMAPBITS))
-		translate = false
-	elseif type(xtype) == "table" and xtype.type == "cgol" then
+	end
+	local old_create = false
+	if type(xtype) == "table" and xtype.type == "cgol" then
 		-- * TODO[api]: add an api for setting gol colour
 		xtype = xtype.elem
-		translate = false
-	end
-	local _
-	local ov = xidr.create_override[xtype]
-	if ov then
-		_, _, xtype = ov(member.size_x, member.size_y, xtype)
+		old_create = true
+	else
+		local ov = xidr.create_override[xtype]
+		if ov then
+			rx, ry, xtype = ov(rx, ry, xtype)
+			old_create = true
+		end
 	end
 	local selectedreplace
 	if member.bmode ~= 0 then
 		selectedreplace = tpt.selectedreplace
 		tpt.selectedreplace = xidr.to_tool[member.tool_x] or "DEFAULT_PT_NONE"
 	end
-	if translate then
-		xtype = elem[xidr.to_tool[xtype]]
+	local bmode = sim.replaceModeFlags()
+	sim.replaceModeFlags(member.bmode)
+	if old_create then
+		sim.floodParts(x, y, xtype, part_flood_hint, member.bmode)
+	elseif class == "WL" then
+		sim.floodWalls(x, y, sim.walls[xidr.to_tool[xtype]], wall_flood_hint)
+	else
+		sim.floodParts(x, y, elem[xidr.to_tool[xtype]], part_flood_hint, member.bmode)
 	end
-	sim.floodParts(x, y, xtype, part_flood_hint, member.bmode)
+	sim.replaceModeFlags(bmode)
 	if member.bmode ~= 0 then
 		tpt.selectedreplace = selectedreplace
 	end
@@ -657,12 +521,10 @@ local function get_name()
 	return name ~= "" and name or nil
 end
 
-local function element_identifiers()
+local function tool_identifiers()
 	local identifiers = {}
-	for name in pairs(elem) do
-		if name:find("^[^_]*_PT_[^_]*$") then
-			identifiers[name] = true
-		end
+	for name in pairs(tools.index) do
+		identifiers[name] = true
 	end
 	return identifiers
 end
@@ -682,6 +544,20 @@ local function tool_proper_name(tool, xidr)
 		end
 	end
 	return tool_name
+end
+
+local function deco_unpack(deco)
+	return bit.band(bit.rshift(deco, 24), 0xFF),
+	       bit.band(bit.rshift(deco, 16), 0xFF),
+	       bit.band(bit.rshift(deco,  8), 0xFF),
+	       bit.band(           deco     , 0xFF)
+end
+
+local function deco_pack(a, r, g, b)
+	return bit.bor(bit.lshift(a, 24),
+	               bit.lshift(r, 16),
+	               bit.lshift(g,  8),
+	                          b     )
 end
 
 return {
@@ -713,6 +589,8 @@ return {
 	tpt_version            = tpt_version,
 	urlencode              = urlencode,
 	heat_clear             = heat_clear,
-	element_identifiers    = element_identifiers,
+	deco_unpack            = deco_unpack,
+	deco_pack              = deco_pack,
+	tool_identifiers       = tool_identifiers,
 	tool_proper_name       = tool_proper_name,
 }

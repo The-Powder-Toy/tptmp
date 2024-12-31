@@ -262,7 +262,7 @@ local config = {
 	-- ***********************************************************************
 
 	-- * Minimum required TPT version.
-	tpt_version_min = 356,
+	tpt_version_min = 384,
 
 	-- * Maximum accepted TPT version. TODO[opt]: something better
 	tpt_version_max = math.huge,

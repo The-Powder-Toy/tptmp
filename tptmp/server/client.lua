@@ -280,6 +280,13 @@ local function header_24be(d24)
 	return string.char(hi, mi, lo)
 end
 
+function client_i:handle_loadlocal_29_()
+	local location = self:read_(3)
+	local data = self:read_str24_()
+	self.room_:broadcast(self, "\29" .. self.room_id_str_ .. location .. header_24be(#data))
+	self.room_:broadcast(self, data)
+end
+
 local sync_30_size = 3
 do
 	local location_size = 3

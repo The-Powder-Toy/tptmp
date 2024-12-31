@@ -36,6 +36,7 @@ local toolwarn_messages = {
 	ipcirc    =               "The old circle brush does not sync, you will have to use /sync",
 	cgol      = "This custom GOL type is not supported, please avoid using it while connected",
 	cgolcolor =  "Custom GOL currently syncs without colours, use /sync to get colours across",
+	windhold  =   "Holding the WIND tool does not sync, please avoid doing it while connected",
 }
 
 local BRUSH_COUNT = 3
@@ -359,6 +360,12 @@ function profile_i:report_pastestamp_(x, y, w, h)
 	end
 end
 
+function profile_i:report_loadlocal_(reloading)
+	if self.registered_func_() then
+		self.client_:send_loadlocal(reloading)
+	end
+end
+
 function profile_i:report_canceldraw_()
 	if self.registered_func_() then
 		self.client_:send_canceldraw()
@@ -424,11 +431,11 @@ function profile_i:post_event_check_()
 				if id then
 					self:report_loadonline_(id, hist)
 				else
-					self:report_pastestamp_(x, y, w, h)
+					self:report_loadlocal_(false)
 				end
 			elseif self.placesave_reload_ then
 				if not self.get_id_func_() then
-					self:report_pastestamp_(x, y, w, h)
+					self:report_loadlocal_(true)
 				end
 				self:report_reloadsim_()
 			elseif self.placesave_clear_ then
@@ -918,6 +925,11 @@ function profile_i:handle_mousedown(px, py, button)
 				return
 			end
 			self:update_tools_()
+			if self.draw_mode_ == "line" then
+				if self[index_to_lraxid[self.last_toolslot_]] == "DEFAULT_TOOL_WIND" then
+					self.display_toolwarn_["windhold"] = true
+				end
+			end
 			if next(self.display_toolwarn_) then
 				if self.registered_func_() then
 					for key in pairs(self.display_toolwarn_) do
