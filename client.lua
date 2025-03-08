@@ -21,6 +21,7 @@ local ENV_DEFAULTS = {
 	},
 	tpt = { version = { upstreamBuild = 356 } },
 	http = {},
+	tools = {},
 	ui = setmetatable({}, { __index = function(tbl, key)
 		if key:find("^SDL_") then
 			return 0

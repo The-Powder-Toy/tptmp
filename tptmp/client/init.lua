@@ -6,6 +6,7 @@ if tpt.version.upstreamMajor then
 	tptVersion = { tpt.version.upstreamMajor, tpt.version.upstreamMinor }
 end
 local http = rawget(_G, "http")
+local tools = rawget(_G, "tools")
 local socket = rawget(_G, "socket")
 if sim.CELL ~= 4 then -- * Required by cursor snapping functions.
 	loadtime_error = "CELL is not 4, try using the official version of the game"
