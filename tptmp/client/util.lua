@@ -355,7 +355,7 @@ local function create_line_any(xidr, x1, y1, x2, y2, rx, ry, xtype, brush, membe
 	end
 end
 
-local function create_box_any(xidr, x1, y1, x2, y2, xtype, member)
+local function create_box_any(xidr, x1, y1, x2, y2, rx, ry, xtype, member)
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x1, y1) or
 	   not inside_rect(0, 0, sim.XRES, sim.YRES, x2, y2) then
 		return
@@ -385,14 +385,17 @@ local function create_box_any(xidr, x1, y1, x2, y2, xtype, member)
 	local bmode = sim.replaceModeFlags()
 	sim.replaceModeFlags(member.bmode)
 	if old_create then
+		local orx, ory = tpt.brushx, tpt.brushy
+		tpt.brushx, tpt.brushy = rx, ry
 		sim.createBox(x1, y1, x2, y2, xtype, member.bmode)
+		tpt.brushx, tpt.brushy = orx, ory
 	else
 		local deco
 		if class == "DECOR" then
 			deco = sim.decoColour()
 			sim.decoColour(member.deco)
 		end
-		sim.toolBox(x1, y1, x2, y2, xidr.to_tool_index[xtype], str)
+		sim.toolBox(x1, y1, x2, y2, xidr.to_tool_index[xtype], str, 0, rx, ry)
 		if class == "DECOR" then
 			sim.decoColour(deco)
 		end

@@ -499,7 +499,7 @@ function client_i:handle_rectend_41_()
 		if member.kmod_a then
 			x2, y2 = util.rect_snap_coords(x1, y1, x2, y2)
 		end
-		util.create_box_any(self.xidr, x1, y1, x2, y2, member.last_tool, member)
+		util.create_box_any(self.xidr, x1, y1, x2, y2, member.size_x, member.size_y, member.last_tool, member)
 	end
 	member.rect_x, member.rect_y = nil, nil
 end
