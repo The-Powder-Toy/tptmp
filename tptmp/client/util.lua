@@ -425,7 +425,8 @@ local function flood_any(xidr, x, y, xtype, part_flood_hint, wall_flood_hint, me
 	else
 		local ov = xidr.create_override[xtype]
 		if ov then
-			rx, ry, xtype = ov(rx, ry, xtype)
+			local _
+			_, _, xtype = ov(member.size_x, member.size_y, xtype)
 			old_create = true
 		end
 	end
