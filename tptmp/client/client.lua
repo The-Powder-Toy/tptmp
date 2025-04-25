@@ -1136,15 +1136,16 @@ function client_i:start()
 	assert(self.status_ == "ready")
 	self.status_ = "running"
 	self.proto_coro_ = coroutine.create(function()
-		local wrap_traceback = can_yield_xpcall and xpcall or function(func)
-			-- * It doesn't matter if wrap_traceback is not a real xpcall
+		local xpcall_wrap_wrap = can_yield_xpcall and xpcall_wrap or function(func)
+			-- * It doesn't matter if xpcall_wrap_wrap is not the real xpcall_wrap
 			--   as the error would be re-thrown later anyway, but a real
 			--   xpcall is preferable because it lets us print a stack trace
 			--   from within the coroutine.
-			func()
-			return true
+			return func
 		end
-		local ok, err = wrap_traceback(function()
+		local ok = true
+		local err
+		xpcall_wrap_wrap(function()
 			self:connect_()
 			self:handshake_()
 			while true do
@@ -1155,12 +1156,13 @@ function client_i:start()
 				end
 				handler(self)
 			end
-		end, function(err)
+		end, function(xperr)
 			if self.handle_error_func_ then
-				self.handle_error_func_(err)
+				self.handle_error_func_(xperr)
 			end
-			return err
-		end)
+			ok = false
+			err = xperr
+		end)()
 		if not ok then
 			error(err)
 		end
