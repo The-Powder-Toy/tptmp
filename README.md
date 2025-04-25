@@ -122,8 +122,6 @@ under which your server is exposed to the world. See Dynamic configuration above
 
 ## Things to do
 
-- [ ] some sort of support for custom elements, maybe room-level element
-      negotiation
 - [ ] add APIs to TPT in order to get rid of a few hideous hacks on
       the TPTMP side
 - [ ] smarter foul language filtering
