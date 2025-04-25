@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -Eeuo pipefail
+set -euo pipefail
 IFS=$'\t\n'
 
 if [[ -d dist ]]; then
@@ -11,6 +11,6 @@ cp -r tptmp modulepack.conf dist/
 cd dist
 config_lua="$(grep -rn tptmp -e "local versionstr" | cut -d ":" -f 1)"
 real_version="$(echo "$1" | cut -d "/" -f 3-)"
-sed -i tptmp/client/config.lua -Ee 's/"v2\.[^"]+"/"'"$real_version"'"/'
+sed -i "$config_lua" -Ee 's/"v2\.[^"]+"/"'"$real_version"'"/'
 git submodule update --init
 luajit ../TPT-Script-Manager/modulepack.lua modulepack.conf > client.dist.lua
