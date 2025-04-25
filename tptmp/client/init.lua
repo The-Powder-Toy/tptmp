@@ -1,3 +1,5 @@
+math.randomseed(os.time())
+
 local common_util = require("tptmp.common.util")
 
 local loadtime_error

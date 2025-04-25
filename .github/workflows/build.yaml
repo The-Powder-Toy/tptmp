@@ -20,12 +20,12 @@ jobs:
           draft: false
           prerelease: false
       - run: sudo apt update && sudo apt install luajit
-      - run: ./client.lua tptmp.lua ${{ github.ref }}
+      - run: ./dist.sh ${{ github.ref }}
       - uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: tptmp.lua
+          asset_path: dist/client.dist.lua
           asset_name: tptmp.lua
           asset_content_type: text/x-lua

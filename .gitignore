@@ -1,6 +1,4 @@
-ignore/
-*.sublime-*
-*.dist.lua
+dist/
 config.json
 config.json~
 *.pem
