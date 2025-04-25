@@ -252,7 +252,7 @@ local function run()
 			win:backlog_push_error("An error occurred and its trace has been saved to " .. config.trace_path .. "; please find this file in your data folder and attach it when reporting this to developers")
 			win:backlog_push_error("Top-level error: " .. tostring(err))
 		end
-		local str = debug.traceback(err, 2) .. "\n"
+		local str = modulepack.traceback(err, 2) .. "\n"
 		if last_trace_str ~= str then
 			last_trace_str = str
 			local handle = io.open(config.trace_path, "ab")
