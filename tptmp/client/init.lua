@@ -1,5 +1,6 @@
 math.randomseed(os.time())
 
+local modulepack  = require("modulepack")
 local common_util = require("tptmp.common.util")
 
 local loadtime_error
@@ -271,7 +272,7 @@ local function run()
 		[ 1 ] = " REPL",
 		[ 2 ] = " SDEL",
 	}
-	local handle_tick = xpcall_wrap(function()
+	local handle_tick = modulepack.xpcall_wrap(function()
 		local now = socket.gettime()
 		if should_reconnect_at and now >= should_reconnect_at then
 			should_reconnect_at = nil
@@ -404,13 +405,13 @@ local function run()
 		prof:handle_tick()
 	end, handle_error)
 
-	local handle_mousemove = xpcall_wrap(function(px, py, dx, dy)
+	local handle_mousemove = modulepack.xpcall_wrap(function(px, py, dx, dy)
 		if prof:handle_mousemove(px, py, dx, dy) then
 			return false
 		end
 	end, handle_error)
 
-	local handle_mousedown = xpcall_wrap(function(px, py, button)
+	local handle_mousedown = modulepack.xpcall_wrap(function(px, py, button)
 		if window_status == "shown" and win:handle_mousedown(px, py, button) then
 			return false
 		end
@@ -422,7 +423,7 @@ local function run()
 		end
 	end, handle_error)
 
-	local handle_mouseup = xpcall_wrap(function(px, py, button, reason)
+	local handle_mouseup = modulepack.xpcall_wrap(function(px, py, button, reason)
 		if window_status == "shown" and win:handle_mouseup(px, py, button, reason) then
 			return false
 		end
@@ -434,7 +435,7 @@ local function run()
 		end
 	end, handle_error)
 
-	local handle_mousewheel = xpcall_wrap(function(px, py, dir)
+	local handle_mousewheel = modulepack.xpcall_wrap(function(px, py, dir)
 		if window_status == "shown" and win:handle_mousewheel(px, py, dir) then
 			return false
 		end
@@ -446,7 +447,7 @@ local function run()
 		end
 	end, handle_error)
 
-	local handle_keypress = xpcall_wrap(function(key, scan, rep, shift, ctrl, alt)
+	local handle_keypress = modulepack.xpcall_wrap(function(key, scan, rep, shift, ctrl, alt)
 		if window_status == "shown" and win:handle_keypress(key, scan, rep, shift, ctrl, alt) then
 			return false
 		end
@@ -458,7 +459,7 @@ local function run()
 		end
 	end, handle_error)
 
-	local handle_keyrelease = xpcall_wrap(function(key, scan, rep, shift, ctrl, alt)
+	local handle_keyrelease = modulepack.xpcall_wrap(function(key, scan, rep, shift, ctrl, alt)
 		if window_status == "shown" and win:handle_keyrelease(key, scan, rep, shift, ctrl, alt) then
 			return false
 		end
@@ -470,7 +471,7 @@ local function run()
 		end
 	end, handle_error)
 
-	local handle_textinput = xpcall_wrap(function(text)
+	local handle_textinput = modulepack.xpcall_wrap(function(text)
 		if window_status == "shown" and win:handle_textinput(text) then
 			return false
 		end
@@ -482,7 +483,7 @@ local function run()
 		end
 	end, handle_error)
 
-	local handle_textediting = xpcall_wrap(function(text)
+	local handle_textediting = modulepack.xpcall_wrap(function(text)
 		if window_status == "shown" and win:handle_textediting(text) then
 			return false
 		end
@@ -494,7 +495,7 @@ local function run()
 		end
 	end, handle_error)
 
-	local handle_blur = xpcall_wrap(function()
+	local handle_blur = modulepack.xpcall_wrap(function()
 		if window_status == "shown" and win:handle_blur() then
 			return false
 		end

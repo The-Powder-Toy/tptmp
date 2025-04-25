@@ -1,3 +1,4 @@
+local modulepack  = require("modulepack")
 local buffer_list = require("tptmp.common.buffer_list")
 local colours     = require("tptmp.client.colours")
 local config      = require("tptmp.client.config")
@@ -1136,7 +1137,7 @@ function client_i:start()
 	assert(self.status_ == "ready")
 	self.status_ = "running"
 	self.proto_coro_ = coroutine.create(function()
-		local xpcall_wrap_wrap = can_yield_xpcall and xpcall_wrap or function(func)
+		local xpcall_wrap_wrap = can_yield_xpcall and modulepack.xpcall_wrap or function(func)
 			-- * It doesn't matter if xpcall_wrap_wrap is not the real xpcall_wrap
 			--   as the error would be re-thrown later anyway, but a real
 			--   xpcall is preferable because it lets us print a stack trace
