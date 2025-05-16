@@ -43,11 +43,22 @@ function server_ban_i:peer_banned_(peer)
 	return self.peer_bans_:contains(peer)
 end
 
-function server_ban_i:insert_uid_ban_(uid)
-	if self.uid_bans_[uid] then
+local function expired(expires_at)
+	return expires_at ~= false and os.difftime(expires_at, os.time()) < 0
+end
+
+function server_ban_i:insert_uid_ban_(fail_if_exists, uid, expires_at, user_reason, admin_reason)
+	if fail_if_exists and self.uid_bans_[uid] then
 		return nil, "eexist", "already banned"
 	end
-	self.uid_bans_[uid] = true
+	if expired(expires_at) then
+		return nil, "einval", "expiration time is in the past"
+	end
+	self.uid_bans_[uid] = {
+		expires_at   = expires_at,
+		user_reason  = user_reason,
+		admin_reason = admin_reason,
+	}
 	self:save_uid_bans_()
 	return true
 end
@@ -63,8 +74,15 @@ end
 
 function server_ban_i:save_uid_bans_()
 	local tbl = {}
-	for uid in pairs(self.uid_bans_) do
-		table.insert(tbl, uid)
+	for uid, info in pairs(self.uid_bans_) do
+		if not expired(info.expires_at) then
+			table.insert(tbl, {
+				uid          = uid,
+				expires_at   = info.expires_at,
+				user_reason  = info.user_reason,
+				admin_reason = info.admin_reason,
+			})
+		end
 	end
 	tbl[0] = #tbl
 	self.dconf_:root().uid_bans = tbl
@@ -73,14 +91,28 @@ end
 
 function server_ban_i:load_uid_bans_()
 	local tbl = self.dconf_:root().uid_bans or {}
+	if #tbl == 0 or type(tbl[1]) == "number" then
+		for i = 1, #tbl do
+			tbl[i] = { uid = tbl[i], expires_at = false, user_reason = "unknown", admin_reason = "unknown, migrated from dd8af8a4b3e8 format" }
+		end
+	end
 	self.uid_bans_ = {}
 	for i = 1, #tbl do
-		self.uid_bans_[tbl[i]] = true
+		local info = tbl[i]
+		self.uid_bans_[info.uid] = {
+			expires_at   = info.expires_at,
+			user_reason  = info.user_reason,
+			admin_reason = info.admin_reason,
+		}
 	end
 	self:save_uid_bans_()
 end
 
 function server_ban_i:uid_banned_(uid)
+	local info = self.uid_bans_[uid]
+	if info and expired(info.expires_at) then
+		self:remove_uid_ban_(uid)
+	end
 	return self.uid_bans_[uid]
 end
 
@@ -103,8 +135,17 @@ return {
 						return { status = "nouser", human = "no such user" }
 					end
 				end
-				if data.action == "insert" then
-					local ok, err, human = server:insert_uid_ban_(user.uid)
+				if data.action == "insert" or data.action == "upsert" then
+					if data.expires_at ~= false and type(data.expires_at) ~= "number" then
+						return { status = "badexpiresat", human = "invalid expiration time" }
+					end
+					if type(data.user_reason) ~= "string" then
+						return { status = "baduserreason", human = "invalid user-facing reason" }
+					end
+					if data.admin_reason ~= false and type(data.admin_reason) ~= "string" then
+						return { status = "badadminreason", human = "invalid admin-facing reason" }
+					end
+					local ok, err, human = server:insert_uid_ban_(data.action == "insert", user.uid, data.expires_at, data.user_reason, data.admin_reason)
 					if not ok then
 						return { status = err, human = human }
 					end
@@ -116,7 +157,17 @@ return {
 					end
 					return { status = "ok" }
 				elseif data.action == "check" then
-					return { status = "ok", banned = server:uid_banned_(user.uid) or false }
+					local info = server:uid_banned_(user.uid)
+					if info then
+						return {
+							status       = "ok",
+							banned       = true,
+							expires_at   = info.expires_at,
+							user_reason  = info.user_reason,
+							admin_reason = info.admin_reason,
+						}
+					end
+					return { status = "ok", banned = false }
 				end
 				return { status = "badaction", human = "unrecognized action" }
 			end,
@@ -183,8 +234,15 @@ return {
 						}
 					end
 				else
-					if client:server():uid_banned_(client:uid()) then
-						return false, "you are banned from this server", ("%s, uid %i is banned"):format(client:nick(), client:uid()), {
+					local info = client:server():uid_banned_(client:uid())
+					if info then
+						local message
+						if info.expires_at then
+							message = ("you are banned from this server for %s: %s"):format(util.format_difftime(info.expires_at, os.time()), info.user_reason)
+						else
+							message = ("you are permanently banned from this server: %s"):format(info.user_reason)
+						end
+						return false, message, ("%s, uid %i is banned"):format(client:nick(), client:uid()), {
 							reason = "uid_banned",
 						}
 					end
