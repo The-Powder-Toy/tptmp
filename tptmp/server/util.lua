@@ -102,7 +102,7 @@ local function format_difftime(t2, t1, overshoot)
 	local unit, count
 	for i = 1, #units do
 		local count_frac = diff / units[i].seconds
-		local use_unit = diff > units[i].seconds
+		local use_unit = diff > units[i].seconds or i == #units
 		if overshoot and units[i + 1] then
 			if diff + units[i + 1].seconds > units[i].seconds then
 				use_unit = true
@@ -118,9 +118,7 @@ local function format_difftime(t2, t1, overshoot)
 			break
 		end
 	end
-	if unit then
-		return count == 1 and unit.one or unit.more:format(count)
-	end
+	return count == 1 and unit.one or unit.more:format(count)
 end
 
 return {

@@ -33,12 +33,7 @@ return {
 					client:send_server(("\an* \au%s\an has never been online"):format(other_nick))
 					return true
 				end
-				local timediff = util.format_difftime(os.time(), seen)
-				if timediff then
-					client:send_server(("\an* \au%s\an was last online %s ago"):format(other_nick, timediff))
-				else
-					client:send_server(("\an* \au%s\an is a Time Lord"):format(other_nick))
-				end
+				client:send_server(("\an* \au%s\an was last online %s ago"):format(other_nick, util.format_difftime(os.time(), seen)))
 				return true
 			end,
 			help = "/seen <user>: tells you when a user was last seen online",
