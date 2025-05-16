@@ -474,7 +474,7 @@ function client_i:handshake_()
 		local nick, uid, register_time = self.server_:authenticate(self, quickauth_token)
 		if nick then
 			local now = os.time()
-			local account_age = now - register_time
+			local account_age = os.difftime(now, register_time)
 			if config.min_account_age > account_age then
 				nick = nil
 				self:send_downgrade_reason_(("your account is too new, you will be playing as a guest for now; try again in %s to be able to use your real name"):format(util.format_difftime(register_time + config.min_account_age, now, true)))

@@ -122,7 +122,7 @@ function authenticator_i:authenticate_token_(client, token)
 		return
 	end
 	local uid = tonumber(payload.sub)
-	if self.quickauth_[uid] == token and os.time() <= payload.iat + config.token_max_age then
+	if self.quickauth_[uid] == token and os.difftime(os.time(), payload.iat) <= config.token_max_age then
 		self.log_inf_("cached authentication token reused by $", client:name())
 		self:rconlog({
 			event = "authenticate",
