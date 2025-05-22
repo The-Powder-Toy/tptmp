@@ -405,119 +405,36 @@ local function run()
 		prof:handle_tick()
 	end, handle_error)
 
-	local handle_mousemove = modulepack.xpcall_wrap(function(px, py, dx, dy)
-		if prof:handle_mousemove(px, py, dx, dy) then
-			return false
-		end
-	end, handle_error)
+	local event_handlers = {
+		{ event = evt.TICK, handle = handle_tick },
+	}
 
-	local handle_mousedown = modulepack.xpcall_wrap(function(px, py, button)
-		if window_status == "shown" and win:handle_mousedown(px, py, button) then
-			return false
-		end
-		if sbtn:handle_mousedown(px, py, button) then
-			return false
-		end
-		if prof:handle_mousedown(px, py, button) then
-			return false
-		end
-	end, handle_error)
+	local function handle_simple(event, handler)
+		local handle = modulepack.xpcall_wrap(function(...)
+			if win[handler] and window_status == "shown" and win[handler](win, ...) then
+				return false
+			end
+			if sbtn[handler] and sbtn[handler](sbtn, ...) then
+				return false
+			end
+			if prof[handler] and prof[handler](prof, ...) then
+				return false
+			end
+		end, handle_error)
+		table.insert(event_handlers, { event = event, handle = handle })
+	end
+	handle_simple(evt.MOUSEMOVE  , "handle_mousemove"  )
+	handle_simple(evt.MOUSEDOWN  , "handle_mousedown"  )
+	handle_simple(evt.MOUSEUP    , "handle_mouseup"    )
+	handle_simple(evt.MOUSEWHEEL , "handle_mousewheel" )
+	handle_simple(evt.KEYPRESS   , "handle_keypress"   )
+	handle_simple(evt.KEYRELEASE , "handle_keyrelease" )
+	handle_simple(evt.TEXTINPUT  , "handle_textinput"  )
+	handle_simple(evt.TEXTEDITING, "handle_textediting")
+	handle_simple(evt.BLUR       , "handle_blur"       )
 
-	local handle_mouseup = modulepack.xpcall_wrap(function(px, py, button, reason)
-		if window_status == "shown" and win:handle_mouseup(px, py, button, reason) then
-			return false
-		end
-		if sbtn:handle_mouseup(px, py, button, reason) then
-			return false
-		end
-		if prof:handle_mouseup(px, py, button, reason) then
-			return false
-		end
-	end, handle_error)
-
-	local handle_mousewheel = modulepack.xpcall_wrap(function(px, py, dir)
-		if window_status == "shown" and win:handle_mousewheel(px, py, dir) then
-			return false
-		end
-		if sbtn:handle_mousewheel(px, py, dir) then
-			return false
-		end
-		if prof:handle_mousewheel(px, py, dir) then
-			return false
-		end
-	end, handle_error)
-
-	local handle_keypress = modulepack.xpcall_wrap(function(key, scan, rep, shift, ctrl, alt)
-		if window_status == "shown" and win:handle_keypress(key, scan, rep, shift, ctrl, alt) then
-			return false
-		end
-		if sbtn:handle_keypress(key, scan, rep, shift, ctrl, alt) then
-			return false
-		end
-		if prof:handle_keypress(key, scan, rep, shift, ctrl, alt) then
-			return false
-		end
-	end, handle_error)
-
-	local handle_keyrelease = modulepack.xpcall_wrap(function(key, scan, rep, shift, ctrl, alt)
-		if window_status == "shown" and win:handle_keyrelease(key, scan, rep, shift, ctrl, alt) then
-			return false
-		end
-		if sbtn:handle_keyrelease(key, scan, rep, shift, ctrl, alt) then
-			return false
-		end
-		if prof:handle_keyrelease(key, scan, rep, shift, ctrl, alt) then
-			return false
-		end
-	end, handle_error)
-
-	local handle_textinput = modulepack.xpcall_wrap(function(text)
-		if window_status == "shown" and win:handle_textinput(text) then
-			return false
-		end
-		if sbtn:handle_textinput(text) then
-			return false
-		end
-		if prof:handle_textinput(text) then
-			return false
-		end
-	end, handle_error)
-
-	local handle_textediting = modulepack.xpcall_wrap(function(text)
-		if window_status == "shown" and win:handle_textediting(text) then
-			return false
-		end
-		if sbtn:handle_textediting(text) then
-			return false
-		end
-		if prof:handle_textediting(text) then
-			return false
-		end
-	end, handle_error)
-
-	local handle_blur = modulepack.xpcall_wrap(function()
-		if window_status == "shown" and win:handle_blur() then
-			return false
-		end
-		if sbtn:handle_blur() then
-			return false
-		end
-		if prof:handle_blur() then
-			return false
-		end
-	end, handle_error)
-
-	evt.register(evt.tick      , handle_tick      )
-	evt.register(evt.mousemove , handle_mousemove )
-	evt.register(evt.mousedown , handle_mousedown )
-	evt.register(evt.mouseup   , handle_mouseup   )
-	evt.register(evt.mousewheel, handle_mousewheel)
-	evt.register(evt.keypress  , handle_keypress  )
-	evt.register(evt.textinput , handle_textinput )
-	evt.register(evt.keyrelease, handle_keyrelease)
-	evt.register(evt.blur      , handle_blur      )
-	if evt.textediting then
-		evt.register(evt.textediting, handle_textediting)
+	for i = 1, #event_handlers do
+		evt.register(event_handlers[i].event, event_handlers[i].handle)
 	end
 
 	function TPTMP.disableMultiplayer()
@@ -525,17 +442,8 @@ local function run()
 			cmd:parse("/fpssync off")
 			cmd:parse("/disconnect")
 		end
-		evt.unregister(evt.tick      , handle_tick      )
-		evt.unregister(evt.mousemove , handle_mousemove )
-		evt.unregister(evt.mousedown , handle_mousedown )
-		evt.unregister(evt.mouseup   , handle_mouseup   )
-		evt.unregister(evt.mousewheel, handle_mousewheel)
-		evt.unregister(evt.keypress  , handle_keypress  )
-		evt.unregister(evt.textinput , handle_textinput )
-		evt.unregister(evt.keyrelease, handle_keyrelease)
-		evt.unregister(evt.blur      , handle_blur      )
-		if evt.textediting then
-			evt.unregister(evt.textediting, handle_textediting)
+		for i = 1, #event_handlers do
+			evt.unregister(event_handlers[i].event, event_handlers[i].handle)
 		end
 		_G.TPTMP = nil
 	end

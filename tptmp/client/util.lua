@@ -33,7 +33,8 @@ local function xid_registry(supported)
 	local from_tool = {}
 	local to_tool = {}
 	local to_tool_index = {}
-	for xtype, tool in ipairs(supported) do
+	for xtype = 1, #supported do
+		local tool = supported[xtype]
 		assert(not to_tool[xtype])
 		assert(not from_tool[tool])
 		local class = tool:match("^[^_]+_(.-)_[^_]+$")
