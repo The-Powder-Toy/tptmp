@@ -40,14 +40,37 @@ function remote_console_i:log(data)
 end
 
 function remote_console_i:listen_()
-	local server_sock = socket.listen(config.rcon_iface, config.rcon_port)
+	local listen_params = {
+		host = config.rcon_iface,
+		port = config.rcon_port,
+	}
+	local listening_on = listen_params.host
+	local unix_path = listen_params.host:match("^unix:(.*)$")
+	if unix_path then
+		listen_params = {
+			path   = unix_path,
+			unlink = true,
+		}
+	else
+		listening_on = listening_on .. ":" .. listen_params.port
+	end
+	local server_sock = socket.listen(listen_params)
 	server_sock:listen()
+	self.log_inf_("listening on $", listening_on)
 	local server_pollable = { pollfd = server_sock:pollfd(), events = "r" }
 	while self.status_ == "running" do
 		local ready = util.cqueues_poll(server_pollable, self.wake_)
 		if ready[server_pollable] then
 			self.client_sock_ = server_sock:accept()
-			local _, peer_str = self.client_sock_:peername()
+			local peer_str
+			if unix_path then
+				local uid, gid = self.client_sock_:peereid()
+				local pid = self.client_sock_:peerpid()
+				peer_str = ("pid=%s,uid=%s,gid=%s"):format(pid or "?", uid or "?", gid or "?")
+			else
+				local af, host, port = self.client_sock_:peername()
+				peer_str = ("%s:%s"):format(host, port)
+			end
 			self.log_inf_("connection from $", peer_str)
 			local client_pollable = { pollfd = self.client_sock_:pollfd(), events = "r" }
 			local last_ping_in = cqueues.monotime()

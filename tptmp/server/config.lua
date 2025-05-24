@@ -27,6 +27,11 @@ local config = {
 	--   sure to not let connections to this port through your firewall. If you
 	--   want to connect from another host, use a TLS termination proxy with
 	--   peer authentication, and have the proxy connect to this port.
+	-- * If this string begins with unix:, the rest of the string is interpreted
+	--   as a path to a UNIX domain socket, and rcon_port is ignored. The socket
+	--   is recreated every time the server is started, so access control should
+	--   be applied to the directory containing the socket, not to the socket
+	--   itself.
 	rcon_iface = prefer_secret_config("rcon_iface", "localhost"),
 
 	-- * Local port to listen on for remote console connections.
