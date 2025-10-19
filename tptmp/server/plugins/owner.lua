@@ -214,7 +214,7 @@ return {
 					return true
 				end
 				if words[2] == "insert" then
-					if other:guest() then
+					if other and other:guest() then
 						client:send_server(("\ae* Guests cannot own permanent rooms"))
 					elseif not (other_uid and other_uid ~= OWNER_WILDCARD) then
 						client:send_server(("\ae* No user named \au%s"):format(words[3]))
