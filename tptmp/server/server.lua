@@ -181,6 +181,7 @@ function server_i:create_room(name)
 		event = "room_create",
 		room_name = name,
 	})
+	self.phost_:call_hook("room_create", self.name_to_room_[name])
 end
 
 function server_i:phost()
@@ -200,6 +201,7 @@ function server_i:name()
 end
 
 function server_i:cleanup_room(name)
+	self.phost_:call_hook("room_cleanup", self.name_to_room_[name])
 	self.name_to_room_[name] = nil
 	self.room_count_ = self.room_count_ - 1
 	self:rconlog({

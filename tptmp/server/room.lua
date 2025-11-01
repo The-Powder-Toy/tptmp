@@ -75,21 +75,11 @@ function room_i:join(client)
 	client:move_to_room(self, string.char(id))
 	self.clients_ = self.clients_ + 1
 	self.log_inf_("$ joined", client:nick())
+	self:send_(id, client)
 	local sync_source
-	local others = {}
-	for other_client, other_id in self:clients() do
-		if other_client ~= client then
-			sync_source = other_client
-			table.insert(others, {
-				id = other_id,
-				nick = other_client:nick(),
-				elemlist = other_client:elemlist(),
-			})
-		end
-	end
-	client:send_room(id, self.name_, others)
 	for other_client in self:clients() do
 		if other_client ~= client then
+			sync_source = other_client
 			other_client:send_join(id, client:nick(), client:elemlist())
 		end
 	end
@@ -114,6 +104,20 @@ function room_i:clients()
 			key = nkey
 		end
 	end, self.client_to_id_
+end
+
+function room_i:send_(id, client)
+	local others = {}
+	for other_client, other_id in self:clients() do
+		if other_client ~= client then
+			table.insert(others, {
+				id = other_id,
+				nick = other_client:nick(),
+				elemlist = other_client:elemlist(),
+			})
+		end
+	end
+	client:send_room(id, self.name_, others)
 end
 
 function room_i:cleanup_dead_ids_()

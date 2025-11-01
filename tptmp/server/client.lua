@@ -469,7 +469,7 @@ function client_i:handshake_()
 	self.flags_ = self:read_bytes_(1)
 	self.guest_ = false
 	local quickauth_token = self:read_str8_()
-	local initial_room = self:read_str8_()
+	self.initial_room_ = self:read_str8_()
 	if self.server_:can_authenticate() then
 		local nick, uid, register_time = self.server_:authenticate(self, quickauth_token)
 		if nick then
@@ -528,7 +528,7 @@ function client_i:handshake_()
 	util.cqueues_wrap(cqueues.running(), function()
 		self:ping_()
 	end, self:name() .. "/ping_")
-	if initial_room == "" then
+	if self.initial_room_ == "" then
 		local ok, err = self.server_:join_room(self, self:lobby_name())
 		if not ok then
 			self:proto_close_("cannot join lobby: " .. err, nil, {
@@ -537,11 +537,11 @@ function client_i:handshake_()
 			})
 		end
 	else
-		local ok, err = self.server_:join_room(self, initial_room)
+		local ok, err = self.server_:join_room(self, self.initial_room_)
 		if not ok then
 			self:proto_close_("cannot join room: " .. err, nil, {
 				reason = "critical_join_room_fail",
-				room_name = initial_room,
+				room_name = self.initial_room_,
 			})
 		end
 	end
