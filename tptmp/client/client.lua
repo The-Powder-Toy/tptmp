@@ -1,9 +1,10 @@
 local modulepack  = require("modulepack")
-local buffer_list = require("tptmp.common.buffer_list")
 local colours     = require("tptmp.client.colours")
 local config      = require("tptmp.client.config")
 local util        = require("tptmp.client.util")
 local format      = require("tptmp.client.format")
+local tcp_socket  = require("tptmp.client.socket.tcp")
+local web_socket  = require("tptmp.client.socket.web")
 
 local can_yield_xpcall = coroutine.resume(coroutine.create(function()
 	assert(pcall(coroutine.yield))
@@ -55,23 +56,25 @@ function client_i:proto_close_(message)
 end
 
 function client_i:read_(count)
-	while self.rx_:pending() < count do
+	local rx = self.socket_:rx()
+	while rx:pending() < count do
 		coroutine.yield()
 	end
-	return self.rx_:get(count)
+	return rx:get(count)
 end
 
 function client_i:read_bytes_(count)
-	while self.rx_:pending() < count do
+	local rx = self.socket_:rx()
+	while rx:pending() < count do
 		coroutine.yield()
 	end
-	local data, first, last = self.rx_:next()
+	local data, first, last = rx:next()
 	if last >= first + count - 1 then
 		-- * Less memory-intensive path.
-		self.rx_:pop(count)
+		rx:pop(count)
 		return data:byte(first, first + count - 1)
 	end
-	return self.rx_:get(count):byte(1, count)
+	return rx:get(count):byte(1, count)
 end
 
 function client_i:read_str24_()
@@ -770,9 +773,11 @@ end
 function client_i:connect_()
 	self.server_probably_secure_ = nil
 	self.window_:set_subtitle("status", "Connecting")
-	self.socket_ = socket.tcp()
-	self.socket_:settimeout(0)
-	self.socket_:setoption("tcp-nodelay", true)
+	if socket.tcp then
+		self.socket_ = tcp_socket.new()
+	else
+		self.socket_ = web_socket.new()
+	end
 	while true do
 		local ok, err = self.socket_:connect(self.host_, self.port_, self.secure_)
 		if ok then
@@ -1170,39 +1175,6 @@ function client_i:start()
 	end)
 end
 
-function client_i:tick_read_()
-	if self.connected_ and not self.read_closed_ then
-		while true do
-			local closed = false
-			local data, err, partial = self.socket_:receive(config.read_size)
-			if not data then
-				if err == "closed" then
-					data = partial
-					closed = true
-				elseif err == "timeout" then
-					data = partial
-				else
-					self:stop(err)
-					break
-				end
-			end
-			local pushed, count = self.rx_:push(data)
-			if pushed < count then
-				self:stop("recv queue limit exceeded")
-				break
-			end
-			if closed then
-				self:tick_resume_()
-				self:stop("connection closed: receive failed: " .. tostring(self.socket_lasterror_))
-				break
-			end
-			if #data < config.read_size then
-				break
-			end
-		end
-	end
-end
-
 function client_i:tick_resume_()
 	if self.proto_coro_ then
 		local ok, err = coroutine.resume(self.proto_coro_)
@@ -1212,44 +1184,6 @@ function client_i:tick_resume_()
 		end
 		if self.proto_coro_ and coroutine.status(self.proto_coro_) == "dead" then
 			error("proto coroutine terminated")
-		end
-	end
-end
-
-function client_i:tick_write_()
-	if self.connected_ then
-		while true do
-			local data, first, last = self.tx_:next()
-			if not data then
-				break
-			end
-			local closed = false
-			local count = last - first + 1
-			if self.socket_:status() ~= "connected" then
-				break
-			end
-			local written_up_to, err, partial_up_to = self.socket_:send(data, first, last)
-			if not written_up_to then
-				if err == "closed" then
-					written_up_to = partial_up_to
-					closed = true
-				elseif err == "timeout" then
-					written_up_to = partial_up_to
-				else
-					self:stop(err)
-					break
-				end
-			end
-			local written = written_up_to - first + 1
-			self.tx_:pop(written)
-			if closed then
-				self.socket_lasterror_ = self.socket_:lasterror()
-				self:stop("connection closed: send failed: " .. tostring(self.socket_lasterror_))
-				break
-			end
-			if written < count then
-				break
-			end
 		end
 	end
 end
@@ -1370,9 +1304,23 @@ function client_i:tick()
 		return
 	end
 	self:tick_fpssync_invalidate_()
-	self:tick_read_()
-	self:tick_resume_()
-	self:tick_write_()
+	local brok = true
+	local brerr, brmsg
+	if self.connected_ then
+		brok, brerr, brmsg = self.socket_:before_resume()
+	end
+	if brok or brerr == "resumestop" then
+		self:tick_resume_()
+	end
+	if not brok then
+		self:stop(brmsg)
+	end
+	if self.connected_ then
+		local arok, arerr, armsg = self.socket_:after_resume()
+		if not arok then
+			self:stop(armsg)
+		end
+	end
 	self:tick_connect_()
 	self:tick_ping_()
 	self:tick_sim_()
@@ -1389,7 +1337,6 @@ function client_i:stop(message)
 			self.socket_:shutdown()
 		end
 		self.socket_:close()
-		self.socket_lasterror_ = self.socket_:lasterror()
 		self.socket_ = nil
 		self.connected_ = nil
 		self.registered_ = nil
@@ -1422,7 +1369,7 @@ function client_i:write_flush_(data)
 	end
 	local buf = self.write_buf_
 	self.write_buf_ = nil
-	local pushed, count = self.tx_:push(type(buf) == "string" and buf or table.concat(buf))
+	local pushed, count = self.socket_:tx():push(type(buf) == "string" and buf or table.concat(buf))
 	if pushed < count then
 		self:stop("send queue limit exceeded")
 	end
@@ -1531,8 +1478,6 @@ local function new(params)
 		secure_                    = params.secure,
 		event_log_                 = params.event_log,
 		backlog_                   = params.backlog,
-		rx_                        = buffer_list.new({ limit = config.recvq_limit }),
-		tx_                        = buffer_list.new({ limit = config.sendq_limit }),
 		connecting_since_          = now,
 		last_ping_sent_at_         = now,
 		last_ping_received_at_     = now,

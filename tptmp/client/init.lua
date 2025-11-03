@@ -1,5 +1,9 @@
 math.randomseed(os.time())
 
+if table.unpack and not rawget(_G, "unpack") then
+	rawset(_ENV, "unpack", table.unpack)
+end
+
 local modulepack  = require("modulepack")
 local common_util = require("tptmp.common.util")
 
@@ -27,7 +31,7 @@ elseif not http then
 	loadtime_error = "no http API, try updating the game"
 elseif not tools then
 	loadtime_error = "no tools API, try updating the game"
-elseif not socket or not socket.tcp then
+elseif not socket or (not socket.tcp and not socket.web) then
 	loadtime_error = "no socket API, try updating the game"
 elseif socket.bind then
 	loadtime_error = "outdated socket API, try updating the game"

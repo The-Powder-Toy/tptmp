@@ -152,6 +152,9 @@ local config = {
 	-- * Protocol version.
 	version = common_config.version,
 
+	-- * WebSocket protocol to request.
+	websocket_protocol = common_config.websocket_protocol,
+
 	-- * Client-to-server message size limit.
 	message_size = common_config.message_size,
 

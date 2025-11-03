@@ -137,7 +137,9 @@ xpcall(function()
 		log.inf("interrupted")
 		ok = true
 	end
-	assert(ok or err == util.CQUEUES_WRAP_RETHROW, "sanity check failure")
+	if not (ok or err == util.CQUEUES_WRAP_RETHROW) then
+		error(err)
+	end
 end, function(err)
 	local function rip(str)
 		io.stderr:write(str:gsub("\n", "\n[rip] ") .. "\n")

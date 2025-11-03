@@ -35,6 +35,9 @@ return {
 	-- * Port to connect to by default.
 	port = 34403,
 
+	-- * WebSocket protocol to use.
+	websocket_protocol = "tptmp",
+
 	-- * Encrypt traffic between player clients and the server.
 	secure = true,
 }

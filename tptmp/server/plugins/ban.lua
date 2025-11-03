@@ -219,6 +219,7 @@ return {
 				if banned_subnet then
 					return false, "you are banned from this server", ("host %s is banned (subnet %s)"):format(client:peer(), tostring(banned_subnet)), {
 						reason = "host_banned",
+						websocket_close_code = 1008,
 						subnet = tostring(banned_subnet),
 					}
 				end
@@ -230,6 +231,7 @@ return {
 				if client:guest() then
 					if not config.guests_allowed then
 						return false, "authentication failed and guests are not allowed on this server", nil, {
+							websocket_close_code = 1008,
 							reason = "guests_banned",
 						}
 					end
@@ -243,6 +245,7 @@ return {
 							message = ("you are permanently banned from this server: %s"):format(info.user_reason)
 						end
 						return false, message, ("%s, uid %i is banned"):format(client:nick(), client:uid()), {
+							websocket_close_code = 1008,
 							reason = "uid_banned",
 						}
 					end

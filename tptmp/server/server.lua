@@ -15,6 +15,11 @@ local command_parser = require("tptmp.common.command_parser")
 local lunajson       = require("lunajson")
 local http_request   = require("http.request")
 local http_cookie    = require("http.cookie")
+local http_server    = require("http.server")
+
+if config.websocket then
+	assert(ssl_ctx.new().setAlpnSelect, "no ALPN support")
+end
 
 local server_i = {}
 local server_m = { __index = server_i }
@@ -91,6 +96,11 @@ function server_i:remove_client(client, rconinfo)
 			self.uid_to_client_[client:uid()] = nil
 		end
 	end
+	local client_socket = self.client_to_websocket_socket_[client]
+	if client_socket then
+		self.websocket_socket_to_client_[client_socket] = nil
+		self.client_to_websocket_socket_[client] = nil
+	end
 	self.phost_:call_hook("client_cleanup", client)
 	self.name_to_client_[client:name()] = nil
 	local peer_string = tostring(client:peer())
@@ -107,6 +117,31 @@ end
 
 function server_i:clients()
 	return self.name_to_client_
+end
+
+function server_i:websocketize(client, client_socket)
+	self.websocket_server_:add_socket(client_socket)
+	self.websocket_socket_to_client_[client_socket] = client
+	self.client_to_websocket_socket_[client] = client_socket
+end
+
+function server_i:websocket_listen_()
+	self.websocket_server_ = http_server.new({
+		connection_setup_timeout = config.websocket_http_connection_setup_timeout,
+		intra_stream_timeout = config.websocket_http_intra_stream_timeout,
+		onstream = function(_, stream)
+			local client_socket = stream.connection.socket -- * .socket is not actually public but whatever...
+			local client = self.websocket_socket_to_client_[client_socket]
+			if not client then
+				local _, peer_str = client_socket:peername()
+				self.log_inf_("unexpected new stream from socket connected from $", peer_str)
+				return
+			end
+			client:handle_http_stream(stream)
+		end,
+		cq = cqueues.running(),
+		ctx = "fake", -- * This server shouldn't start TLS itself.
+	})
 end
 
 function server_i:listen_()
@@ -160,6 +195,11 @@ function server_i:start()
 	util.cqueues_wrap(cqueues.running(), function()
 		self:listen_()
 	end, self:name() .. "/listen_")
+	if config.websocket then
+		util.cqueues_wrap(cqueues.running(), function()
+			self:websocket_listen_()
+		end, self:name() .. "/websocket_listen_")
+	end
 end
 
 function server_i:stop()
@@ -169,6 +209,9 @@ function server_i:stop()
 	assert(self.status_ == "running", "not running")
 	self.status_ = "stopping"
 	self.wake_:signal()
+	if self.websocket_server_ then
+		self.websocket_server_:close()
+	end
 end
 
 function server_i:create_room(name)
@@ -493,6 +536,18 @@ function server_i:tls_context()
 		type = "EC",
 		curve = "prime256v1",
 	}))
+	if config.websocket then
+		ctx:setAlpnSelect(function(_, list)
+			for i = 1, #list do
+				if config.websocket then
+					-- * Only accepting HTTP/1.1 because dealing with H2's stream multiplexing would be a pain.
+					if list[i] == "http/1.1" then
+						return list[i]
+					end
+				end
+			end
+		end)
+	end
 	return ssl.new(ctx)
 end
 
@@ -590,6 +645,10 @@ local function new(params)
 		register_time_cache_ = {},
 		name_ = params.name,
 	}, server_m)
+	if config.websocket then
+		server.websocket_socket_to_client_ = {}
+		server.client_to_websocket_socket_ = {}
+	end
 	server:init()
 	return server
 end

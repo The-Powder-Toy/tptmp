@@ -1,11 +1,14 @@
-local cqueues     = require("cqueues")
-local condition   = require("cqueues.condition")
-local errno       = require("cqueues.errno")
-local buffer_list = require("tptmp.common.buffer_list")
-local log         = require("tptmp.server.log")
-local util        = require("tptmp.server.util")
-local config      = require("tptmp.server.config")
-local jnet        = require("jnet")
+local cqueues        = require("cqueues")
+local condition      = require("cqueues.condition")
+local errno          = require("cqueues.errno")
+local http_headers   = require("http.headers")
+local http_util      = require("http.util")
+local http_websocket = require("http.websocket")
+local buffer_list    = require("tptmp.common.buffer_list")
+local log            = require("tptmp.server.log")
+local util           = require("tptmp.server.util")
+local config         = require("tptmp.server.config")
+local jnet           = require("jnet")
 
 local PROTO_STOP = {}
 local PROTO_ERROR = {}
@@ -25,6 +28,8 @@ function client_i:proto_close_(message, log, rconinfo)
 end
 
 function client_i:proto_error_(log, rconinfo)
+	self.websocket_close_code_ = 1002
+	self.websocket_close_reason_ = log
 	error(setmetatable({ log = log, rconinfo = rconinfo }, PROTO_ERROR))
 end
 
@@ -556,7 +561,9 @@ end
 
 function client_i:drop(message, log_message, rconinfo)
 	self.log_inf_("dropped: $", log_message or message)
-	if self.handshake_done_ then
+	if self.websocket_host_ then
+		-- * Nothing.
+	elseif self.handshake_done_ then
 		self:send_disconnect_reason_(message)
 	else
 		self:send_handshake_failure_(message:sub(1, 255))
@@ -578,6 +585,61 @@ function client_i:close_socket_()
 	self.socket_:flush("n", self.stopping_since_ + config.sendq_flush_timeout - cqueues.monotime())
 	self.socket_:shutdown()
 	self.socket_:close()
+end
+
+function client_i:manage_websocket_rx_()
+	while self.status_ == "running" do
+		local data, opcode, errno = self.websocket_:receive()
+		if self.status_ ~= "running" then
+			break
+		end
+		if not data then
+			self:stop_({
+				reason = "recv_failed",
+				code = errno,
+			})
+			break
+		end
+		if opcode ~= "binary" then
+			self:stop_({
+				reason = "websocket_bad_frame",
+			})
+			break
+		end
+		local pushed, count = self.rx_:push(data)
+		if pushed < count then
+			self.log_inf_("recv queue limit exceeded")
+			self:stop_({
+				reason = "recvq_exceeded",
+			})
+			break
+		end
+		self.read_wake_:signal()
+	end
+end
+
+function client_i:manage_websocket_tx_()
+	while self.status_ == "running" do
+		if not self.tx_:next() then
+			util.cqueues_poll(self.write_wake_, self.wake_)
+		end
+		if self.tx_:next() then
+			local data, first, last = self.tx_:next()
+			assert(first == 1 and last == #data)
+			local ok, err, errno = self.websocket_:send(data, "binary")
+			if self.status_ ~= "running" then
+				break
+			end
+			if not ok then
+				self:stop_({
+					reason = "send_failed",
+					code = errno,
+				})
+				break
+			end
+			self.tx_:pop(#data)
+		end
+	end
 end
 
 function client_i:manage_socket_()
@@ -665,8 +727,66 @@ function client_i:manage_socket_()
 	self:close_socket_()
 end
 
+function client_i:fail_http_stream_(stream, msg, errno, err)
+	local connection = stream.connection
+	stream:shutdown()
+	local client_socket = connection:take_socket()
+	client_socket:close()
+	self:drop(msg, ("%s: code %i: %s"):format(msg, errno, err), {
+		reason = "bad_http_stream",
+	})
+end
+
+function client_i:handle_http_stream(stream)
+	local deadline = cqueues.monotime() + config.websocket_http_request_timeout
+	local headers_in, err, errno = stream:get_headers(deadline - cqueues.monotime())
+	if not headers_in then
+		self:fail_http_stream_(stream, "failed to get headers", errno, err)
+		return
+	end
+	local headers_out = http_headers.new()
+	headers_out:append("server", config.websocket_server)
+	headers_out:append("date", http_util.imf_date())
+	if headers_in:get("upgrade") and headers_in:get("upgrade"):lower() == "websocket" then
+		local err, errno
+		self.websocket_, err, errno = http_websocket.new_from_stream(stream, headers_in)
+		if not self.websocket_ then
+			self:fail_http_stream_(stream, "failed to get upgrade to websocket", errno, err)
+			return
+		end
+		local ok, err, errno = self.websocket_:accept({
+			headers   = headers_out,
+			protocols = { config.websocket_protocol },
+		}, deadline - cqueues.monotime())
+		if not ok then
+			self:fail_http_stream_(stream, "failed to get accept websocket", errno, err)
+			return
+		end
+		self.wake_:signal()
+		while self.status_ == "running" do
+			util.cqueues_poll(self.wake_)
+		end
+		self.websocket_:close(self.websocket_close_code_, self.websocket_close_reason_, self.stopping_since_ + config.sendq_flush_timeout - cqueues.monotime())
+		return
+	end
+	headers_out:append(":status", "404")
+	local ok, err, errno = stream:write_headers(headers_out, true, deadline - cqueues.monotime())
+	if not ok then
+		self:fail_http_stream_(stream, "failed to write response headers", errno, err)
+		return
+	end
+end
+
+local websocket_close_codes = {
+	[ "nick_collision"          ] = 1008,
+	[ "proto_mismatch"          ] = 1003,
+	[ "tpt_min_violation"       ] = 1003,
+	[ "tpt_max_violation"       ] = 1003,
+	[ "server_full"             ] = 1013,
+	[ "critical_join_room_fail" ] = 1008,
+}
 function client_i:proto_()
-	self.socket_:setmode("bn", "bn")
+	self.socket_:setmode("bnA", "bnA")
 	self.socket_:onerror(function(_, _, code, _)
 		self.socket_:clearerr()
 		return code
@@ -686,7 +806,7 @@ function client_i:proto_()
 				return first_byte
 			end
 		end
-		local secure_level_matches
+		local secure_level_matches, secure_alpn
 		do
 			local first_byte = get_first_byte({
 				message = "no client handshake",
@@ -719,41 +839,66 @@ function client_i:proto_()
 						message = "no client handshake in TLS mode",
 						kind = "first_tls_byte_timeout",
 					})
+					secure_alpn = self.socket_:checktls():getAlpnSelected()
 				end
 			end
 		end
-		util.cqueues_wrap(cqueues.running(), function()
-			self:manage_socket_()
-		end, self:name() .. "/manage_socket_")
+		if not first_byte_problem and config.websocket and secure_alpn == "http/1.1" then
+			self.log_inf_("websocketizing")
+			self.websocket_host_ = true
+			self.server_:websocketize(self, self.socket_)
+			local timeout = false
+			while self.status_ == "running" and not self.websocket_ do
+				util.cqueues_poll(deadline - cqueues.monotime(), self.wake_)
+				if deadline < cqueues.monotime() then
+					self:proto_error_("websocket handshake timeout", {
+						kind = "websocket_timeout",
+					})
+				end
+			end
+			if not self.websocket_ then
+				self:proto_stop_()
+			end
+			util.cqueues_wrap(cqueues.running(), function()
+				self:manage_websocket_rx_()
+			end, self:name() .. "/manage_websocket_rx_")
+			util.cqueues_wrap(cqueues.running(), function()
+				self:manage_websocket_tx_()
+			end, self:name() .. "/manage_websocket_tx_")
+		else
+			util.cqueues_wrap(cqueues.running(), function()
+				self:manage_socket_()
+			end, self:name() .. "/manage_socket_")
+			if first_byte_problem then
+				self:proto_error_(first_byte_problem.message, {
+					kind = first_byte_problem.kind,
+				})
+			end
+			if config.secure then
+				if secure_level_matches then
+					if not starttls_ok then
+						self:proto_error_(("starttls failed: %s"):format(starttls_err), {
+							kind = "starttls_failed",
+							err = starttls_err,
+						})
+					end
+					local hostname = self.socket_:checktls():getHostName()
+					if hostname ~= config.host then
+						self:proto_error_(("incorrect hostname: (%s ~= %s)"):format(hostname, config.host), {
+							kind = "incorrect_hostname",
+							got = hostname,
+						})
+					end
+				else
+					self:proto_close_("this TPTMP v2 server only supports secure connections; try updating TPTMP or prepending + to the port number", nil, {
+						reason = "secure_level_mismatch",
+					})
+				end
+			end
+		end
 		util.cqueues_wrap(cqueues.running(), function()
 			self:expect_ping_()
 		end, self:name() .. "/expect_ping_")
-		if first_byte_problem then
-			self:proto_error_(first_byte_problem.message, {
-				kind = first_byte_problem.kind,
-			})
-		end
-		if config.secure then
-			if secure_level_matches then
-				if not starttls_ok then
-					self:proto_error_(("starttls failed: %s"):format(starttls_err), {
-						kind = "starttls_failed",
-						err = starttls_err,
-					})
-				end
-				local hostname = self.socket_:checktls():getHostName()
-				if hostname ~= config.host then
-					self:proto_error_(("incorrect hostname: (%s ~= %s)"):format(hostname, config.host), {
-						kind = "incorrect_hostname",
-						got = hostname,
-					})
-				end
-			else
-				self:proto_close_("this TPTMP v2 server only supports secure connections; try updating TPTMP or prepending + to the port number", nil, {
-					reason = "secure_level_mismatch",
-				})
-			end
-		end
 		self:handshake_()
 		while true do
 			local packet_id = self:read_bytes_(1)
@@ -774,6 +919,8 @@ function client_i:proto_()
 			}, err.rconinfo))
 		elseif getmetatable(err) == PROTO_CLOSE then
 			self:drop(err.msg, err.log, err.rconinfo)
+			self.websocket_close_code_ = websocket_close_codes[err.rconinfo.reason] or err.rconinfo.websocket_close_code or 1011
+			self.websocket_close_reason_ = err.msg
 		elseif getmetatable(err) == PROTO_STOP then
 			-- * Nothing.
 		else

@@ -65,6 +65,14 @@ local config = {
 	--   to change for a custom server.
 	secure = prefer_secret_config("secure", common_config.secure),
 
+	-- * Enable WebSocket connections over the usual TCP port. Requires
+	--   secure = true because such connections are identified via ALPN.
+	websocket = prefer_secret_config("websocket", true),
+
+	-- * HTTP Server header to use in responses. Only relevant if
+	--   websocket = true.
+	websocket_server = prefer_secret_config("websocket_server", "tptmpserver"),
+
 	-- * Hostname to check the SNI field in the TLS handshake against. Required
 	--   if auth = true. Makes it possible to detect and drop stray, non-TPTMP
 	--   connections earlier than via the protocol handshake if secure = true,
@@ -192,6 +200,9 @@ local config = {
 	-- * Protocol version.
 	version = common_config.version,
 
+	-- * WebSocket protocol to offer.
+	websocket_protocol = common_config.websocket_protocol,
+
 	-- * Client-to-server message size limit.
 	message_size = common_config.message_size,
 
@@ -278,6 +289,18 @@ local config = {
 	--   the client side or more.
 	rcon_ping_timeout = 120,
 
+	-- * Timeout in seconds to wait for client to send first bytes and/or
+	--   complete TLS handshake. Only relevant if websocket = true.
+	websocket_http_connection_setup_timeout = 10,
+
+	-- * Timeout in seconds to wait for a new stream on an idle connection
+	--   before giving up and closing the connection. Only relevant if
+	--   websocket = true.
+	websocket_http_intra_stream_timeout = 10,
+
+	-- * Timeout in seconds to for ancillary non-WebSocket requests (e.g. CORS
+	--   pre-flight) to complete. Only relevant if websocket = true.
+	websocket_http_request_timeout = 10,
 
 	-- ***********************************************************************
 	-- *** The following options should not be changed as their values     ***
