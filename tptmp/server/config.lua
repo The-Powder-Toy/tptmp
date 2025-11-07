@@ -93,6 +93,24 @@ local config = {
 	-- * Path to backup dynamic configuration store.
 	dynamic_config_xchg = prefer_secret_config("dynamic_config_xchg", "config.json~"),
 
+	-- * List of plugin modules to load.
+	plugin_modules = prefer_secret_config("plugin_modules", {
+		"back",
+		"badwords",
+		"ban",
+		"block",
+		"console",
+		"kick",
+		"motd",
+		"msg",
+		"owner",
+		"private",
+		"room",
+		"seen",
+		"self",
+		"spam",
+	}),
+
 
 	-- ***********************************************************************
 	-- *** The following options should be customised in accordance with   ***

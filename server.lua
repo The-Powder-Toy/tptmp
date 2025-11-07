@@ -1,7 +1,6 @@
 #!/usr/bin/env lua5.3
 
 xpcall(function()
-	local ignore_newindex = { lfs = true }
 	setmetatable(_ENV or getfenv(), { __index = function()
 		error("__index on env", 2)
 	end, __newindex = function(_, key)
@@ -48,7 +47,6 @@ xpcall(function()
 		util_named_traceback = require("tptmp.server.util").named_traceback
 	end
 
-	local lfs            = require("lfs")
 	local cqueues        = require("cqueues")
 	local config         = require("tptmp.server.config")
 	local log            = require("tptmp.server.log")
@@ -65,12 +63,10 @@ xpcall(function()
 	math.randomseed(os.time())
 
 	local plugins = {}
-	for file in lfs.dir("tptmp/server/plugins") do
-		local name = file:match("^(.+)%.lua$")
-		if name then
-			plugins[name] = require("tptmp.server.plugins." .. name)
-			log.inf("[plugin] loaded " .. name)
-		end
+	for i = 1, #config.plugin_modules do
+		local name = config.plugin_modules[i]
+		plugins[name] = require("tptmp.server.plugins." .. name)
+		log.inf("[plugin] loaded " .. name)
 	end
 	local phost = plugin_host.new({
 		plugins = plugins,

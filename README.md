@@ -24,7 +24,6 @@ dependencies, namely:
  * `lunajson`
  * `jnet`
  * `http`
- * `luafilesystem`
  * `basexx` (comes with `http`)
  * `cqueues` (comes with `http`)
  * `luaossl` (comes with `http`)
@@ -35,7 +34,6 @@ If you have [LuaRocks](https://luarocks.org/), you can install these with:
 sudo luarocks install --lua-version=5.3 --tree=system lunajson
 sudo luarocks install --lua-version=5.3 --tree=system jnet
 sudo luarocks install --lua-version=5.3 --tree=system http
-sudo luarocks install --lua-version=5.3 --tree=system luafilesystem
 ```
 
 ### Static configuration
