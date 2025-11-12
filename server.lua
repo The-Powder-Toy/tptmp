@@ -47,6 +47,17 @@ xpcall(function()
 		util_named_traceback = require("tptmp.server.util").named_traceback
 	end
 
+	-- do
+	-- 	local socket = require("cqueues.socket")
+	-- 	local log    = require("tptmp.server.log")
+	-- 	local real_close
+	-- 	real_close = socket.interpose("close", function(s)
+	-- 		print("closing " .. tostring(s))
+	-- 		log.here()
+	-- 		real_close(s)
+	-- 	end)
+	-- end
+
 	local cqueues        = require("cqueues")
 	local config         = require("tptmp.server.config")
 	local log            = require("tptmp.server.log")

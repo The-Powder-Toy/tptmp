@@ -616,12 +616,17 @@ function client_i:manage_websocket_rx_()
 		end
 		self.read_wake_:signal()
 	end
+	self.websocket_rx_done_ = true
+	self.wake_:signal()
 end
 
 function client_i:manage_websocket_tx_()
 	while self.status_ == "running" do
 		if not self.tx_:next() then
 			util.cqueues_poll(self.write_wake_, self.wake_)
+			if self.status_ ~= "running" then
+				break
+			end
 		end
 		if self.tx_:next() then
 			local data, first, last = self.tx_:next()
@@ -640,6 +645,8 @@ function client_i:manage_websocket_tx_()
 			self.tx_:pop(#data)
 		end
 	end
+	self.websocket_tx_done_ = true
+	self.wake_:signal()
 end
 
 function client_i:manage_socket_()
@@ -763,10 +770,12 @@ function client_i:handle_http_stream(stream)
 			return
 		end
 		self.wake_:signal()
-		while self.status_ == "running" do
+		while self.status_ == "running" or not self.websocket_rx_done_ or not self.websocket_tx_done_ do
 			util.cqueues_poll(self.wake_)
 		end
-		self.websocket_:close(self.websocket_close_code_, self.websocket_close_reason_, self.stopping_since_ + config.sendq_flush_timeout - cqueues.monotime())
+		if self.websocket_.readyState < 3 then
+			self.websocket_:close(self.websocket_close_code_, self.websocket_close_reason_, self.stopping_since_ + config.sendq_flush_timeout - cqueues.monotime())
+		end
 		return
 	end
 	headers_out:append(":status", "404")
@@ -846,7 +855,9 @@ function client_i:proto_()
 		if not first_byte_problem and config.websocket and secure_alpn == "http/1.1" then
 			self.log_inf_("websocketizing")
 			self.websocket_host_ = true
-			self.server_:websocketize(self, self.socket_)
+			local client_socket = self.socket_
+			self.socket_ = nil
+			self.server_:websocketize(self, client_socket)
 			local timeout = false
 			while self.status_ == "running" and not self.websocket_ do
 				util.cqueues_poll(deadline - cqueues.monotime(), self.wake_)

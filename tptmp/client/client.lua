@@ -776,7 +776,9 @@ function client_i:connect_()
 	if socket.tcp then
 		self.socket_ = tcp_socket.new()
 	else
-		self.socket_ = web_socket.new()
+		self.socket_ = web_socket.new({
+			handle_error_func = self.handle_error_func_,
+		})
 	end
 	while true do
 		local ok, err = self.socket_:connect(self.host_, self.port_, self.secure_)

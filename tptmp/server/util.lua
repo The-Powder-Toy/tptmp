@@ -32,6 +32,14 @@ local function named_traceback(reason)
 	return reason .. " for [" .. (coro_names[coroutine.running()] or "???") .. "]: " .. debug.traceback()
 end
 
+local function xpcall_wrap(func)
+	if not xpcall(func, function(err)
+		log.here(err)
+	end) then
+		error(CQUEUES_WRAP_RETHROW)
+	end
+end
+
 local function cqueues_wrap(queue, func, name)
 	name = name or ("coroutine created at:\n" .. debug.traceback())
 	queue:wrap(function()
@@ -41,11 +49,7 @@ local function cqueues_wrap(queue, func, name)
 				print(named_traceback("periodic traceback"))
 			end, "", periodic_traceback_instructions)
 		end
-		if not xpcall(func, function(err)
-			log.here(err)
-		end) then
-			error(CQUEUES_WRAP_RETHROW)
-		end
+		xpcall_wrap(func)
 	end)
 end
 
@@ -136,4 +140,5 @@ return {
 	table_augment = table_augment,
 	format_difftime = format_difftime,
 	named_traceback = named_traceback,
+	xpcall_wrap = xpcall_wrap,
 }

@@ -1,5 +1,6 @@
 local config      = require("tptmp.client.config")
 local buffer_list = require("tptmp.common.buffer_list")
+local modulepack  = require("modulepack")
 
 local web_i = {}
 local web_m = { __index = web_i }
@@ -20,13 +21,13 @@ function web_i:connect(host, port, secure)
 				return want, count
 			end,
 		}
-		self.socket_:onClose(function(code, reason, clean)
+		self.socket_:onClose(modulepack.xpcall_wrap(function(code, reason, clean)
 			self.closed_ = true
 			if not clean then
 				self.lasterror_ = reason
 			end
-		end)
-		self.socket_:onMessage(function(message, binary)
+		end, self.handle_error_func_))
+		self.socket_:onMessage(modulepack.xpcall_wrap(function(message, binary)
 			if not binary then
 				self.lasterror_ = "unexpected string frame"
 				self.socket_:close(1002, self.lasterror_)
@@ -36,7 +37,7 @@ function web_i:connect(host, port, secure)
 				self.lasterror_ = "recv queue limit exceeded"
 				self.socket_:close(1002, self.lasterror_)
 			end
-		end)
+		end, self.handle_error_func_))
 	end
 	if self.socket_:status() == "connecting" then
 		return nil, "timeout"
@@ -74,11 +75,12 @@ function web_i:tx()
 	return self.tx_
 end
 
-local function new()
+local function new(params)
 	return setmetatable({
-		lasterror_ = "???",
-		closed_    = false,
-		rx_        = buffer_list.new({ limit = config.recvq_limit }),
+		lasterror_         = "???",
+		closed_            = false,
+		rx_                = buffer_list.new({ limit = config.recvq_limit }),
+		handle_error_func_ = params.handle_error_func,
 	}, web_m)
 end
 

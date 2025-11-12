@@ -130,14 +130,16 @@ function server_i:websocket_listen_()
 		connection_setup_timeout = config.websocket_http_connection_setup_timeout,
 		intra_stream_timeout = config.websocket_http_intra_stream_timeout,
 		onstream = function(_, stream)
-			local client_socket = stream.connection.socket -- * .socket is not actually public but whatever...
-			local client = self.websocket_socket_to_client_[client_socket]
-			if not client then
-				local _, peer_str = client_socket:peername()
-				self.log_inf_("unexpected new stream from socket connected from $", peer_str)
-				return
-			end
-			client:handle_http_stream(stream)
+			util.xpcall_wrap(function()
+				local client_socket = stream.connection.socket -- * .socket is not actually public but whatever...
+				local client = self.websocket_socket_to_client_[client_socket]
+				if not client then
+					local _, peer_str = client_socket:peername()
+					self.log_inf_("unexpected new stream from socket connected from $", peer_str)
+					return
+				end
+				client:handle_http_stream(stream)
+			end)
 		end,
 		cq = cqueues.running(),
 		ctx = "fake", -- * This server shouldn't start TLS itself.
