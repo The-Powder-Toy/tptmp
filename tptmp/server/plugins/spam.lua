@@ -58,7 +58,7 @@ return {
 					end
 				end
 				client.spam_violations_ = nil
-				return "rewrite", message
+				return "rewrite", client, message
 			end,
 		},
 	},
