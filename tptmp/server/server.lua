@@ -63,11 +63,11 @@ function server_i:register_client(client)
 	client:mark_registered()
 	self.client_count_ = self.client_count_ + 1
 	self.nick_to_client_[client:inick()] = client
-	if not client:guest() then
+	if client:uid() then
 		self.uid_to_client_[client:uid()] = client
 	end
 	self.phost_:call_hook("client_register", client)
-	if not client:guest() then
+	if client:uid() then
 		self:cache_uid_to_nick_(client:uid(), client:nick())
 	end
 	self:rconlog({
@@ -92,7 +92,7 @@ function server_i:remove_client(client, rconinfo)
 		self.phost_:call_hook("client_disconnect", client)
 		self.client_count_ = self.client_count_ - 1
 		self.nick_to_client_[client:inick()] = nil
-		if not client:guest() then
+		if client:uid() then
 			self.uid_to_client_[client:uid()] = nil
 		end
 	end
