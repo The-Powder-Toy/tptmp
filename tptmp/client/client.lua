@@ -27,7 +27,10 @@ local index_to_lrax = {
 }
 
 local function get_auth_token(audience)
-	local req = http.getAuthToken(audience)
+	local req, err = http.getAuthToken(audience)
+	if not req then
+		return nil, "internal", tostring(err)
+	end
 	local started_at = socket.gettime()
 	while req:status() == "running" do
 		if socket.gettime() > started_at + config.auth_backend_timeout then
