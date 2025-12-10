@@ -96,10 +96,12 @@ function server_i:remove_client(client, rconinfo)
 			self.uid_to_client_[client:uid()] = nil
 		end
 	end
-	local client_socket = self.client_to_websocket_socket_[client]
-	if client_socket then
-		self.websocket_socket_to_client_[client_socket] = nil
-		self.client_to_websocket_socket_[client] = nil
+	if config.websocket then
+		local client_socket = self.client_to_websocket_socket_[client]
+		if client_socket then
+			self.websocket_socket_to_client_[client_socket] = nil
+			self.client_to_websocket_socket_[client] = nil
+		end
 	end
 	self.phost_:call_hook("client_cleanup", client)
 	self.name_to_client_[client:name()] = nil
