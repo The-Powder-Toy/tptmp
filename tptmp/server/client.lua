@@ -201,10 +201,10 @@ function client_i:check_message_(message)
 		return
 	end
 	local server = self:server()
-	local ok, _
-	ok, _, message = server:phost():call_check_all("message_ok", self, message)
+	local ok, err
+	ok, err, message = server:phost():call_check_all("message_ok", self, message)
 	if not ok then
-		self:send_server("\ae* Cannot send message: " .. message)
+		self:send_server("\ae* Cannot send message: " .. err)
 		return
 	end
 	return message
