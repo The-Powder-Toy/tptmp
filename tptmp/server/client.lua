@@ -407,8 +407,11 @@ function client_i:unique_guest_nick_()
 end
 
 function client_i:deduplicate_nick_(keep_existing)
-	local other = self.server_:client_by_nick(self.nick_)
-	if other then
+	while true do
+		local other = self.server_:client_by_nick(self.nick_)
+		if not other then
+			break
+		end
 		if keep_existing then
 			self:proto_close_("nick already in use", ("nick already in use (by %s)"):format(other.name_), {
 				reason = "nick_collision",
