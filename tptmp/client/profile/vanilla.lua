@@ -648,24 +648,20 @@ function profile_i:update_bmode_()
 end
 
 function profile_i:update_shape_()
-	local pcirc = self.perfect_circle_
-	if self.perfect_circle_invalid_ then
-		pcirc = perfect_circle()
-	end
 	local shape = tpt.brushID
-	if self.shape_ ~= shape or self.perfect_circle_ ~= pcirc then
+	if self.shape_ ~= shape or self.imperfect_circle_invalid_ then
+		local ipcirc = shape == 0 and not perfect_circle()
 		local old_cbrush = self.cbrush_
 		self.cbrush_ = shape >= BRUSH_COUNT or nil
 		if not old_cbrush and self.cbrush_ then
 			self.display_toolwarn_["cbrush"] = true
 		end
-		local old_ipcirc = self.ipcirc_
-		self.ipcirc_ = shape == 0 and not pcirc
-		if not old_ipcirc and self.ipcirc_ then
-			self.display_toolwarn_["ipcirc"] = true
+		if self.imperfect_circle_invalid_ or not ipcirc then
+			self.display_toolwarn_["ipcirc"] = ipcirc or nil
 		end
+		self.imperfect_circle_invalid_ = nil
 		self.shape_ = shape
-		self.perfect_circle_ = pcirc
+		self.imperfect_circle_ = ipcirc
 		self:report_shape_()
 	end
 end
@@ -855,6 +851,7 @@ function profile_i:handle_tick()
 	end
 	if self.simstate_invalid_next_ then
 		self.simstate_invalid_next_ = nil
+		self.imperfect_circle_invalid_ = true
 		self.simstate_invalid_ = true
 	end
 	if self.placesave_size_next_ then
@@ -1040,7 +1037,6 @@ function profile_i:handle_mouseup(px, py, button, reason)
 	end
 	-- * Here the assumption is made that no Lua hook cancels the mouseup event.
 	if px >= sim.XRES or py >= sim.YRES then
-		self.perfect_circle_invalid_ = true
 		self.simstate_invalid_next_ = true
 	end
 	if self.registered_func_() and ((reason == MOUSEUP_REASON_MOUSEUP and self[index_to_lraxid[self.last_toolslot_]] ~= "DEFAULT_UI_SIGN") or button ~= 1) then
@@ -1389,6 +1385,7 @@ function profile_i:xidr_sync()
 		self.tool_aid_ = nil
 		self.tool_xid_ = nil
 		self.last_toolid_ = self.tool_lid_
+		self.imperfect_circle_invalid_ = true
 		self:update_tools_()
 	end
 end
@@ -1408,7 +1405,7 @@ local function new(params)
 		last_toolslot_ = 0,
 		shape_ = 0,
 		stk2_out_ = false,
-		perfect_circle_invalid_ = true,
+		imperfect_circle_invalid_ = true,
 		registered_func_ = params.registered_func,
 		log_event_func_ = params.log_event_func,
 		set_id_func_ = params.set_id_func,
