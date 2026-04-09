@@ -270,6 +270,12 @@ local function run()
 		end
 	end
 
+	local handle_aftersim = modulepack.xpcall_wrap(function()
+		if cli then
+			cli:aftersim()
+		end
+	end)
+
 	local pcur_r, pcur_g, pcur_b, pcur_a = unpack(colours.common.player_cursor)
 	local bmode_to_repr = {
 		[ 0 ] = "",
@@ -411,6 +417,7 @@ local function run()
 
 	local event_handlers = {
 		{ event = evt.TICK, handle = handle_tick },
+		{ event = evt.AFTERSIM, handle = handle_aftersim },
 	}
 
 	local function handle_simple(event, handler)

@@ -1249,6 +1249,12 @@ function client_i:tick_fpssync_invalidate_()
 	end
 end
 
+function client_i:aftersim_fpssync_()
+	if self.registered_ and self.fps_sync_ then
+		self.fps_sync_count_ = self.fps_sync_count_ + 1
+	end
+end
+
 function client_i:tick_fpssync_()
 	if self.registered_ then
 		if self.fps_sync_ then
@@ -1263,7 +1269,6 @@ function client_i:tick_fpssync_()
 					end
 				end
 			end
-			self.fps_sync_count_ = self.fps_sync_count_ + 1
 			if now_msec >= self.fps_sync_last_ + 1000 then
 				self:send_fpssync(now_msec - self.fps_sync_first_, self.fps_sync_count_)
 				self.fps_sync_last_ = now_msec
@@ -1302,6 +1307,13 @@ function client_i:tick_fpssync_()
 			end
 		end
 	end
+end
+
+function client_i:aftersim()
+	if self.status_ ~= "running" then
+		return
+	end
+	self:aftersim_fpssync_()
 end
 
 function client_i:tick()
