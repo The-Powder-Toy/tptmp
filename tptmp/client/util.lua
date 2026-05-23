@@ -246,6 +246,13 @@ local function rect_snap_coords(x1, y1, x2, y2)
 end
 
 local function create_parts_any(xidr, x, y, rx, ry, xtype, brush, member)
+	if member.kmod_s == nil or
+	   member.kmod_c == nil or
+	   member.tool_x == nil or
+	   member.deco == nil or
+	   member.bmode == nil then
+		return
+	end
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x, y) then
 		return
 	end
@@ -298,6 +305,13 @@ local function create_parts_any(xidr, x, y, rx, ry, xtype, brush, member)
 end
 
 local function create_line_any(xidr, x1, y1, x2, y2, rx, ry, xtype, brush, member, cont)
+	if member.kmod_s == nil or
+	   member.kmod_c == nil or
+	   member.tool_x == nil or
+	   member.deco == nil or
+	   member.bmode == nil then
+		return
+	end
 	-- * TODO[opt]: Revert jacob1's mod ball check.
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x1, y1) or
 	   not inside_rect(0, 0, sim.XRES, sim.YRES, x2, y2) then
@@ -357,6 +371,11 @@ local function create_line_any(xidr, x1, y1, x2, y2, rx, ry, xtype, brush, membe
 end
 
 local function create_box_any(xidr, x1, y1, x2, y2, rx, ry, xtype, member)
+	if member.tool_x == nil or
+	   member.deco == nil or
+	   member.bmode == nil then
+		return
+	end
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x1, y1) or
 	   not inside_rect(0, 0, sim.XRES, sim.YRES, x2, y2) then
 		return
@@ -408,6 +427,12 @@ local function create_box_any(xidr, x1, y1, x2, y2, rx, ry, xtype, member)
 end
 
 local function flood_any(xidr, x, y, xtype, part_flood_hint, wall_flood_hint, member)
+	if member.size_x == nil or
+	   member.size_y == nil or
+	   member.tool_x == nil or
+	   member.bmode == nil then
+		return
+	end
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x, y) then
 		return
 	end
