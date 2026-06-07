@@ -125,7 +125,7 @@ end
 function client_i:handle_disconnect_reason_2_()
 	local reason = self:read_str8_()
 	self.should_not_reconnect_func_()
-	self:stop(reason)
+	self:proto_close_(reason)
 end
 
 function client_i:handle_ping_3_()
