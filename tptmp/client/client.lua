@@ -329,14 +329,14 @@ end
 
 function client_i:handle_mousepos_32_()
 	local member = self:member_prefix_()
-	member.pos_x, member.pos_y = self:read_xy_12_()
+	member.pos_x, member.pos_y = util.clamp_pos(self:read_xy_12_())
 	member:update_can_render()
 end
 
 function client_i:handle_brushmode_33_()
 	local member = self:member_prefix_()
 	local bmode = self:read_bytes_(1)
-	member.bmode = bmode < 3 and bmode or 0
+	member.bmode = util.clamp(bmode, 0, 2)
 	member:update_can_render()
 end
 
@@ -350,7 +350,7 @@ end
 
 function client_i:handle_brushshape_35_()
 	local member = self:member_prefix_()
-	member.shape = self:read_bytes_(1)
+	member.shape = util.clamp(self:read_bytes_(1), 0, sim.NUM_DEFAULTBRUSHES - 1)
 	member:update_can_render()
 end
 
@@ -474,12 +474,9 @@ end
 
 function client_i:handle_flood_39_()
 	local member = self:member_prefix_()
-	local index = self:read_bytes_(1)
-	if index > 3 then
-		index = 0
-	end
+	local index = util.clamp(self:read_bytes_(1), 0, 3)
 	member.last_tool = member[index_to_lrax[index]]
-	local x, y = self:read_xy_12_()
+	local x, y = util.clamp_pos(self:read_xy_12_())
 	if member.last_tool then
 		util.flood_any(self.xidr, x, y, member.last_tool, -1, -1, member)
 	end
@@ -488,7 +485,7 @@ end
 function client_i:handle_lineend_40_()
 	local member = self:member_prefix_()
 	local x1, y1 = member.line_x, member.line_y
-	local x2, y2 = self:read_xy_12_()
+	local x2, y2 = util.clamp_pos(self:read_xy_12_())
 	if member:can_render() and x1 and member.last_tool then
 		if member.kmod_a then
 			x2, y2 = util.line_snap_coords(x1, y1, x2, y2)
@@ -501,7 +498,7 @@ end
 function client_i:handle_rectend_41_()
 	local member = self:member_prefix_()
 	local x1, y1 = member.rect_x, member.rect_y
-	local x2, y2 = self:read_xy_12_()
+	local x2, y2 = util.clamp_pos(self:read_xy_12_())
 	if member:can_render() and x1 and member.last_tool then
 		if member.kmod_a then
 			x2, y2 = util.rect_snap_coords(x1, y1, x2, y2)
@@ -513,12 +510,9 @@ end
 
 function client_i:handle_pointsstart_42_()
 	local member = self:member_prefix_()
-	local index = self:read_bytes_(1)
-	if index > 3 then
-		index = 0
-	end
+	local index = util.clamp(self:read_bytes_(1), 0, 3)
 	member.last_tool = member[index_to_lrax[index]]
-	local x, y = self:read_xy_12_()
+	local x, y = util.clamp_pos(self:read_xy_12_())
 	if member:can_render() and member.last_tool then
 		util.create_parts_any(self.xidr, x, y, member.size_x, member.size_y, member.last_tool, member.shape, member)
 	end
@@ -528,7 +522,7 @@ end
 
 function client_i:handle_pointscont_43_()
 	local member = self:member_prefix_()
-	local x, y = self:read_xy_12_()
+	local x, y = util.clamp_pos(self:read_xy_12_())
 	if member:can_render() and member.last_tool and member.last_x then
 		util.create_line_any(self.xidr, member.last_x, member.last_y, x, y, member.size_x, member.size_y, member.last_tool, member.shape, member, true)
 	end
@@ -538,22 +532,16 @@ end
 
 function client_i:handle_linestart_44_()
 	local member = self:member_prefix_()
-	local index = self:read_bytes_(1)
-	if index > 3 then
-		index = 0
-	end
+	local index = util.clamp(self:read_bytes_(1), 0, 3)
 	member.last_tool = member[index_to_lrax[index]]
-	member.line_x, member.line_y = self:read_xy_12_()
+	member.line_x, member.line_y = util.clamp_pos(self:read_xy_12_())
 end
 
 function client_i:handle_rectstart_45_()
 	local member = self:member_prefix_()
-	local index = self:read_bytes_(1)
-	if index > 3 then
-		index = 0
-	end
+	local index = util.clamp(self:read_bytes_(1), 0, 3)
 	member.last_tool = member[index_to_lrax[index]]
-	member.rect_x, member.rect_y = self:read_xy_12_()
+	member.rect_x, member.rect_y = util.clamp_pos(self:read_xy_12_())
 end
 
 function client_i:handle_custgolinfo_46_()
@@ -645,8 +633,8 @@ end
 
 function client_i:handle_clearrect_67_()
 	self:member_prefix_()
-	local x, y = self:read_xy_12_()
-	local w, h = self:read_xy_12_()
+	local x, y = util.clamp_pos(self:read_xy_12_())
+	local w, h = util.clamp_pos(self:read_xy_12_()) -- is really a size but it's ok
 	util.clear_rect(x, y, w, h)
 end
 
@@ -682,7 +670,7 @@ end
 function client_i:handle_placestatus_71_()
 	local member = self:member_prefix_()
 	local k = self:read_bytes_(1)
-	local w, h = self:read_xy_12_()
+	local w, h = util.clamp_pos(self:read_xy_12_()) -- is really a size but it's ok
 	if k == 0 then
 		member.place = nil
 	elseif k == 1 then
@@ -695,7 +683,7 @@ end
 function client_i:handle_selectstatus_72_()
 	local member = self:member_prefix_()
 	local k = self:read_bytes_(1)
-	local x, y = self:read_xy_12_()
+	local x, y = util.clamp_pos(self:read_xy_12_())
 	if k == 0 then
 		member.select = nil
 	elseif k == 1 then
@@ -711,7 +699,7 @@ end
 
 function client_i:handle_zoomstart_73_()
 	local member = self:member_prefix_()
-	local x, y = self:read_xy_12_()
+	local x, y = util.clamp_pos(self:read_xy_12_())
 	local s = self:read_bytes_(1)
 	member.zoom_x = x
 	member.zoom_y = y
@@ -727,7 +715,7 @@ end
 
 function client_i:handle_sparksign_75_()
 	local member = self:member_prefix_()
-	local x, y = self:read_xy_12_()
+	local x, y = util.clamp_pos(self:read_xy_12_())
 	sim.partCreate(-1, x, y, elem.DEFAULT_PT_SPRK)
 end
 

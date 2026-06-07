@@ -596,6 +596,15 @@ local function deco_pack(a, r, g, b)
 	                          b     )
 end
 
+local function clamp(x, lo, hi)
+	return math.min(math.max(x, lo), hi)
+end
+
+local function clamp_pos(x, y)
+	return clamp(x, 0, gfx.WIDTH  - 1),
+	       clamp(y, 0, gfx.HEIGHT - 1)
+end
+
 return {
 	get_name               = get_name,
 	stamp_load             = stamp_load,
@@ -629,4 +638,6 @@ return {
 	deco_pack              = deco_pack,
 	tool_identifiers       = tool_identifiers,
 	tool_proper_name       = tool_proper_name,
+	clamp                  = clamp,
+	clamp_pos              = clamp_pos,
 }
