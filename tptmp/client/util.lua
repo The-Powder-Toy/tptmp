@@ -256,6 +256,9 @@ local function create_parts_any(xidr, x, y, rx, ry, xtype, brush, member)
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x, y) then
 		return
 	end
+	if brush >= sim.NUM_DEFAULTBRUSHES then
+		return
+	end
 	if xidr.line_only[xtype] or xidr.no_create[xtype] then
 		return
 	end
@@ -315,6 +318,9 @@ local function create_line_any(xidr, x1, y1, x2, y2, rx, ry, xtype, brush, membe
 	-- * TODO[opt]: Revert jacob1's mod ball check.
 	if not inside_rect(0, 0, sim.XRES, sim.YRES, x1, y1) or
 	   not inside_rect(0, 0, sim.XRES, sim.YRES, x2, y2) then
+		return
+	end
+	if brush >= sim.NUM_DEFAULTBRUSHES then
 		return
 	end
 	if xidr.no_create[xtype] or xidr.no_shape[xtype] then
