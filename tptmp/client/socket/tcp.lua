@@ -23,7 +23,8 @@ function tcp_i:before_resume()
 			return nil, "stop", "recv queue limit exceeded"
 		end
 		if closed then
-			return nil, "resumestop", "connection closed: receive failed: " .. self.lasterror_
+			local lasterror = self.socket_:lasterror()
+			return nil, "resumestop", "connection closed: receive failed: " .. (lasterror == "" and "???" or tostring(lasterror))
 		end
 		if #data < config.read_size then
 			break
@@ -57,8 +58,8 @@ function tcp_i:after_resume()
 		local written = written_up_to - first + 1
 		self.tx_:pop(written)
 		if closed then
-			self.lasterror_ = self.socket_:lasterror()
-			return nil, "stop", "connection closed: send failed: " .. self.lasterror_
+			local lasterror = self.socket_:lasterror()
+			return nil, "stop", "connection closed: send failed: " .. (lasterror == "" and "???" or tostring(lasterror))
 		end
 		if written < count then
 			break
@@ -89,10 +90,9 @@ end
 
 local function new()
 	local tcp = setmetatable({
-		lasterror_ = "???",
-		socket_    = socket.tcp(),
-		rx_        = buffer_list.new({ limit = config.recvq_limit }),
-		tx_        = buffer_list.new({ limit = config.sendq_limit }),
+		socket_ = socket.tcp(),
+		rx_     = buffer_list.new({ limit = config.recvq_limit }),
+		tx_     = buffer_list.new({ limit = config.sendq_limit }),
 	}, tcp_m)
 	tcp.socket_:settimeout(0)
 	tcp.socket_:setoption("tcp-nodelay", true)
