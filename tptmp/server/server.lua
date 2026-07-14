@@ -524,7 +524,14 @@ function server_i:tls_context()
 		return key
 	end
 	local chain = ssl_x509_chain.new()
-	chain:add(get_key(ssl_x509.new, config.secure_chain_path))
+	do
+		local handle = assert(io.open(config.secure_chain_path, "rb"))
+		local data = handle:read("*a")
+		handle:close()
+		for key in data:gmatch("%-%-%-%-%-BEGIN CERTIFICATE%-%-%-%-%-.-%-%-%-%-%-END CERTIFICATE%-%-%-%-%-") do
+			chain:add(ssl_x509.new(key, "PEM"))
+		end
+	end
 	ctx:setCertificateChain(chain)
 	ctx:setCertificate(get_key(ssl_x509.new, config.secure_cert_path))
 	ctx:setPrivateKey(get_key(ssl_pkey.new, config.secure_pkey_path))
