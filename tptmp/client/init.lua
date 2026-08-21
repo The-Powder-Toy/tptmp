@@ -8,10 +8,6 @@ local modulepack  = require("modulepack")
 local common_util = require("tptmp.common.util")
 
 local loadtime_error
-local tptVersion = { tpt.version.major, tpt.version.minor }
-if tpt.version.upstreamMajor then
-	tptVersion = { tpt.version.upstreamMajor, tpt.version.upstreamMinor }
-end
 local http = rawget(_G, "http")
 local tools = rawget(_G, "tools")
 local socket = rawget(_G, "socket")
@@ -23,7 +19,7 @@ elseif sim.YRES ~= 384 then -- * Required by lots of code dealing with positions
 	loadtime_error = "XRES is not 384, try using the official version of the game"
 elseif sim.PMAPBITS >= 13 then -- * Required by how non-element tools are encoded (extended tool IDs, XIDs).
 	loadtime_error = "PMAPBITS is too large, try using the official version of the game"
-elseif not (tpt.version and tpt.version.upstreamBuild and tpt.version.upstreamBuild >= 356) then
+elseif not (tpt.version and tpt.version.upstreamBuild and tpt.version.upstreamBuild >= 400) then
 	loadtime_error = "game version not supported, try updating the game"
 elseif not rawget(_G, "bit") then
 	loadtime_error = "no bit API, try updating the game"
