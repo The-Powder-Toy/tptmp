@@ -31,7 +31,7 @@ elseif not http then
 	loadtime_error = "no http API, try updating the game"
 elseif not tools then
 	loadtime_error = "no tools API, try updating the game"
-elseif not socket or (not socket.tcp and not socket.web) then
+elseif not socket or not socket.tcp then -- TODO: check for socket.web once it actually works
 	loadtime_error = "no socket API, try updating the game"
 elseif socket.bind then
 	loadtime_error = "outdated socket API, try updating the game"
