@@ -511,32 +511,43 @@ local function fnv1a32(data)
 	return hash < 0 and (hash + 0x100000000) or hash
 end
 
-local function ambient_air_temp(temp)
-	if temp then
-		local set = temp / 0x400
-		sim.ambientAirTemp(set)
-		return set
-	else
-		return math.max(0x000000, math.min(0xFFFFFF, math.floor(sim.ambientAirTemp() * 0x400)))
+local function bias_by_10(func)
+	return function(value)
+		if value then
+			local set = value / 0x400
+			func(set)
+			return set
+		else
+			return math.max(0x000000, math.min(0xFFFFFF, math.floor(func() * 0x400)))
+		end
 	end
 end
 
-local function custom_gravity(x, y)
-	if x then
-		if x >= 0x800000 then x = x - 0x1000000 end
-		if y >= 0x800000 then y = y - 0x1000000 end
-		local setx, sety = x / 0x400, y / 0x400
-		sim.customGravity(setx, sety)
-		return setx, sety
-	else
-		local getx, gety = sim.customGravity()
-		getx = math.max(-0x800000, math.min(0x7FFFFF, math.floor(getx * 0x400)))
-		gety = math.max(-0x800000, math.min(0x7FFFFF, math.floor(gety * 0x400)))
-		if getx < 0 then getx = getx + 0x1000000 end
-		if gety < 0 then gety = gety + 0x1000000 end
-		return getx, gety
+local ambient_air_temp = bias_by_10(sim.ambientAirTemp)
+local ambient_air_pres = bias_by_10(sim.edgePressure  )
+local vorticity_coeff  = bias_by_10(sim.vorticityCoeff)
+
+local function bias_by_10_x2_neg(func)
+	return function(x, y)
+		if x then
+			if x >= 0x800000 then x = x - 0x1000000 end
+			if y >= 0x800000 then y = y - 0x1000000 end
+			local setx, sety = x / 0x400, y / 0x400
+			func(setx, sety)
+			return setx, sety
+		else
+			local getx, gety = func()
+			getx = math.max(-0x800000, math.min(0x7FFFFF, math.floor(getx * 0x400)))
+			gety = math.max(-0x800000, math.min(0x7FFFFF, math.floor(gety * 0x400)))
+			if getx < 0 then getx = getx + 0x1000000 end
+			if gety < 0 then gety = gety + 0x1000000 end
+			return getx, gety
+		end
 	end
 end
+
+local custom_gravity  = bias_by_10_x2_neg(sim.customGravity)
+local ambient_air_vel = bias_by_10_x2_neg(sim.edgeVelocity )
 
 local function get_save_id()
 	local id, hist = sim.getSaveID()
@@ -627,7 +638,10 @@ return {
 	escape_regex           = escape_regex,
 	fnv1a32                = fnv1a32,
 	ambient_air_temp       = ambient_air_temp,
+	ambient_air_pres       = ambient_air_pres,
+	vorticity_coeff        = vorticity_coeff,
 	custom_gravity         = custom_gravity,
+	ambient_air_vel        = ambient_air_vel,
 	get_save_id            = get_save_id,
 	version_less           = common_util.version_less,
 	version_equal          = common_util.version_equal,

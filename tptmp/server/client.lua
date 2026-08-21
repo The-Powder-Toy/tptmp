@@ -312,7 +312,7 @@ function client_i:handle_pastestamp_31_()
 	self.room_:broadcast(self, data)
 end
 
-local simstate_38_size = 11
+local simstate_38_size = 24
 local loadonline_69_size = 9
 
 forward_to_room(    "mousepos", 32, 3)

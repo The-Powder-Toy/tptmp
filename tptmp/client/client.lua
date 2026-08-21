@@ -437,14 +437,25 @@ local simstates = {
 		shift = 13,
 		size = 2,
 	},
+	{
+		format = "Air heat convection mode set to %s by %s",
+		states = { "none", "legacy", "Boussinesq" },
+		func = sim.convectionMode,
+		shift = 16,
+		size = 2,
+	},
 }
 function client_i:handle_simstate_38_()
 	local member = self:member_prefix_()
-	local lo, hi = self:read_bytes_(2)
+	local b1, b2, b3 = self:read_bytes_(3)
 	local temp = self:read_24be_()
+	local pres = self:read_24be_()
+	local vort = self:read_24be_()
 	local gravx = self:read_24be_()
 	local gravy = self:read_24be_()
-	local bits = bit.bor(lo, bit.lshift(hi, 8))
+	local aairx = self:read_24be_()
+	local aairy = self:read_24be_()
+	local bits = bit.bor(b1, bit.lshift(b2, 8), bit.lshift(b3, 16))
 	for i = 1, #simstates do
 		local desc = simstates[i]
 		local value = bit.band(bit.rshift(bits, desc.shift), bit.lshift(1, desc.size) - 1)
@@ -460,6 +471,14 @@ function client_i:handle_simstate_38_()
 		local set = util.ambient_air_temp(temp)
 		self.log_event_func_(colours.commonstr.event .. ("Ambient air temperature set to %.2f by %s"):format(set, member.formatted_nick))
 	end
+	if util.ambient_air_pres() ~= pres then
+		local set = util.ambient_air_pres(pres)
+		self.log_event_func_(colours.commonstr.event .. ("Ambient air pressure set to %.2f by %s"):format(set, member.formatted_nick))
+	end
+	if util.vorticity_coeff() ~= vort then
+		local set = util.vorticity_coeff(vort)
+		self.log_event_func_(colours.commonstr.event .. ("Vorticity coefficient set to %.2f by %s"):format(set, member.formatted_nick))
+	end
 	do
 		local cgx, cgy = util.custom_gravity()
 		if cgx ~= gravx or cgy ~= gravy then
@@ -467,6 +486,13 @@ function client_i:handle_simstate_38_()
 			if sim.gravityMode() == 3 then
 				self.log_event_func_(colours.commonstr.event .. ("Custom gravity set to (%+.2f, %+.2f) by %s"):format(setx, sety, member.formatted_nick))
 			end
+		end
+	end
+	do
+		local cax, cay = util.ambient_air_vel()
+		if cax ~= aairx or cay ~= aairy then
+			local setx, sety = util.ambient_air_vel(aairx, aairy)
+			self.log_event_func_(colours.commonstr.event .. ("Ambient air velocity set to (%+.2f, %+.2f) by %s"):format(setx, sety, member.formatted_nick))
 		end
 	end
 	self.profile_:sample_simstate()
@@ -922,25 +948,50 @@ function client_i:send_selecttool(idx, xtype)
 	self:write_flush_()
 end
 
-function client_i:send_simstate(ss_p, ss_h, ss_u, ss_n, ss_w, ss_g, ss_a, ss_e, ss_y, ss_t, ss_r, ss_s)
+function client_i:send_simstate(
+	simstate_paused,
+	simstate_heat,
+	simstate_ambientheat,
+	simstate_newtonian,
+	simstate_watereq,
+	simstate_gravmode,
+	simstate_airmode,
+	simstate_edgemode,
+	simstate_convmode,
+	simstate_prettypowd,
+	simstate_ambairtemp,
+	simstate_ambairpres,
+	simstate_vortcoeff,
+	simstate_cgravx,
+	simstate_cgravy,
+	simstate_aairvx,
+	simstate_aairvy
+)
 	self:write_("\38")
 	local toggles = bit.bor(
-		           ss_p    ,
-		bit.lshift(ss_h, 1),
-		bit.lshift(ss_u, 2),
-		bit.lshift(ss_n, 3),
-		bit.lshift(ss_w, 4),
-		bit.lshift(ss_y, 5)
+		           simstate_paused         ,
+		bit.lshift(simstate_heat       , 1),
+		bit.lshift(simstate_ambientheat, 2),
+		bit.lshift(simstate_newtonian  , 3),
+		bit.lshift(simstate_watereq    , 4),
+		bit.lshift(simstate_prettypowd , 5)
 	)
 	local multis = bit.bor(
-		           ss_g    ,
-		bit.lshift(ss_a, 2),
-		bit.lshift(ss_e, 5)
+		           simstate_gravmode    ,
+		bit.lshift(simstate_airmode , 2),
+		bit.lshift(simstate_edgemode, 5)
 	)
-	self:write_bytes_(toggles, multis)
-	self:write_24be_(ss_t)
-	self:write_24be_(ss_r)
-	self:write_24be_(ss_s)
+	local multis2 = bit.bor(
+		           simstate_convmode
+	)
+	self:write_bytes_(toggles, multis, multis2)
+	self:write_24be_(simstate_ambairtemp)
+	self:write_24be_(simstate_ambairpres)
+	self:write_24be_(simstate_vortcoeff )
+	self:write_24be_(simstate_cgravx    )
+	self:write_24be_(simstate_cgravy    )
+	self:write_24be_(simstate_aairvx    )
+	self:write_24be_(simstate_aairvy    )
 	self:write_flush_()
 end
 

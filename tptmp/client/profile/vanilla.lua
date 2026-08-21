@@ -297,7 +297,25 @@ end
 
 function profile_i:simstate_sync()
 	if self.registered_func_() then
-		self.client_:send_simstate(self.ss_p_, self.ss_h_, self.ss_u_, self.ss_n_, self.ss_w_, self.ss_g_, self.ss_a_, self.ss_e_, self.ss_y_, self.ss_t_, self.ss_r_, self.ss_s_)
+		self.client_:send_simstate(
+			self.simstate_paused_,
+			self.simstate_heat_,
+			self.simstate_ambientheat_,
+			self.simstate_newtonian_,
+			self.simstate_watereq_,
+			self.simstate_gravmode_,
+			self.simstate_airmode_,
+			self.simstate_edgemode_,
+			self.simstate_convmode_,
+			self.simstate_prettypowd_,
+			self.simstate_ambairtemp_,
+			self.simstate_ambairpres_,
+			self.simstate_vortcoeff_,
+			self.simstate_cgravx_,
+			self.simstate_cgravy_,
+			self.simstate_aairvx_,
+			self.simstate_aairvy_
+		)
 	end
 end
 
@@ -468,41 +486,55 @@ function profile_i:post_event_check_()
 end
 
 function profile_i:sample_simstate()
-	local ss_p = tpt.set_pause()
-	local ss_h = tpt.heat()
-	local ss_u = tpt.ambient_heat()
-	local ss_n = tpt.newtonian_gravity()
-	local ss_w = sim.waterEqualisation()
-	local ss_g = sim.gravityMode()
-	local ss_a = sim.airMode()
-	local ss_e = sim.edgeMode()
-	local ss_y = sim.prettyPowders()
-	local ss_t = util.ambient_air_temp()
-	local ss_r, ss_s = util.custom_gravity()
-	if self.ss_p_ ~= ss_p or
-	   self.ss_h_ ~= ss_h or
-	   self.ss_u_ ~= ss_u or
-	   self.ss_n_ ~= ss_n or
-	   self.ss_w_ ~= ss_w or
-	   self.ss_g_ ~= ss_g or
-	   self.ss_a_ ~= ss_a or
-	   self.ss_e_ ~= ss_e or
-	   self.ss_y_ ~= ss_y or
-	   self.ss_t_ ~= ss_t or
-	   self.ss_r_ ~= ss_r or
-	   self.ss_s_ ~= ss_s then
-		self.ss_p_ = ss_p
-		self.ss_h_ = ss_h
-		self.ss_u_ = ss_u
-		self.ss_n_ = ss_n
-		self.ss_w_ = ss_w
-		self.ss_g_ = ss_g
-		self.ss_a_ = ss_a
-		self.ss_e_ = ss_e
-		self.ss_y_ = ss_y
-		self.ss_t_ = ss_t
-		self.ss_r_ = ss_r
-		self.ss_s_ = ss_s
+	local simstate_paused      = tpt.set_pause()
+	local simstate_heat        = tpt.heat()
+	local simstate_ambientheat = tpt.ambient_heat()
+	local simstate_newtonian   = tpt.newtonian_gravity()
+	local simstate_watereq     = sim.waterEqualisation()
+	local simstate_gravmode    = sim.gravityMode()
+	local simstate_airmode     = sim.airMode()
+	local simstate_edgemode    = sim.edgeMode()
+	local simstate_convmode    = sim.convectionMode()
+	local simstate_prettypowd  = sim.prettyPowders()
+	local simstate_ambairtemp  = util.ambient_air_temp()
+	local simstate_ambairpres  = util.ambient_air_pres()
+	local simstate_vortcoeff   = util.vorticity_coeff()
+	local simstate_cgravx, simstate_cgravy = util.custom_gravity()
+	local simstate_aairvx, simstate_aairvy = util.ambient_air_vel()
+	if self.simstate_paused_      ~= simstate_paused      or
+	   self.simstate_heat_        ~= simstate_heat        or
+	   self.simstate_ambientheat_ ~= simstate_ambientheat or
+	   self.simstate_newtonian_   ~= simstate_newtonian   or
+	   self.simstate_watereq_     ~= simstate_watereq     or
+	   self.simstate_gravmode_    ~= simstate_gravmode    or
+	   self.simstate_airmode_     ~= simstate_airmode     or
+	   self.simstate_edgemode_    ~= simstate_edgemode    or
+	   self.simstate_convmode_    ~= simstate_convmode    or
+	   self.simstate_prettypowd_  ~= simstate_prettypowd  or
+	   self.simstate_ambairtemp_  ~= simstate_ambairtemp  or
+	   self.simstate_ambairpres_  ~= simstate_ambairpres  or
+	   self.simstate_vortcoeff_   ~= simstate_vortcoeff   or
+	   self.simstate_cgravx_      ~= simstate_cgravx      or
+	   self.simstate_cgravy_      ~= simstate_cgravy      or
+	   self.simstate_aairvx_      ~= simstate_aairvx      or
+	   self.simstate_aairvy_      ~= simstate_aairvy      then
+		self.simstate_paused_      = simstate_paused
+		self.simstate_heat_        = simstate_heat
+		self.simstate_ambientheat_ = simstate_ambientheat
+		self.simstate_newtonian_   = simstate_newtonian
+		self.simstate_watereq_     = simstate_watereq
+		self.simstate_gravmode_    = simstate_gravmode
+		self.simstate_airmode_     = simstate_airmode
+		self.simstate_edgemode_    = simstate_edgemode
+		self.simstate_convmode_    = simstate_convmode
+		self.simstate_prettypowd_  = simstate_prettypowd
+		self.simstate_ambairtemp_  = simstate_ambairtemp
+		self.simstate_ambairpres_  = simstate_ambairpres
+		self.simstate_vortcoeff_   = simstate_vortcoeff
+		self.simstate_cgravx_      = simstate_cgravx
+		self.simstate_cgravy_      = simstate_cgravy
+		self.simstate_aairvx_      = simstate_aairvx
+		self.simstate_aairvy_      = simstate_aairvy
 		return true
 	end
 	return false
